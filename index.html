@@ -588,7 +588,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     <div class="studio-grid">
       <div class="sidebar">
         <div class="cg"><div class="clabel">Describe Your Design</div>
-          <textarea class="fin" id="promptInput" placeholder="Bold football game-day banner, lime &amp; black, aggressive typography, motion blur, home opener 2025…"></textarea>
+          <textarea class="fin" id="promptInput" placeholder="Ryan Williams #13 Alabama Crimson Tide, bold crimson and white, 25 days until season opener — include the text exactly as written…"></textarea>
         </div>
         <div class="cg"><div class="clabel">Sport</div>
           <div class="chip-grid">
@@ -1170,96 +1170,72 @@ if (akf) {
   });
 }
 
-// ── Prompt builder ────────────────────────────────────
+// ── Prompt builders (DALL-E 3 optimized — renders text accurately) ──
+
+const _colors = {
+  aggressive: 'bold crimson red and white with black accents',
+  modern:     'clean navy blue and white with sharp gold accents',
+  collegiate: 'deep maroon and gold traditional palette',
+  minimal:    'monochrome black and white with a single lime green accent',
+  hype:       'electric neon purple and cyan gradient',
+  retro:      'vintage orange and brown muted warm tones'
+};
+const _styles = {
+  aggressive: 'aggressive, dramatic, explosive, cinematic lighting, high contrast',
+  modern:     'modern, clean, geometric, sharp, minimalist',
+  collegiate: 'collegiate, traditional, bold serif typography, school spirit',
+  minimal:    'minimal, sophisticated, negative space, understated',
+  hype:       'hype, electric, vibrant, energetic, loud, exciting',
+  retro:      'retro, vintage, nostalgic, worn texture, halftone grain'
+};
+
 function buildPrompt(raw, sport, style, type) {
-  const styles = {
-    aggressive: 'aggressive dramatic explosive dynamic high-contrast bold cinematic lighting',
-    modern:     'modern clean sleek geometric sharp contemporary refined minimalist',
-    collegiate: 'collegiate traditional school-spirit timeless athletic classic bold serif',
-    minimal:    'minimal negative-space sophisticated understated single accent color',
-    hype:       'hype electric neon vibrant energetic bold graphic loud exciting',
-    retro:      'retro vintage nostalgic throwback 1980s worn halftone grain'
+  const layouts = {
+    'event-banner': 'wide horizontal banner, bold centered text, stadium-scale landscape',
+    'signage':      'tall vertical signage, bold text readable at distance',
+    'social':       'square social media graphic, thumb-stopping centered composition',
+    'scoreboard':   'widescreen 16:9 arena video board, team matchup display',
+    'poster':       'portrait poster, dramatic full-body athlete featured, championship announcement',
+    'countdown':    'portrait countdown poster, full-body athlete centered, oversized bold countdown number, diagonal color blocks, player name at bottom'
   };
-  const types = {
-    'event-banner': 'wide horizontal sports event banner, bold centered typography, stadium-scale, cinematic wide composition',
-    'signage':      'tall vertical sports venue signage, high-contrast bold text readable at distance, portrait format',
-    'social':       'square sports social media graphic, bold thumb-stopping design, instagram-ready, centered composition',
-    'scoreboard':   'widescreen 16:9 arena video-board graphic, team matchup, scoreboard display, broadcast-ready',
-    'poster':       'portrait sports event poster, dramatic full-body athlete feature, championship announcement, print-ready vertical layout',
-    'countdown':    'portrait sports countdown poster, featured full-body athlete in uniform centered, oversized bold countdown number typography in foreground, diagonal geometric color-block background, player name text overlay, match day announcement graphic, professional sports marketing campaign, photorealistic athlete composited into graphic design'
+  return `Professional ${sport} sports graphic design. ${raw}. ` +
+    `Layout: ${layouts[type] || layouts['poster']}. ` +
+    `Color scheme: ${_colors[style] || _colors.aggressive}. ` +
+    `Visual style: ${_styles[style] || _styles.aggressive}. ` +
+    `Championship-quality sports marketing poster, photorealistic, ultra detailed. ` +
+    `No watermarks, no logos unless specified.`;
+}
+
+// Used when athlete cutout is uploaded — generates background only, DALL-E 3 renders any text
+function buildBackgroundPrompt(raw, sport, style, type) {
+  const layouts = {
+    'event-banner': 'wide horizontal banner background, bold typography zone at center, landscape format',
+    'signage':      'tall vertical background design, bold text area at top, portrait format',
+    'social':       'square background design, strong center composition',
+    'scoreboard':   'widescreen 16:9 background, broadcast-style layout',
+    'poster':       'portrait background, large bold text at top third, clear open space at bottom two-thirds for athlete figure',
+    'countdown':    'portrait background, oversized bold number/text at top, diagonal color blocks, clear open center-bottom space for athlete silhouette'
   };
-  const ctx = {
-    football:   'american football player in uniform, helmet, pads, jersey, cleats',
-    basketball: 'basketball player in jersey, sneakers, hardwood court',
-    baseball:   'baseball player in uniform, cap, cleats, glove',
-    soccer:     'soccer player in jersey, cleats, shin guards',
-    hockey:     'hockey player in full gear, helmet, skates, stick',
-    tennis:     'tennis player in athletic wear, racket',
-    track:      'track athlete in singlet, spikes, running form',
-    other:      'athlete in sports uniform'
-  };
-  const colorMap = {
-    aggressive: 'bold red and white color blocking with black accents',
-    modern:     'clean navy blue and white with sharp gold accent',
-    collegiate: 'traditional school colors, deep maroon and gold',
-    minimal:    'monochrome black and white, single lime green accent',
-    hype:       'electric neon colors, purple and cyan gradient',
-    retro:      'vintage orange and brown, muted warm palette'
-  };
-  return [
-    'professional sports graphic design,',
-    types[type] || types['poster'],
-    raw ? raw + ',' : '',
-    ctx[sport] || ctx.other,
-    (styles[style] || styles.aggressive) + ' style,',
-    colorMap[style] || colorMap.aggressive,
-    ', sports marketing agency quality, championship branding,',
-    'dramatic studio lighting, ultra high detail, no watermarks'
-  ].filter(s => s.trim()).join(' ');
+  return `Professional ${sport} sports graphic design BACKGROUND ONLY — absolutely no people, no athletes, no human figures, no faces, no bodies. ` +
+    `${raw}. ` +
+    `Layout: ${layouts[type] || layouts['countdown']}. ` +
+    `Color scheme: ${_colors[style] || _colors.aggressive}. ` +
+    `Style: ${_styles[style] || _styles.aggressive}. ` +
+    `Include bold typographic design elements, diagonal geometric shapes, gradient overlays, texture. ` +
+    `Leave the center-bottom area open and clear for an athlete photo to be placed on top. ` +
+    `Championship sports marketing agency quality. Ultra detailed graphic design background.`;
 }
 
 function getDims(type) {
   const map = {
-    'event-banner': {w:1024, h:768},
-    'signage':      {w:768,  h:1024},
+    'event-banner': {w:1792, h:1024},
+    'signage':      {w:1024, h:1792},
     'social':       {w:1024, h:1024},
-    'scoreboard':   {w:1024, h:768},
-    'poster':       {w:832,  h:1024},
-    'countdown':    {w:832,  h:1024}
+    'scoreboard':   {w:1792, h:1024},
+    'poster':       {w:1024, h:1792},
+    'countdown':    {w:1024, h:1792}
   };
   return map[type] || map['poster'];
-}
-
-// ── Background-only prompt (used when real athlete cutout is available) ──
-function buildBackgroundPrompt(raw, sport, style, type) {
-  const colorMap = {
-    aggressive: 'bold red and white diagonal color blocks with black accents',
-    modern:     'clean navy blue and white geometric shapes with gold accent',
-    collegiate: 'deep maroon and gold traditional color blocking',
-    minimal:    'monochrome black and white with single lime accent stripe',
-    hype:       'electric purple and cyan neon gradient color blocks',
-    retro:      'vintage orange and brown warm color palette'
-  };
-  const layouts = {
-    'event-banner': 'wide horizontal banner layout, bold text area center, stadium scale',
-    'signage':      'tall vertical layout, bold text readable at distance',
-    'social':       'square layout, bold graphic center composition',
-    'scoreboard':   'widescreen 16:9, matchup graphic layout',
-    'poster':       'portrait layout, large typography at top, open space below for athlete',
-    'countdown':    'portrait layout, oversized bold number at top, open center-bottom space for athlete figure, diagonal color blocks'
-  };
-  return [
-    'professional sports graphic design background only,',
-    'NO PEOPLE, NO ATHLETES, NO HUMANS, NO FIGURES,',
-    'abstract geometric background design,',
-    layouts[type] || layouts['countdown'],
-    raw ? raw + ',' : '',
-    sport + ' sport theme,',
-    colorMap[style] || colorMap.aggressive,
-    ', bold typography design elements, diagonal shapes, gradient overlays,',
-    'sports marketing agency quality, championship branding aesthetic,',
-    'leave open space for athlete silhouette, no characters or faces'
-  ].filter(s => s.trim()).join(' ');
 }
 
 // ── Composite real athlete cutouts onto AI background ────────
