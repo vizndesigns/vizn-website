@@ -138,36 +138,43 @@ export default async function handler(req, res) {
 
     // Primary: Gemini 3.1 Flash Image (fastest, great text rendering)
     if (GOOGLE_KEY) {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${GOOGLE_KEY}`,
-        {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-          })
-        }
-      );
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 45000); // 45s cap
 
-      const geminiData = await geminiRes.json();
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${GOOGLE_KEY}`,
+          {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal:  controller.signal,
+            body:    JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+            })
+          }
+        );
+        clearTimeout(timer);
 
-      if (geminiRes.ok) {
-        // Extract base64 image from response
-        const parts    = geminiData.candidates?.[0]?.content?.parts || [];
-        const imgPart  = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-        if (imgPart?.inlineData) {
-          const { mimeType, data } = imgPart.inlineData;
-          return res.status(200).json({
-            status:   'succeeded',
-            imageUrl: `data:${mimeType};base64,${data}`,
-            engine:   'gemini-3.1-flash-image'
-          });
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          const parts   = geminiData.candidates?.[0]?.content?.parts || [];
+          const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+          if (imgPart?.inlineData) {
+            const { mimeType, data } = imgPart.inlineData;
+            return res.status(200).json({
+              status:   'succeeded',
+              imageUrl: `data:${mimeType};base64,${data}`,
+              engine:   'gemini-3.1-flash-image'
+            });
+          }
+        } else {
+          const err = await geminiRes.json().catch(() => ({}));
+          console.warn('Gemini error, falling back:', err.error?.message || geminiRes.status);
         }
+      } catch(e) {
+        console.warn('Gemini timed out or failed, falling back to gpt-image-1:', e.message);
       }
-
-      // If Gemini fails (quota/billing), fall through to gpt-image-1
-      console.warn('Gemini failed, falling back to gpt-image-1:', geminiData.error?.message);
     }
 
     // Secondary: gpt-image-1 (ChatGPT image engine)
