@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Primary:  DALL-E 3 (OpenAI) — if OPENAI_API_KEY is set
-//  Fallback: FLUX Dev (Replicate)
+//  Images:   gpt-image-1 (OpenAI) → FLUX Dev fallback
+//  Video:    Sora 2 (OpenAI)
 //  BG removal: 851-labs/background-remover (Replicate)
 // ─────────────────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const OPENAI_KEY    = process.env.OPENAI_API_KEY;
 
   try {
-    const { action, predictionId, image, prompt, width, height } = req.body;
+    const { action, predictionId, jobId, image, prompt, width, height } = req.body;
 
     // ── Poll FLUX prediction ──────────────────────────────────
     if (action === 'poll' && predictionId) {
@@ -29,6 +29,63 @@ export default async function handler(req, res) {
       if (d.status === 'succeeded' && url) return res.status(200).json({ status: 'succeeded', imageUrl: url });
       if (d.status === 'failed')           return res.status(500).json({ status: 'failed', error: d.error });
       return res.status(200).json({ status: 'processing', predictionId });
+    }
+
+    // ── Sora 2: start video generation ───────────────────────────
+    if (action === 'generate-video' && prompt) {
+      if (!OPENAI_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
+
+      const soraRes = await fetch('https://api.openai.com/v1/video/generations', {
+        method:  'POST',
+        headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          model:    'sora-2',
+          prompt,
+          n:        1,
+          size:     '720p',
+          duration: 5
+        })
+      });
+
+      const soraData = await soraRes.json();
+      console.log('Sora response:', JSON.stringify(soraData).slice(0, 300));
+
+      if (!soraRes.ok) {
+        return res.status(soraRes.status).json({
+          error: soraData.error?.message || `Sora error ${soraRes.status}`,
+          raw: soraData
+        });
+      }
+
+      // Completed immediately
+      const videoUrl = soraData.data?.[0]?.url || soraData.url;
+      if ((soraData.status === 'completed' || soraData.status === 'succeeded') && videoUrl) {
+        return res.status(200).json({ status: 'succeeded', videoUrl });
+      }
+
+      // Queued/processing — return job ID for polling
+      const id = soraData.id || soraData.job_id;
+      if (id) return res.status(202).json({ status: 'processing', jobId: id });
+
+      return res.status(500).json({ error: 'Unexpected Sora response', raw: soraData });
+    }
+
+    // ── Sora 2: poll video job ────────────────────────────────────
+    if (action === 'poll-video' && jobId) {
+      if (!OPENAI_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
+
+      const pollRes  = await fetch(`https://api.openai.com/v1/video/generations/${jobId}`,
+        { headers: { 'Authorization': `Bearer ${OPENAI_KEY}` } });
+      const pollData = await pollRes.json();
+
+      const videoUrl = pollData.data?.[0]?.url || pollData.url;
+      if ((pollData.status === 'completed' || pollData.status === 'succeeded') && videoUrl) {
+        return res.status(200).json({ status: 'succeeded', videoUrl });
+      }
+      if (pollData.status === 'failed') {
+        return res.status(500).json({ status: 'failed', error: pollData.error || 'Video generation failed' });
+      }
+      return res.status(200).json({ status: 'processing', jobId, soraStatus: pollData.status });
     }
 
     // ── Background removal (Replicate 851-labs) ───────────────
