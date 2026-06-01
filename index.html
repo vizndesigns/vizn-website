@@ -1024,13 +1024,28 @@ qsa('.chip').forEach(c => {
 });
 
 // ── Design type ───────────────────────────────────────
+function updatePreviewRatio(type) {
+  const ratios = {
+    'event-banner': '4/3',
+    'signage':      '3/4',
+    'social':       '1/1',
+    'scoreboard':   '4/3',
+    'poster':       '13/16'
+  };
+  const frame = qs('.preview-frame');
+  if (frame) frame.style.aspectRatio = ratios[type] || '4/3';
+}
+
 qsa('.ti').forEach(d => {
   d.addEventListener('click', () => {
     qsa('.ti').forEach(x => x.classList.remove('on'));
     d.classList.add('on');
     S.type = d.dataset.type;
+    updatePreviewRatio(S.type);
   });
 });
+
+updatePreviewRatio(S.type); // set correct ratio on load
 
 // ── Style preset ──────────────────────────────────────
 qsa('.sty').forEach(s => {
