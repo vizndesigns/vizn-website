@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "framework": null,
+  "functions": {
+    "api/generate.js": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "routes": [
+    { "src": "/api/generate", "dest": "/api/generate.js" },
+    { "src": "/vizn-templates", "dest": "/vizn-templates.html" },
+    { "src": "/vizn-admin", "dest": "/vizn-admin.html" },
+    { "src": "/", "dest": "/index.html" },
+    { "handle": "filesystem" }
+  ]
+}
