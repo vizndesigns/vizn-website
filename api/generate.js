@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         input: {
           prompt: prompt,
           negative_prompt: 'blurry, low quality, amateur, watermark, generic clip-art, cartoon, text overlay, ugly, deformed',
-          width: width || 1344,
+          width: width || 1024,
           height: height || 768,
           num_inference_steps: 35,
           guidance_scale: 8,
