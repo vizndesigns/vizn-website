@@ -16,6 +16,7 @@ export default async function handler(req, res) {
   const REPLICATE_KEY = process.env.REPLICATE_API_KEY;
   const OPENAI_KEY    = process.env.OPENAI_API_KEY;
   const FAL_KEY       = process.env.FAL_KEY;
+  const GOOGLE_KEY    = process.env.GOOGLE_API_KEY;
 
   try {
     const { action, predictionId, jobId, image, prompt, width, height } = req.body;
@@ -132,10 +133,44 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'processing', jobId, soraStatus: pollData.status });
     }
 
-    // ── Image generation — gpt-image-1 → FLUX fallback ────────
+    // ── Image generation — Gemini → gpt-image-1 → FLUX ───────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // Primary: gpt-image-1 (ChatGPT image engine)
+    // Primary: Gemini 3.1 Flash Image (fastest, great text rendering)
+    if (GOOGLE_KEY) {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${GOOGLE_KEY}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+          })
+        }
+      );
+
+      const geminiData = await geminiRes.json();
+
+      if (geminiRes.ok) {
+        // Extract base64 image from response
+        const parts    = geminiData.candidates?.[0]?.content?.parts || [];
+        const imgPart  = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+        if (imgPart?.inlineData) {
+          const { mimeType, data } = imgPart.inlineData;
+          return res.status(200).json({
+            status:   'succeeded',
+            imageUrl: `data:${mimeType};base64,${data}`,
+            engine:   'gemini-3.1-flash-image'
+          });
+        }
+      }
+
+      // If Gemini fails (quota/billing), fall through to gpt-image-1
+      console.warn('Gemini failed, falling back to gpt-image-1:', geminiData.error?.message);
+    }
+
+    // Secondary: gpt-image-1 (ChatGPT image engine)
     if (OPENAI_KEY) {
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
