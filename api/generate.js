@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size, quality: 'hd', style: 'vivid' })
+        body:    JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size, quality: 'hd' })
       });
 
       const dalleData = await dalleRes.json();
