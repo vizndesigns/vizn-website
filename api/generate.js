@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       const rmbgRes  = await fetch('https://fal.run/fal-ai/birefnet', {
         method:  'POST',
         headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ image_url: file_url, model: 'General-HR' })
+        body:    JSON.stringify({ image_url: file_url, model: 'General Use (Heavy)' })
       });
       const rmbgData = await rmbgRes.json();
 
