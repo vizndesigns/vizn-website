@@ -61,11 +61,11 @@ export default async function handler(req, res) {
       });
       if (!putRes.ok) return res.status(500).json({ error: `Upload failed: ${putRes.status}` });
 
-      // Step 3: run rembg with the public CDN URL
-      const rmbgRes  = await fetch('https://fal.run/fal-ai/imageutils/rembg', {
+      // Step 3: run BiRefNet (higher quality than rembg — better edges, hair, fine details)
+      const rmbgRes  = await fetch('https://fal.run/fal-ai/birefnet', {
         method:  'POST',
         headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ image_url: file_url })
+        body:    JSON.stringify({ image_url: file_url, model: 'General-HR' })
       });
       const rmbgData = await rmbgRes.json();
 
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       }
 
       const outputUrl = rmbgData.image?.url;
-      if (!outputUrl) return res.status(500).json({ error: 'No output from rmbg', raw: JSON.stringify(rmbgData).slice(0, 200) });
+      if (!outputUrl) return res.status(500).json({ error: 'No output from BiRefNet', raw: JSON.stringify(rmbgData).slice(0, 200) });
 
       // Fetch result and return as base64 (avoids browser canvas CORS)
       const outBuf = await (await fetch(outputUrl)).arrayBuffer();

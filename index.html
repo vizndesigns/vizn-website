@@ -1253,8 +1253,28 @@ function getDims(type) {
   return map[type] || map['poster'];
 }
 
+// ── Canvas unsharp mask (sharpens final composite) ───────────
+function sharpenCanvas(ctx, w, h) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const src = new Uint8ClampedArray(imageData.data);
+  const dst = imageData.data;
+  // Kernel: 0 -1 0 / -1 5 -1 / 0 -1 0  (standard sharpen)
+  const k = [0,-1,0,-1,5,-1,0,-1,0];
+  for (let y = 1; y < h-1; y++) {
+    for (let x = 1; x < w-1; x++) {
+      for (let c = 0; c < 3; c++) {
+        let v = 0;
+        for (let ky = -1; ky <= 1; ky++)
+          for (let kx = -1; kx <= 1; kx++)
+            v += src[((y+ky)*w+(x+kx))*4+c] * k[(ky+1)*3+(kx+1)];
+        dst[(y*w+x)*4+c] = Math.max(0, Math.min(255, v));
+      }
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
 // ── Composite real athlete cutouts onto AI background ────────
-// cutoutDataUrls is an array of base64 data URIs (no CORS needed)
 function compositeLayers(bgUrl, cutoutDataUrls) {
   return new Promise(resolve => {
     const canvas = document.createElement('canvas');
@@ -1266,7 +1286,7 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
       canvas.height = bg.height;
       ctx.drawImage(bg, 0, 0);
 
-      const slots = Math.min(cutoutDataUrls.length, 3); // max 3 per design
+      const slots = Math.min(cutoutDataUrls.length, 3);
       const urls  = cutoutDataUrls.slice(0, slots);
       let loaded  = 0;
       const imgs  = Array(slots).fill(null);
@@ -1275,35 +1295,45 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
         const img = new Image();
         img.onload  = () => { imgs[i] = img; advance(); };
         img.onerror = () => {               advance(); };
-        img.src = url; // blob:// URL — no crossOrigin needed
+        img.src = url;
       });
 
       function advance() {
         loaded++;
         if (loaded < slots) return;
         const valid = imgs.filter(Boolean);
-        if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.93)); return; }
+        if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.95)); return; }
 
-        // Scale: 1 athlete = 88%, 2 = 80%, 3 = 72% of canvas height
-        const heightFrac = slots === 1 ? 0.88 : slots === 2 ? 0.80 : 0.72;
+        const heightFrac = slots === 1 ? 0.90 : slots === 2 ? 0.82 : 0.74;
         const targetH    = canvas.height * heightFrac;
 
         valid.forEach((cutout, i) => {
-          const scale  = targetH / cutout.height;
-          const w      = cutout.width * scale;
-          const slot   = canvas.width / valid.length;
-          const x      = slot * i + (slot - w) / 2;
-          const y      = canvas.height - targetH;
+          const scale = targetH / cutout.height;
+          const w     = cutout.width * scale;
+          const slot  = canvas.width / valid.length;
+          const x     = slot * i + (slot - w) / 2;
+          const y     = canvas.height - targetH;
+
+          // Drop shadow for depth
+          ctx.save();
+          ctx.shadowColor   = 'rgba(0,0,0,0.55)';
+          ctx.shadowBlur    = 28;
+          ctx.shadowOffsetX = 4;
+          ctx.shadowOffsetY = 12;
           ctx.drawImage(cutout, x, y, w, targetH);
+          ctx.restore();
         });
 
-        resolve(canvas.toDataURL('image/jpeg', 0.93));
+        // Sharpen the final composite for crisp edges
+        sharpenCanvas(ctx, canvas.width, canvas.height);
+
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
       }
     };
 
     bg.crossOrigin = 'anonymous';
     bg.onerror = () => resolve(bgUrl);
-    bg.src = bgUrl; // Replicate delivery URL — needs crossOrigin
+    bg.src = bgUrl;
   });
 }
 
