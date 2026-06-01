@@ -1227,13 +1227,14 @@ function buildBackgroundPrompt(raw, sport, style, type) {
 }
 
 function getDims(type) {
+  // gpt-image-1 valid sizes: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
   const map = {
-    'event-banner': {w:1792, h:1024},
-    'signage':      {w:1024, h:1792},
+    'event-banner': {w:1536, h:1024},
+    'signage':      {w:1024, h:1536},
     'social':       {w:1024, h:1024},
-    'scoreboard':   {w:1792, h:1024},
-    'poster':       {w:1024, h:1792},
-    'countdown':    {w:1024, h:1792}
+    'scoreboard':   {w:1536, h:1024},
+    'poster':       {w:1024, h:1536},
+    'countdown':    {w:1024, h:1536}
   };
   return map[type] || map['poster'];
 }

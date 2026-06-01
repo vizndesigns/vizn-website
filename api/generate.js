@@ -78,30 +78,37 @@ export default async function handler(req, res) {
     // ── Image generation ──────────────────────────────────────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // ── DALL-E 3 (primary — best quality, renders text correctly) ──
+    // ── gpt-image-1 (primary — same engine as ChatGPT image generation) ──
     if (OPENAI_KEY) {
-      const size = (width === height)  ? '1024x1024'
-                 : (width  > height)   ? '1792x1024'
-                 :                       '1024x1792';
+      // gpt-image-1 supports: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
+      const size = (width === height) ? '1024x1024'
+                 : (width  > height)  ? '1536x1024'
+                 :                      '1024x1536';
 
-      const dalleRes = await fetch('https://api.openai.com/v1/images/generations', {
+      const imgRes = await fetch('https://api.openai.com/v1/images/generations', {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size, quality: 'hd' })
+        body:    JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality: 'high' })
       });
 
-      const dalleData = await dalleRes.json();
+      const imgData = await imgRes.json();
 
-      if (!dalleRes.ok) {
-        return res.status(dalleRes.status).json({
-          error: dalleData.error?.message || 'DALL-E 3 error',
-          hint:  dalleRes.status === 401 ? 'Invalid OpenAI API key — check OPENAI_API_KEY in Vercel env vars'
-               : dalleRes.status === 400 ? 'Prompt rejected by content policy — rephrase it'
+      if (!imgRes.ok) {
+        return res.status(imgRes.status).json({
+          error: imgData.error?.message || 'gpt-image-1 error',
+          hint:  imgRes.status === 401 ? 'Invalid OpenAI API key'
+               : imgRes.status === 400 ? 'Prompt rejected — rephrase it'
                : 'Check OPENAI_API_KEY in Vercel env vars'
         });
       }
 
-      return res.status(200).json({ status: 'succeeded', imageUrl: dalleData.data[0].url, engine: 'dalle3' });
+      // gpt-image-1 returns base64 — convert to data URI
+      const b64 = imgData.data[0].b64_json;
+      const url = imgData.data[0].url;
+      const imageUrl = url || (b64 ? `data:image/png;base64,${b64}` : null);
+      if (!imageUrl) return res.status(500).json({ error: 'No image in response' });
+
+      return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1' });
     }
 
     // ── FLUX Dev fallback (if no OpenAI key) ──────────────────
