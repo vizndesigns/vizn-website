@@ -1066,6 +1066,29 @@ qsa('.sw').forEach(s => {
   });
 });
 
+// ── Image compression (keeps uploaded photos under Vercel's 4.5MB body limit)
+function compressImage(file, maxPx = 768, quality = 0.72) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxPx || h > maxPx) {
+          if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else        { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(cv.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── File upload ───────────────────────────────────────
 const fileInputEl = el('fileInput');
 if (fileInputEl) {
@@ -1082,13 +1105,9 @@ if (fileInputEl) {
       ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="fc-rm">\u2715</span>';
       chips.appendChild(ch);
     });
-    // Read first image file as base64 for img2img generation
+    // Read and compress first image for img2img (keeps payload under Vercel's 4.5MB limit)
     const imgFile = files.find(f => f.type.startsWith('image/'));
-    if (imgFile) {
-      const reader = new FileReader();
-      reader.onload = (e) => { S.uploadedImage = e.target.result; };
-      reader.readAsDataURL(imgFile);
-    }
+    if (imgFile) compressImage(imgFile).then(d => { S.uploadedImage = d; });
   });
 }
 
