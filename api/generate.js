@@ -32,32 +32,54 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'processing', predictionId });
     }
 
-    // ── Background removal — fal.ai rembg (synchronous, ~2s) ─
+    // ── Background removal — fal.ai rembg ────────────────────
     if (action === 'remove-bg' && image) {
-      if (!FAL_KEY) return res.status(500).json({ error: 'FAL_KEY not configured — add it to Vercel env vars' });
+      if (!FAL_KEY) return res.status(500).json({ error: 'FAL_KEY not configured' });
 
-      const falRes = await fetch('https://fal.run/fal-ai/imageutils/rembg', {
+      // fal.ai needs a public URL — upload base64 to fal storage first
+      const match    = image.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return res.status(400).json({ error: 'Invalid image format' });
+      const mimeType = match[1];
+      const ext      = mimeType.includes('png') ? 'png' : 'jpg';
+      const buffer   = Buffer.from(match[2], 'base64');
+
+      // Step 1: get presigned upload URL
+      const initRes  = await fetch('https://rest.fal.ai/storage/upload/initiate', {
         method:  'POST',
         headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ image_url: image })
+        body:    JSON.stringify({ content_type: mimeType, file_name: `athlete.${ext}` })
       });
+      if (!initRes.ok) return res.status(500).json({ error: `Upload init failed: ${initRes.status}` });
+      const { file_url, upload_url } = await initRes.json();
 
-      const falData = await falRes.json();
+      // Step 2: PUT the image binary to the presigned URL
+      const putRes = await fetch(upload_url, {
+        method:  'PUT',
+        headers: { 'Content-Type': mimeType },
+        body:    buffer
+      });
+      if (!putRes.ok) return res.status(500).json({ error: `Upload failed: ${putRes.status}` });
 
-      if (!falRes.ok) {
-        return res.status(falRes.status).json({
-          error: `BG removal failed (${falRes.status}): ${falData.detail || JSON.stringify(falData).slice(0, 200)}`
+      // Step 3: run rembg with the public CDN URL
+      const rmbgRes  = await fetch('https://fal.run/fal-ai/imageutils/rembg', {
+        method:  'POST',
+        headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image_url: file_url })
+      });
+      const rmbgData = await rmbgRes.json();
+
+      if (!rmbgRes.ok) {
+        return res.status(rmbgRes.status).json({
+          error: `BG removal failed (${rmbgRes.status}): ${rmbgData.detail || JSON.stringify(rmbgData).slice(0, 200)}`
         });
       }
 
-      const outputUrl = falData.image?.url;
-      if (!outputUrl) {
-        return res.status(500).json({ error: 'No output from fal.ai rembg', raw: JSON.stringify(falData).slice(0, 200) });
-      }
+      const outputUrl = rmbgData.image?.url;
+      if (!outputUrl) return res.status(500).json({ error: 'No output from rmbg', raw: JSON.stringify(rmbgData).slice(0, 200) });
 
-      // Fetch output and return as base64 to avoid browser CORS issues in canvas
-      const imgBuf = await (await fetch(outputUrl)).arrayBuffer();
-      const b64    = 'data:image/png;base64,' + Buffer.from(imgBuf).toString('base64');
+      // Fetch result and return as base64 (avoids browser canvas CORS)
+      const outBuf = await (await fetch(outputUrl)).arrayBuffer();
+      const b64    = 'data:image/png;base64,' + Buffer.from(outBuf).toString('base64');
       return res.status(200).json({ status: 'succeeded', imageUrl: b64 });
     }
 
