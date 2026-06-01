@@ -1,9 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Actions:
-//    remove-bg  → strips background from athlete photo (rembg)
-//    generate   → creates design background (FLUX Dev)
-//    poll       → polls an in-progress prediction
+//  Background removal is now handled client-side.
+//  This function only handles: poll + FLUX background generation.
 // ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -23,7 +21,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action, predictionId, image, prompt, width, height } = req.body;
+    const { action, predictionId, prompt, width, height } = req.body;
 
     // ── Poll existing prediction ──────────────────────────────
     if (action === 'poll' && predictionId) {
@@ -33,56 +31,6 @@ export default async function handler(req, res) {
       if (d.status === 'succeeded' && d.output?.[0]) return res.status(200).json({ status: 'succeeded', imageUrl: d.output[0] });
       if (d.status === 'failed')                      return res.status(500).json({ status: 'failed', error: d.error || 'Generation failed' });
       return res.status(200).json({ status: 'processing', predictionId });
-    }
-
-    // ── Remove background from athlete photo ──────────────────
-    if (action === 'remove-bg' && image) {
-      const rbRes = await fetch('https://api.replicate.com/v1/models/cjwbw/rembg/predictions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${REPLICATE_KEY}`,
-          'Content-Type':  'application/json',
-          'Prefer':        'wait=30'
-        },
-        body: JSON.stringify({ input: { image } })
-      });
-
-      if (!rbRes.ok) {
-        const e = await rbRes.json();
-        return res.status(rbRes.status).json({ error: e.detail || 'Background removal failed' });
-      }
-
-      const rb = await rbRes.json();
-
-      // Helper: fetch the output URL and return as base64 (avoids browser CORS issues)
-      async function toBase64(url) {
-        const r = await fetch(url);
-        const buf = await r.arrayBuffer();
-        return 'data:image/png;base64,' + Buffer.from(buf).toString('base64');
-      }
-
-      // Completed immediately
-      if (rb.status === 'succeeded' && rb.output) {
-        const b64 = await toBase64(rb.output);
-        return res.status(200).json({ status: 'succeeded', imageUrl: b64 });
-      }
-
-      // Poll inline (rembg is fast, usually 3-8s)
-      if (rb.id) {
-        for (let i = 0; i < 15; i++) {
-          await new Promise(r => setTimeout(r, 2000));
-          const p = await fetch(`https://api.replicate.com/v1/predictions/${rb.id}`,
-            { headers: { 'Authorization': `Bearer ${REPLICATE_KEY}` } });
-          const pd = await p.json();
-          if (pd.status === 'succeeded' && pd.output) {
-            const b64 = await toBase64(pd.output);
-            return res.status(200).json({ status: 'succeeded', imageUrl: b64 });
-          }
-          if (pd.status === 'failed') break;
-        }
-      }
-
-      return res.status(500).json({ error: 'Background removal failed — try again' });
     }
 
     // ── Generate design background with FLUX Dev ──────────────

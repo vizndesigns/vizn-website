@@ -1068,6 +1068,21 @@ qsa('.sw').forEach(s => {
   });
 });
 
+// ── Client-side background removal (no API needed, runs in browser via WASM)
+let _bgMod = null;
+async function removeBg(file) {
+  if (!_bgMod) {
+    setStatus('Loading AI cutter… (one-time download, ~20s)');
+    _bgMod = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/background-removal.js');
+  }
+  const blob = await _bgMod.removeBackground(file, {
+    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/',
+    debug: false,
+    model: 'medium'
+  });
+  return URL.createObjectURL(blob); // local blob URL — zero CORS issues
+}
+
 // ── Image compression (keeps uploaded photos under Vercel's 4.5MB body limit)
 function compressImage(file, maxPx = 768, quality = 0.72) {
   return new Promise(resolve => {
@@ -1108,41 +1123,37 @@ if (fileInputEl) {
       ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="fc-rm">\u2715</span>';
       chips.appendChild(ch);
     });
-    // Process ALL uploaded images: compress → remove BG → store cutouts
-    const imgFiles = files.filter(f => f.type.startsWith('image/'));
+    // Process all uploaded images sequentially: remove BG client-side → store blob URLs
+    const imgFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 5);
     if (imgFiles.length) {
       S.athleteCutouts = [];
       S.bgRemoving = imgFiles.length;
       setStatus('Cutting out ' + imgFiles.length + ' photo' + (imgFiles.length > 1 ? 's' : '') + '…');
 
-      imgFiles.forEach(imgFile => {
-        compressImage(imgFile, 1024, 0.85).then(async compressed => {
+      (async () => {
+        for (const imgFile of imgFiles) {
           try {
-            const r = await fetch('/api/generate', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ action: 'remove-bg', image: compressed })
-            });
-            const d = await r.json();
-            if (d.status === 'succeeded' && d.imageUrl) {
-              S.athleteCutouts.push(d.imageUrl);
-            }
-          } catch(e) { /* skip failed photo */ }
-          finally {
+            const blobUrl = await removeBg(imgFile);
+            S.athleteCutouts.push(blobUrl);
+          } catch(e) {
+            console.error('BG removal failed:', e);
+          } finally {
             S.bgRemoving--;
-            if (S.bgRemoving === 0) {
-              const n = S.athleteCutouts.length;
-              if (n > 0) {
-                setStatus('✓ ' + n + ' athlete' + (n > 1 ? 's' : '') + ' ready — click Generate');
-                toast(n + ' photo' + (n > 1 ? 's' : '') + ' cut out ✓', 'ok');
-              } else {
-                setStatus('AI Ready — Click Generate');
-                toast('Photo processing failed — generating without cutout', '');
-              }
+            const done = imgFiles.length - S.bgRemoving;
+            if (S.bgRemoving > 0) {
+              setStatus('Cut out ' + done + '/' + imgFiles.length + '…');
             }
           }
-        });
-      });
+        }
+        const n = S.athleteCutouts.length;
+        if (n > 0) {
+          setStatus('✓ ' + n + ' athlete' + (n > 1 ? 's' : '') + ' ready — click Generate');
+          toast(n + ' photo' + (n > 1 ? 's' : '') + ' cut out ✓', 'ok');
+        } else {
+          setStatus('AI Ready — Click Generate');
+          toast('Could not cut out photos — will generate without', '');
+        }
+      })();
     }
   });
 }
@@ -1275,7 +1286,7 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
         const img = new Image();
         img.onload  = () => { imgs[i] = img; advance(); };
         img.onerror = () => {               advance(); };
-        img.src = url; // data URI — no crossOrigin needed
+        img.src = url; // blob:// URL — no crossOrigin needed
       });
 
       function advance() {
