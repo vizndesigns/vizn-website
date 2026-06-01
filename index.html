@@ -1068,19 +1068,18 @@ qsa('.sw').forEach(s => {
   });
 });
 
-// ── Client-side background removal (no API needed, runs in browser via WASM)
-let _bgMod = null;
+// ── Server-side background removal via Replicate (851-labs/background-remover)
 async function removeBg(file) {
-  if (!_bgMod) {
-    setStatus('Loading AI cutter… (one-time download, ~20s)');
-    _bgMod = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/background-removal.js');
-  }
-  const blob = await _bgMod.removeBackground(file, {
-    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/',
-    debug: false,
-    model: 'medium'
+  const compressed = await compressImage(file, 1024, 0.85);
+  const r = await fetch('/api/generate', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ action: 'remove-bg', image: compressed })
   });
-  return URL.createObjectURL(blob); // local blob URL — zero CORS issues
+  const d = await r.json();
+  if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+  if (d.status === 'succeeded' && d.imageUrl) return d.imageUrl; // base64 data URI
+  throw new Error('Background removal returned unexpected response');
 }
 
 // ── Image compression (keeps uploaded photos under Vercel's 4.5MB body limit)
@@ -1131,18 +1130,18 @@ if (fileInputEl) {
       setStatus('Cutting out ' + imgFiles.length + ' photo' + (imgFiles.length > 1 ? 's' : '') + '…');
 
       (async () => {
-        for (const imgFile of imgFiles) {
+        for (let i = 0; i < imgFiles.length; i++) {
+          setStatus('Cutting out photo ' + (i + 1) + ' of ' + imgFiles.length + '…');
           try {
-            const blobUrl = await removeBg(imgFile);
-            S.athleteCutouts.push(blobUrl);
+            const dataUri = await removeBg(imgFiles[i]);
+            S.athleteCutouts.push(dataUri);
           } catch(e) {
             console.error('BG removal failed:', e);
+            // Show the actual error so we can debug
+            setStatus('⚠ Cut-out failed: ' + (e.message || 'unknown').slice(0, 80));
+            toast('Photo ' + (i+1) + ' failed: ' + (e.message || 'error'), 'err');
           } finally {
             S.bgRemoving--;
-            const done = imgFiles.length - S.bgRemoving;
-            if (S.bgRemoving > 0) {
-              setStatus('Cut out ' + done + '/' + imgFiles.length + '…');
-            }
           }
         }
         const n = S.athleteCutouts.length;
@@ -1150,8 +1149,7 @@ if (fileInputEl) {
           setStatus('✓ ' + n + ' athlete' + (n > 1 ? 's' : '') + ' ready — click Generate');
           toast(n + ' photo' + (n > 1 ? 's' : '') + ' cut out ✓', 'ok');
         } else {
-          setStatus('AI Ready — Click Generate');
-          toast('Could not cut out photos — will generate without', '');
+          setStatus('Cut-out failed — Generate will create AI athlete instead');
         }
       })();
     }
