@@ -993,9 +993,8 @@ const S = {
   sport:'football', type:'event-banner', style:'aggressive',
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
-  uploadedImage:null,   // raw compressed base64
-  athleteCutout:null,   // URL of transparent PNG after bg removal
-  bgRemoving:false      // true while rembg is running
+  athleteCutouts:[],  // array of base64 PNGs (transparent) after bg removal
+  bgRemoving:0        // count of photos still being processed
 };
 
 // ── Utility: safe getElementById ──────────────────────
@@ -1099,9 +1098,8 @@ if (fileInputEl) {
     const chips = el('fChips');
     if (!chips) return;
     chips.innerHTML = '';
-    S.uploadedImage = null;
-    S.athleteCutout = null;
-    S.bgRemoving = false;
+    S.athleteCutouts = [];
+    S.bgRemoving = 0;
     const files = Array.from(this.files);
     files.forEach((f) => {
       const ch = document.createElement('div');
@@ -1110,35 +1108,40 @@ if (fileInputEl) {
       ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="fc-rm">\u2715</span>';
       chips.appendChild(ch);
     });
-    // Process first image: compress → remove background → store cutout
-    const imgFile = files.find(f => f.type.startsWith('image/'));
-    if (imgFile) {
-      S.athleteCutout = null;
-      S.bgRemoving = true;
-      setStatus('Cutting out athlete…');
-      compressImage(imgFile, 1024, 0.85).then(async compressed => {
-        S.uploadedImage = compressed;
-        try {
-          const r = await fetch('/api/generate', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'remove-bg', image: compressed })
-          });
-          const d = await r.json();
-          if (d.status === 'succeeded' && d.imageUrl) {
-            S.athleteCutout = d.imageUrl;
-            S.bgRemoving = false;
-            setStatus('✓ Athlete ready — click Generate');
-            toast('Athlete cut out ✓', 'ok');
-          } else {
-            throw new Error(d.error || 'Background removal failed');
+    // Process ALL uploaded images: compress → remove BG → store cutouts
+    const imgFiles = files.filter(f => f.type.startsWith('image/'));
+    if (imgFiles.length) {
+      S.athleteCutouts = [];
+      S.bgRemoving = imgFiles.length;
+      setStatus('Cutting out ' + imgFiles.length + ' photo' + (imgFiles.length > 1 ? 's' : '') + '…');
+
+      imgFiles.forEach(imgFile => {
+        compressImage(imgFile, 1024, 0.85).then(async compressed => {
+          try {
+            const r = await fetch('/api/generate', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ action: 'remove-bg', image: compressed })
+            });
+            const d = await r.json();
+            if (d.status === 'succeeded' && d.imageUrl) {
+              S.athleteCutouts.push(d.imageUrl);
+            }
+          } catch(e) { /* skip failed photo */ }
+          finally {
+            S.bgRemoving--;
+            if (S.bgRemoving === 0) {
+              const n = S.athleteCutouts.length;
+              if (n > 0) {
+                setStatus('✓ ' + n + ' athlete' + (n > 1 ? 's' : '') + ' ready — click Generate');
+                toast(n + ' photo' + (n > 1 ? 's' : '') + ' cut out ✓', 'ok');
+              } else {
+                setStatus('AI Ready — Click Generate');
+                toast('Photo processing failed — generating without cutout', '');
+              }
+            }
           }
-        } catch (e) {
-          S.bgRemoving = false;
-          S.athleteCutout = null;
-          setStatus('AI Ready — Click Generate');
-          toast('BG removal failed — will generate without cutout', '');
-        }
+        });
       });
     }
   });
@@ -1250,36 +1253,57 @@ function buildBackgroundPrompt(raw, sport, style, type) {
   ].filter(s => s.trim()).join(' ');
 }
 
-// ── Composite real athlete cutout onto AI background ─────────
-function compositeLayers(bgUrl, cutoutUrl) {
-  return new Promise((resolve) => {
+// ── Composite real athlete cutouts onto AI background ────────
+// cutoutDataUrls is an array of base64 data URIs (no CORS needed)
+function compositeLayers(bgUrl, cutoutDataUrls) {
+  return new Promise(resolve => {
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const bg = new Image();
-    bg.crossOrigin = 'anonymous';
+    const ctx    = canvas.getContext('2d');
+    const bg     = new Image();
+
     bg.onload = () => {
       canvas.width  = bg.width;
       canvas.height = bg.height;
       ctx.drawImage(bg, 0, 0);
 
-      const cutout = new Image();
-      cutout.crossOrigin = 'anonymous';
-      cutout.onload = () => {
-        // Scale athlete to ~88% of canvas height, bottom-center
-        const targetH = canvas.height * 0.88;
-        const scale   = targetH / cutout.height;
-        const w = cutout.width  * scale;
-        const h = cutout.height * scale;
-        const x = (canvas.width - w) / 2;
-        const y = canvas.height - h;
-        ctx.drawImage(cutout, x, y, w, h);
+      const slots = Math.min(cutoutDataUrls.length, 3); // max 3 per design
+      const urls  = cutoutDataUrls.slice(0, slots);
+      let loaded  = 0;
+      const imgs  = Array(slots).fill(null);
+
+      urls.forEach((url, i) => {
+        const img = new Image();
+        img.onload  = () => { imgs[i] = img; advance(); };
+        img.onerror = () => {               advance(); };
+        img.src = url; // data URI — no crossOrigin needed
+      });
+
+      function advance() {
+        loaded++;
+        if (loaded < slots) return;
+        const valid = imgs.filter(Boolean);
+        if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.93)); return; }
+
+        // Scale: 1 athlete = 88%, 2 = 80%, 3 = 72% of canvas height
+        const heightFrac = slots === 1 ? 0.88 : slots === 2 ? 0.80 : 0.72;
+        const targetH    = canvas.height * heightFrac;
+
+        valid.forEach((cutout, i) => {
+          const scale  = targetH / cutout.height;
+          const w      = cutout.width * scale;
+          const slot   = canvas.width / valid.length;
+          const x      = slot * i + (slot - w) / 2;
+          const y      = canvas.height - targetH;
+          ctx.drawImage(cutout, x, y, w, targetH);
+        });
+
         resolve(canvas.toDataURL('image/jpeg', 0.93));
-      };
-      cutout.onerror = () => resolve(bgUrl); // fallback: return background only
-      cutout.src = cutoutUrl;
+      }
     };
+
+    bg.crossOrigin = 'anonymous';
     bg.onerror = () => resolve(bgUrl);
-    bg.src = bgUrl;
+    bg.src = bgUrl; // Replicate delivery URL — needs crossOrigin
   });
 }
 
@@ -1349,23 +1373,23 @@ async function generate(raw) {
   S.lastPrompt = raw;
   setGenBtn(true);
   try {
-    if (S.bgRemoving) {
-      toast('Still cutting out athlete \u2014 wait a moment', 'err');
+    if (S.bgRemoving > 0) {
+      toast('Still processing photos \u2014 wait a moment', 'err');
       S.generating = false; setGenBtn(false); return;
     }
 
-    // Use background-only prompt when athlete cutout is ready (preserve real face)
-    const prompt = S.athleteCutout
+    const hasCutouts = S.athleteCutouts.length > 0;
+
+    const prompt = hasCutouts
       ? buildBackgroundPrompt(raw, S.sport, S.style, S.type)
       : buildPrompt(raw, S.sport, S.style, S.type);
 
     const bgUrl = await callReplicate(prompt, S.type);
 
-    // Composite real athlete cutout onto AI background
     let finalUrl = bgUrl;
-    if (S.athleteCutout) {
-      setStatus('Compositing athlete\u2026');
-      finalUrl = await compositeLayers(bgUrl, S.athleteCutout);
+    if (hasCutouts) {
+      setStatus('Compositing athlete' + (S.athleteCutouts.length > 1 ? 's' : '') + '\u2026');
+      finalUrl = await compositeLayers(bgUrl, S.athleteCutouts);
     }
 
     showResult(finalUrl);

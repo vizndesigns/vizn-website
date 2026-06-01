@@ -54,19 +54,30 @@ export default async function handler(req, res) {
 
       const rb = await rbRes.json();
 
-      // Completed immediately
-      if (rb.status === 'succeeded' && rb.output) {
-        return res.status(200).json({ status: 'succeeded', imageUrl: rb.output });
+      // Helper: fetch the output URL and return as base64 (avoids browser CORS issues)
+      async function toBase64(url) {
+        const r = await fetch(url);
+        const buf = await r.arrayBuffer();
+        return 'data:image/png;base64,' + Buffer.from(buf).toString('base64');
       }
 
-      // Needs polling — wait inline (rembg is fast, usually 3-8s)
+      // Completed immediately
+      if (rb.status === 'succeeded' && rb.output) {
+        const b64 = await toBase64(rb.output);
+        return res.status(200).json({ status: 'succeeded', imageUrl: b64 });
+      }
+
+      // Poll inline (rembg is fast, usually 3-8s)
       if (rb.id) {
         for (let i = 0; i < 15; i++) {
           await new Promise(r => setTimeout(r, 2000));
           const p = await fetch(`https://api.replicate.com/v1/predictions/${rb.id}`,
             { headers: { 'Authorization': `Bearer ${REPLICATE_KEY}` } });
           const pd = await p.json();
-          if (pd.status === 'succeeded' && pd.output) return res.status(200).json({ status: 'succeeded', imageUrl: pd.output });
+          if (pd.status === 'succeeded' && pd.output) {
+            const b64 = await toBase64(pd.output);
+            return res.status(200).json({ status: 'succeeded', imageUrl: b64 });
+          }
           if (pd.status === 'failed') break;
         }
       }
