@@ -605,10 +605,11 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
         <div class="cg"><div class="clabel">Design Type</div>
           <div class="type-list">
             <div class="ti on" data-type="event-banner"><div class="ti-radio"></div><span class="ti-lbl">Event Banner (Game Day / Tournament)</span></div>
-            <div class="ti" data-type="signage"><div class="ti-radio"></div><span class="ti-lbl">Stadium / Venue Signage</span></div>
-            <div class="ti" data-type="social"><div class="ti-radio"></div><span class="ti-lbl">Social Media Graphic</span></div>
-            <div class="ti" data-type="scoreboard"><div class="ti-radio"></div><span class="ti-lbl">Scoreboard Visual</span></div>
+            <div class="ti" data-type="countdown"><div class="ti-radio"></div><span class="ti-lbl">⚡ Countdown Poster (Athlete Feature)</span></div>
             <div class="ti" data-type="poster"><div class="ti-radio"></div><span class="ti-lbl">Poster &amp; Digital Flyer</span></div>
+            <div class="ti" data-type="social"><div class="ti-radio"></div><span class="ti-lbl">Social Media Graphic</span></div>
+            <div class="ti" data-type="signage"><div class="ti-radio"></div><span class="ti-lbl">Stadium / Venue Signage</span></div>
+            <div class="ti" data-type="scoreboard"><div class="ti-radio"></div><span class="ti-lbl">Scoreboard Visual</span></div>
           </div>
         </div>
         <div class="cg"><div class="clabel">Style Preset</div>
@@ -1030,7 +1031,8 @@ function updatePreviewRatio(type) {
     'signage':      '3/4',
     'social':       '1/1',
     'scoreboard':   '4/3',
-    'poster':       '13/16'
+    'poster':       '13/16',
+    'countdown':    '13/16'
   };
   const frame = qs('.preview-frame');
   if (frame) frame.style.aspectRatio = ratios[type] || '4/3';
@@ -1107,40 +1109,49 @@ if (akf) {
 // ── Prompt builder ────────────────────────────────────
 function buildPrompt(raw, sport, style, type) {
   const styles = {
-    aggressive: 'aggressive dramatic intense bold high-contrast explosive powerful',
-    modern:     'modern clean sleek contemporary sharp geometric refined',
-    collegiate: 'collegiate classic traditional school-spirit timeless athletic',
-    minimal:    'minimal negative-space refined sophisticated understated clean',
-    hype:       'hype electric neon vibrant energetic party exciting atmosphere',
-    retro:      'retro vintage nostalgic throwback classic-sports 1980s'
+    aggressive: 'aggressive dramatic explosive dynamic high-contrast bold cinematic lighting',
+    modern:     'modern clean sleek geometric sharp contemporary refined minimalist',
+    collegiate: 'collegiate traditional school-spirit timeless athletic classic bold serif',
+    minimal:    'minimal negative-space sophisticated understated single accent color',
+    hype:       'hype electric neon vibrant energetic bold graphic loud exciting',
+    retro:      'retro vintage nostalgic throwback 1980s worn halftone grain'
   };
   const types = {
-    'event-banner': 'wide landscape banner, dominant typography, horizontal composition, stadium scale',
-    'signage':      'vertical signage, bold readable at distance, stadium sign format',
-    'social':       'square social media graphic, thumb-stopping, instagram-ready',
-    'scoreboard':   'widescreen scoreboard display HD 16:9, arena screen graphic',
-    'poster':       'portrait event poster, dramatic vertical layout, print composition'
+    'event-banner': 'wide horizontal sports event banner, bold centered typography, stadium-scale, cinematic wide composition',
+    'signage':      'tall vertical sports venue signage, high-contrast bold text readable at distance, portrait format',
+    'social':       'square sports social media graphic, bold thumb-stopping design, instagram-ready, centered composition',
+    'scoreboard':   'widescreen 16:9 arena video-board graphic, team matchup, scoreboard display, broadcast-ready',
+    'poster':       'portrait sports event poster, dramatic full-body athlete feature, championship announcement, print-ready vertical layout',
+    'countdown':    'portrait sports countdown poster, featured full-body athlete in uniform centered, oversized bold countdown number typography in foreground, diagonal geometric color-block background, player name text overlay, match day announcement graphic, professional sports marketing campaign, photorealistic athlete composited into graphic design'
   };
   const ctx = {
-    football:   'american football, gridiron, turf, stadium lights, helmets, yard lines',
-    basketball: 'basketball, hardwood court, hoop, arena, net',
-    baseball:   'baseball, diamond, pitcher mound, stadium grass, chalk lines',
-    soccer:     'soccer, pitch, goal, stadium turf, net',
-    hockey:     'ice hockey, rink, puck, skates, ice texture, arena',
-    tennis:     'tennis court, racket, net, match',
-    track:      'track and field, running track, lane lines, finish line',
-    other:      'sports stadium, athletic event'
+    football:   'american football player in uniform, helmet, pads, jersey, cleats',
+    basketball: 'basketball player in jersey, sneakers, hardwood court',
+    baseball:   'baseball player in uniform, cap, cleats, glove',
+    soccer:     'soccer player in jersey, cleats, shin guards',
+    hockey:     'hockey player in full gear, helmet, skates, stick',
+    tennis:     'tennis player in athletic wear, racket',
+    track:      'track athlete in singlet, spikes, running form',
+    other:      'athlete in sports uniform'
+  };
+  const colorMap = {
+    aggressive: 'bold red and white color blocking with black accents',
+    modern:     'clean navy blue and white with sharp gold accent',
+    collegiate: 'traditional school colors, deep maroon and gold',
+    minimal:    'monochrome black and white, single lime green accent',
+    hype:       'electric neon colors, purple and cyan gradient',
+    retro:      'vintage orange and brown, muted warm palette'
   };
   return [
     'professional sports graphic design,',
-    raw + ',',
-    sport + ' sport (' + (ctx[sport] || ctx.other) + '),',
-    (styles[style] || styles.aggressive) + ' visual style,',
-    (types[type] || types['event-banner']) + ',',
-    'pure black background, bold athletic typography,',
-    'professional sports branding, championship quality,',
-    'digital graphic art, sports marketing — no watermarks'
-  ].join(' ');
+    types[type] || types['poster'],
+    raw ? raw + ',' : '',
+    ctx[sport] || ctx.other,
+    (styles[style] || styles.aggressive) + ' style,',
+    colorMap[style] || colorMap.aggressive,
+    ', sports marketing agency quality, championship branding,',
+    'dramatic studio lighting, ultra high detail, no watermarks'
+  ].filter(s => s.trim()).join(' ');
 }
 
 function getDims(type) {
@@ -1149,9 +1160,10 @@ function getDims(type) {
     'signage':      {w:768,  h:1024},
     'social':       {w:1024, h:1024},
     'scoreboard':   {w:1024, h:768},
-    'poster':       {w:832,  h:1024}
+    'poster':       {w:832,  h:1024},
+    'countdown':    {w:832,  h:1024}
   };
-  return map[type] || map['event-banner'];
+  return map[type] || map['poster'];
 }
 
 // ── AI Generation via Netlify Function (fixes CORS) ──────────
