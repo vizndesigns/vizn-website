@@ -992,7 +992,10 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 const S = {
   sport:'football', type:'event-banner', style:'aggressive',
   apiKey: localStorage.getItem('vizn_key') || '',
-  lastPrompt:'', lastImage:null, generating:false, uploadedImage:null
+  lastPrompt:'', lastImage:null, generating:false,
+  uploadedImage:null,   // raw compressed base64
+  athleteCutout:null,   // URL of transparent PNG after bg removal
+  bgRemoving:false      // true while rembg is running
 };
 
 // ── Utility: safe getElementById ──────────────────────
@@ -1097,6 +1100,8 @@ if (fileInputEl) {
     if (!chips) return;
     chips.innerHTML = '';
     S.uploadedImage = null;
+    S.athleteCutout = null;
+    S.bgRemoving = false;
     const files = Array.from(this.files);
     files.forEach((f) => {
       const ch = document.createElement('div');
@@ -1105,9 +1110,37 @@ if (fileInputEl) {
       ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="fc-rm">\u2715</span>';
       chips.appendChild(ch);
     });
-    // Read and compress first image for img2img (keeps payload under Vercel's 4.5MB limit)
+    // Process first image: compress → remove background → store cutout
     const imgFile = files.find(f => f.type.startsWith('image/'));
-    if (imgFile) compressImage(imgFile).then(d => { S.uploadedImage = d; });
+    if (imgFile) {
+      S.athleteCutout = null;
+      S.bgRemoving = true;
+      setStatus('Cutting out athlete…');
+      compressImage(imgFile, 1024, 0.85).then(async compressed => {
+        S.uploadedImage = compressed;
+        try {
+          const r = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'remove-bg', image: compressed })
+          });
+          const d = await r.json();
+          if (d.status === 'succeeded' && d.imageUrl) {
+            S.athleteCutout = d.imageUrl;
+            S.bgRemoving = false;
+            setStatus('✓ Athlete ready — click Generate');
+            toast('Athlete cut out ✓', 'ok');
+          } else {
+            throw new Error(d.error || 'Background removal failed');
+          }
+        } catch (e) {
+          S.bgRemoving = false;
+          S.athleteCutout = null;
+          setStatus('AI Ready — Click Generate');
+          toast('BG removal failed — will generate without cutout', '');
+        }
+      });
+    }
   });
 }
 
@@ -1185,16 +1218,77 @@ function getDims(type) {
   return map[type] || map['poster'];
 }
 
-// ── AI Generation via Netlify Function (fixes CORS) ──────────
-// Calls /api/generate which proxies Replicate
-// server-side. Set REPLICATE_API_KEY in Netlify env variables.
-async function callReplicate(prompt, type, image) {
+// ── Background-only prompt (used when real athlete cutout is available) ──
+function buildBackgroundPrompt(raw, sport, style, type) {
+  const colorMap = {
+    aggressive: 'bold red and white diagonal color blocks with black accents',
+    modern:     'clean navy blue and white geometric shapes with gold accent',
+    collegiate: 'deep maroon and gold traditional color blocking',
+    minimal:    'monochrome black and white with single lime accent stripe',
+    hype:       'electric purple and cyan neon gradient color blocks',
+    retro:      'vintage orange and brown warm color palette'
+  };
+  const layouts = {
+    'event-banner': 'wide horizontal banner layout, bold text area center, stadium scale',
+    'signage':      'tall vertical layout, bold text readable at distance',
+    'social':       'square layout, bold graphic center composition',
+    'scoreboard':   'widescreen 16:9, matchup graphic layout',
+    'poster':       'portrait layout, large typography at top, open space below for athlete',
+    'countdown':    'portrait layout, oversized bold number at top, open center-bottom space for athlete figure, diagonal color blocks'
+  };
+  return [
+    'professional sports graphic design background only,',
+    'NO PEOPLE, NO ATHLETES, NO HUMANS, NO FIGURES,',
+    'abstract geometric background design,',
+    layouts[type] || layouts['countdown'],
+    raw ? raw + ',' : '',
+    sport + ' sport theme,',
+    colorMap[style] || colorMap.aggressive,
+    ', bold typography design elements, diagonal shapes, gradient overlays,',
+    'sports marketing agency quality, championship branding aesthetic,',
+    'leave open space for athlete silhouette, no characters or faces'
+  ].filter(s => s.trim()).join(' ');
+}
+
+// ── Composite real athlete cutout onto AI background ─────────
+function compositeLayers(bgUrl, cutoutUrl) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const bg = new Image();
+    bg.crossOrigin = 'anonymous';
+    bg.onload = () => {
+      canvas.width  = bg.width;
+      canvas.height = bg.height;
+      ctx.drawImage(bg, 0, 0);
+
+      const cutout = new Image();
+      cutout.crossOrigin = 'anonymous';
+      cutout.onload = () => {
+        // Scale athlete to ~88% of canvas height, bottom-center
+        const targetH = canvas.height * 0.88;
+        const scale   = targetH / cutout.height;
+        const w = cutout.width  * scale;
+        const h = cutout.height * scale;
+        const x = (canvas.width - w) / 2;
+        const y = canvas.height - h;
+        ctx.drawImage(cutout, x, y, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.93));
+      };
+      cutout.onerror = () => resolve(bgUrl); // fallback: return background only
+      cutout.src = cutoutUrl;
+    };
+    bg.onerror = () => resolve(bgUrl);
+    bg.src = bgUrl;
+  });
+}
+
+async function callReplicate(prompt, type) {
   const {w, h} = getDims(type);
 
-  setStatus('Connecting to AI\u2026');
+  setStatus('Generating design\u2026');
 
   const payload = {prompt, width: w, height: h};
-  if (image) payload.image = image;
 
   const response = await fetch('/api/generate', {
     method: 'POST',
@@ -1255,9 +1349,27 @@ async function generate(raw) {
   S.lastPrompt = raw;
   setGenBtn(true);
   try {
-    const url = await callReplicate(buildPrompt(raw, S.sport, S.style, S.type), S.type, S.uploadedImage);
-    showResult(url);
-    S.lastImage = url;
+    if (S.bgRemoving) {
+      toast('Still cutting out athlete \u2014 wait a moment', 'err');
+      S.generating = false; setGenBtn(false); return;
+    }
+
+    // Use background-only prompt when athlete cutout is ready (preserve real face)
+    const prompt = S.athleteCutout
+      ? buildBackgroundPrompt(raw, S.sport, S.style, S.type)
+      : buildPrompt(raw, S.sport, S.style, S.type);
+
+    const bgUrl = await callReplicate(prompt, S.type);
+
+    // Composite real athlete cutout onto AI background
+    let finalUrl = bgUrl;
+    if (S.athleteCutout) {
+      setStatus('Compositing athlete\u2026');
+      finalUrl = await compositeLayers(bgUrl, S.athleteCutout);
+    }
+
+    showResult(finalUrl);
+    S.lastImage = finalUrl;
     toast('Design generated \u2713', 'ok');
   } catch(e) {
     console.error('VIZN generate error:', e);
