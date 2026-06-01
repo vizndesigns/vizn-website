@@ -991,7 +991,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 const S = {
   sport:'football', type:'event-banner', style:'aggressive',
   apiKey: localStorage.getItem('vizn_key') || '',
-  lastPrompt:'', lastImage:null, generating:false
+  lastPrompt:'', lastImage:null, generating:false, uploadedImage:null
 };
 
 // ── Utility: safe getElementById ──────────────────────
@@ -1056,13 +1056,22 @@ if (fileInputEl) {
     const chips = el('fChips');
     if (!chips) return;
     chips.innerHTML = '';
-    Array.from(this.files).forEach((f, i) => {
+    S.uploadedImage = null;
+    const files = Array.from(this.files);
+    files.forEach((f) => {
       const ch = document.createElement('div');
       ch.className = 'fchip';
       const nm = f.name.length > 18 ? f.name.slice(0,16) + '\u2026' : f.name;
       ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="fc-rm">\u2715</span>';
       chips.appendChild(ch);
     });
+    // Read first image file as base64 for img2img generation
+    const imgFile = files.find(f => f.type.startsWith('image/'));
+    if (imgFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => { S.uploadedImage = e.target.result; };
+      reader.readAsDataURL(imgFile);
+    }
   });
 }
 
@@ -1121,11 +1130,11 @@ function buildPrompt(raw, sport, style, type) {
 
 function getDims(type) {
   const map = {
-    'event-banner': {w:1344, h:768},
-    'signage':      {w:768,  h:1344},
+    'event-banner': {w:1024, h:768},
+    'signage':      {w:768,  h:1024},
     'social':       {w:1024, h:1024},
-    'scoreboard':   {w:1344, h:768},
-    'poster':       {w:832,  h:1216}
+    'scoreboard':   {w:1024, h:768},
+    'poster':       {w:832,  h:1024}
   };
   return map[type] || map['event-banner'];
 }
@@ -1133,15 +1142,18 @@ function getDims(type) {
 // ── AI Generation via Netlify Function (fixes CORS) ──────────
 // Calls /api/generate which proxies Replicate
 // server-side. Set REPLICATE_API_KEY in Netlify env variables.
-async function callReplicate(prompt, type) {
+async function callReplicate(prompt, type, image) {
   const {w, h} = getDims(type);
 
   setStatus('Connecting to AI\u2026');
 
+  const payload = {prompt, width: w, height: h};
+  if (image) payload.image = image;
+
   const response = await fetch('/api/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({prompt: prompt, width: w, height: h})
+    body: JSON.stringify(payload)
   });
 
   // Handle non-200 responses gracefully
@@ -1197,7 +1209,7 @@ async function generate(raw) {
   S.lastPrompt = raw;
   setGenBtn(true);
   try {
-    const url = await callReplicate(buildPrompt(raw, S.sport, S.style, S.type), S.type);
+    const url = await callReplicate(buildPrompt(raw, S.sport, S.style, S.type), S.type, S.uploadedImage);
     showResult(url);
     S.lastImage = url;
     toast('Design generated \u2713', 'ok');

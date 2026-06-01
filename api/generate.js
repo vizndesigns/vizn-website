@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body;
-    const { prompt, width, height, action, predictionId } = body;
+    const { prompt, width, height, action, predictionId, image } = body;
 
     // ── Poll mode: check existing prediction status ──────────
     if (action === 'poll' && predictionId) {
@@ -78,7 +78,8 @@ export default async function handler(req, res) {
           num_inference_steps: 35,
           guidance_scale: 8,
           num_outputs: 1,
-          scheduler: 'K_EULER'
+          scheduler: 'K_EULER',
+          ...(image ? { image, prompt_strength: 0.8 } : {})
         }
       })
     });
