@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "functions": {
+    "api/generate.js": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     { "source": "/vizn-templates", "destination": "/vizn-templates.html" },
     { "source": "/vizn-admin", "destination": "/vizn-admin.html" }

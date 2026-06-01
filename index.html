@@ -1470,7 +1470,9 @@ function toast(msg, type) {
   t.textContent = msg;
   t.className = 'toast ' + (type || '');
   setTimeout(() => t.classList.add('show'), 10);
-  setTimeout(() => t.classList.remove('show'), 3600);
+  const duration = type === 'err' ? 8000 : 3600;
+  setTimeout(() => t.classList.remove('show'), duration);
+  if (type === 'err') setStatus('⚠ ' + msg);
 }
 
 // ── Sleep ─────────────────────────────────────────────
