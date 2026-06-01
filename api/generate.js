@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Images:   gpt-image-1 (OpenAI) → FLUX Dev fallback
-//  Video:    Sora 2 (OpenAI)
-//  BG removal: 851-labs/background-remover (Replicate)
+//  Images:      gpt-image-1 (OpenAI) → FLUX Dev fallback
+//  BG removal:  fal.ai imageutils/rembg  (fast, reliable)
+//  Video:       fal.ai Kling Video 1.6   (hype clips)
 // ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -15,6 +15,7 @@ export default async function handler(req, res) {
 
   const REPLICATE_KEY = process.env.REPLICATE_API_KEY;
   const OPENAI_KEY    = process.env.OPENAI_API_KEY;
+  const FAL_KEY       = process.env.FAL_KEY;
 
   try {
     const { action, predictionId, jobId, image, prompt, width, height } = req.body;
@@ -22,132 +23,107 @@ export default async function handler(req, res) {
     // ── Poll FLUX prediction ──────────────────────────────────
     if (action === 'poll' && predictionId) {
       if (!REPLICATE_KEY) return res.status(500).json({ error: 'REPLICATE_API_KEY not configured' });
-      const r  = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`,
+      const r   = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`,
         { headers: { 'Authorization': `Bearer ${REPLICATE_KEY}` } });
-      const d  = await r.json();
+      const d   = await r.json();
       const url = Array.isArray(d.output) ? d.output[0] : d.output;
       if (d.status === 'succeeded' && url) return res.status(200).json({ status: 'succeeded', imageUrl: url });
       if (d.status === 'failed')           return res.status(500).json({ status: 'failed', error: d.error });
       return res.status(200).json({ status: 'processing', predictionId });
     }
 
-    // ── Sora 2: start video generation ───────────────────────────
-    if (action === 'generate-video' && prompt) {
-      if (!OPENAI_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
+    // ── Background removal — fal.ai rembg (synchronous, ~2s) ─
+    if (action === 'remove-bg' && image) {
+      if (!FAL_KEY) return res.status(500).json({ error: 'FAL_KEY not configured — add it to Vercel env vars' });
 
-      const soraRes = await fetch('https://api.openai.com/v1/video/generations', {
+      const falRes = await fetch('https://fal.run/fal-ai/imageutils/rembg', {
         method:  'POST',
-        headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          model:    'sora-2',
-          prompt,
-          n:        1,
-          size:     '720p',
-          duration: 5
-        })
+        headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ image_url: image })
       });
 
-      const soraData = await soraRes.json();
-      console.log('Sora response:', JSON.stringify(soraData).slice(0, 300));
+      const falData = await falRes.json();
 
-      if (!soraRes.ok) {
-        return res.status(soraRes.status).json({
-          error: soraData.error?.message || `Sora error ${soraRes.status}`,
-          raw: soraData
+      if (!falRes.ok) {
+        return res.status(falRes.status).json({
+          error: `BG removal failed (${falRes.status}): ${falData.detail || JSON.stringify(falData).slice(0, 200)}`
         });
       }
 
-      // Completed immediately
-      const videoUrl = soraData.data?.[0]?.url || soraData.url;
-      if ((soraData.status === 'completed' || soraData.status === 'succeeded') && videoUrl) {
-        return res.status(200).json({ status: 'succeeded', videoUrl });
+      const outputUrl = falData.image?.url;
+      if (!outputUrl) {
+        return res.status(500).json({ error: 'No output from fal.ai rembg', raw: JSON.stringify(falData).slice(0, 200) });
       }
 
-      // Queued/processing — return job ID for polling
-      const id = soraData.id || soraData.job_id;
-      if (id) return res.status(202).json({ status: 'processing', jobId: id });
-
-      return res.status(500).json({ error: 'Unexpected Sora response', raw: soraData });
+      // Fetch output and return as base64 to avoid browser CORS issues in canvas
+      const imgBuf = await (await fetch(outputUrl)).arrayBuffer();
+      const b64    = 'data:image/png;base64,' + Buffer.from(imgBuf).toString('base64');
+      return res.status(200).json({ status: 'succeeded', imageUrl: b64 });
     }
 
-    // ── Sora 2: poll video job ────────────────────────────────────
-    if (action === 'poll-video' && jobId) {
-      if (!OPENAI_KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
+    // ── Video generation — fal.ai Kling Video 1.6 ─────────────
+    if (action === 'generate-video' && prompt) {
+      if (!FAL_KEY) return res.status(500).json({ error: 'FAL_KEY not configured' });
 
-      const pollRes  = await fetch(`https://api.openai.com/v1/video/generations/${jobId}`,
-        { headers: { 'Authorization': `Bearer ${OPENAI_KEY}` } });
-      const pollData = await pollRes.json();
-
-      const videoUrl = pollData.data?.[0]?.url || pollData.url;
-      if ((pollData.status === 'completed' || pollData.status === 'succeeded') && videoUrl) {
-        return res.status(200).json({ status: 'succeeded', videoUrl });
-      }
-      if (pollData.status === 'failed') {
-        return res.status(500).json({ status: 'failed', error: pollData.error || 'Video generation failed' });
-      }
-      return res.status(200).json({ status: 'processing', jobId, soraStatus: pollData.status });
-    }
-
-    // ── Background removal (Replicate 851-labs) ───────────────
-    if (action === 'remove-bg' && image) {
-      if (!REPLICATE_KEY) return res.status(500).json({ error: 'REPLICATE_API_KEY not configured' });
-
-      const rbRes = await fetch(
-        'https://api.replicate.com/v1/models/851-labs/background-remover/predictions',
+      const falRes = await fetch(
+        'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video',
         {
           method:  'POST',
-          headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=30' },
-          body:    JSON.stringify({ input: { image } })
+          headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ prompt, duration: '5', aspect_ratio: '9:16' })
         }
       );
 
-      if (!rbRes.ok) {
-        const e = await rbRes.json();
-        return res.status(rbRes.status).json({ error: `BG removal failed (${rbRes.status}): ${e.detail || JSON.stringify(e)}` });
+      const falData = await falRes.json();
+
+      if (!falRes.ok) {
+        return res.status(falRes.status).json({
+          error: `Video generation failed (${falRes.status}): ${falData.detail || JSON.stringify(falData).slice(0, 200)}`
+        });
       }
 
-      const rb    = await rbRes.json();
-      const getUrl = d => Array.isArray(d.output) ? d.output[0] : d.output;
+      const requestId = falData.request_id;
+      if (!requestId) return res.status(500).json({ error: 'No request_id from fal.ai', raw: JSON.stringify(falData).slice(0, 200) });
 
-      async function toBase64(url) {
-        const r   = await fetch(url);
-        const buf = await r.arrayBuffer();
-        return 'data:image/png;base64,' + Buffer.from(buf).toString('base64');
-      }
-
-      if (rb.status === 'succeeded' && getUrl(rb)) {
-        return res.status(200).json({ status: 'succeeded', imageUrl: await toBase64(getUrl(rb)) });
-      }
-
-      if (rb.id) {
-        for (let i = 0; i < 15; i++) {
-          await new Promise(r => setTimeout(r, 2500));
-          const pd = await (await fetch(`https://api.replicate.com/v1/predictions/${rb.id}`,
-            { headers: { 'Authorization': `Bearer ${REPLICATE_KEY}` } })).json();
-          if (pd.status === 'succeeded' && getUrl(pd)) return res.status(200).json({ status: 'succeeded', imageUrl: await toBase64(getUrl(pd)) });
-          if (pd.status === 'failed') return res.status(500).json({ error: pd.error || 'BG removal failed' });
-        }
-      }
-
-      return res.status(500).json({ error: 'BG removal timed out' });
+      return res.status(202).json({ status: 'processing', jobId: requestId });
     }
 
-    // ── Image generation ──────────────────────────────────────
+    // ── Poll video job — fal.ai Kling ─────────────────────────
+    if (action === 'poll-video' && jobId) {
+      if (!FAL_KEY) return res.status(500).json({ error: 'FAL_KEY not configured' });
+
+      const pollRes  = await fetch(
+        `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video/requests/${jobId}`,
+        { headers: { 'Authorization': `Key ${FAL_KEY}` } }
+      );
+      const pollData = await pollRes.json();
+
+      if (pollData.status === 'COMPLETED') {
+        const videoUrl = pollData.output?.video?.url;
+        if (videoUrl) return res.status(200).json({ status: 'succeeded', videoUrl });
+        return res.status(500).json({ error: 'No video URL in response', raw: JSON.stringify(pollData).slice(0, 300) });
+      }
+      if (pollData.status === 'FAILED') {
+        return res.status(500).json({ status: 'failed', error: pollData.error || 'Kling generation failed' });
+      }
+
+      return res.status(200).json({ status: 'processing', jobId, soraStatus: pollData.status });
+    }
+
+    // ── Image generation — gpt-image-1 → FLUX fallback ────────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // ── gpt-image-1 (primary — same engine as ChatGPT image generation) ──
+    // Primary: gpt-image-1 (ChatGPT image engine)
     if (OPENAI_KEY) {
-      // gpt-image-1 supports: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
 
-      const imgRes = await fetch('https://api.openai.com/v1/images/generations', {
+      const imgRes  = await fetch('https://api.openai.com/v1/images/generations', {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
         body:    JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality: 'high' })
       });
-
       const imgData = await imgRes.json();
 
       if (!imgRes.ok) {
@@ -159,24 +135,22 @@ export default async function handler(req, res) {
         });
       }
 
-      // gpt-image-1 returns base64 — convert to data URI
-      const b64 = imgData.data[0].b64_json;
-      const url = imgData.data[0].url;
+      const b64      = imgData.data[0].b64_json;
+      const url      = imgData.data[0].url;
       const imageUrl = url || (b64 ? `data:image/png;base64,${b64}` : null);
       if (!imageUrl) return res.status(500).json({ error: 'No image in response' });
-
       return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1' });
     }
 
-    // ── FLUX Dev fallback (if no OpenAI key) ──────────────────
-    if (!REPLICATE_KEY) return res.status(500).json({ error: 'No AI API key configured. Add OPENAI_API_KEY or REPLICATE_API_KEY to Vercel env vars.' });
+    // Fallback: FLUX Dev
+    if (!REPLICATE_KEY) return res.status(500).json({ error: 'No AI key configured. Add OPENAI_API_KEY or REPLICATE_API_KEY.' });
 
     const fluxRes = await fetch(
       'https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions',
       {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=55' },
-        body:    JSON.stringify({ input: { prompt, width: width || 832, height: height || 1024, num_outputs: 1, num_inference_steps: 28, guidance: 3.5, output_format: 'png', output_quality: 90 } })
+        body:    JSON.stringify({ input: { prompt, width: width||832, height: height||1024, num_outputs: 1, num_inference_steps: 28, guidance: 3.5, output_format: 'png', output_quality: 90 } })
       }
     );
 
@@ -187,12 +161,12 @@ export default async function handler(req, res) {
 
     const prediction = await fluxRes.json();
     if (prediction.status === 'succeeded' && prediction.output?.[0]) {
-      return res.status(200).json({ status: 'succeeded', imageUrl: prediction.output[0], predictionId: prediction.id, engine: 'flux' });
+      return res.status(200).json({ status: 'succeeded', imageUrl: prediction.output[0], engine: 'flux' });
     }
     return res.status(202).json({ status: 'processing', predictionId: prediction.id, engine: 'flux' });
 
   } catch (err) {
-    console.error('VIZN /api/generate error:', err);
+    console.error('VIZN /api/generate error:', err.message);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }
