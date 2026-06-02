@@ -1184,60 +1184,85 @@ if (akf) {
   });
 }
 
-// ── Prompt builders (DALL-E 3 optimized — renders text accurately) ──
+// ── Prompt builders — precision typography + pro sports design standards ──
 
 const _colors = {
-  aggressive: 'bold crimson red and white with black accents',
-  modern:     'clean navy blue and white with sharp gold accents',
-  collegiate: 'deep maroon and gold traditional palette',
-  minimal:    'monochrome black and white with a single lime green accent',
-  hype:       'electric neon purple and cyan gradient',
-  retro:      'vintage orange and brown muted warm tones'
+  aggressive: 'deep crimson red (#9E1B32) and pure white, black shadow accents',
+  modern:     'navy blue (#041E42) and metallic gold (#FFB612), white highlights',
+  collegiate: 'maroon (#6D2339) and gold (#F0C040), cream and charcoal accents',
+  minimal:    'jet black (#111111) and white, single electric lime (#CCFF00) accent line',
+  hype:       'electric purple (#7B2FFF) and neon cyan (#00E5FF), hot pink highlights',
+  retro:      'burnt orange (#CC5500) and cream (#F5F0E8), worn sepia texture'
 };
-const _styles = {
-  aggressive: 'aggressive, dramatic, explosive, cinematic lighting, high contrast',
-  modern:     'modern, clean, geometric, sharp, minimalist',
-  collegiate: 'collegiate, traditional, bold serif typography, school spirit',
-  minimal:    'minimal, sophisticated, negative space, understated',
-  hype:       'hype, electric, vibrant, energetic, loud, exciting',
-  retro:      'retro, vintage, nostalgic, worn texture, halftone grain'
+const _typo = {
+  aggressive: 'ultra-bold condensed Impact/Bebas Neue style, all-caps, heavy black stroke outline, dramatic italic lean',
+  modern:     'clean geometric sans-serif, tight tracking, sharp edges, no stroke',
+  collegiate: 'bold slab serif with classic athletic styling, strong baseline',
+  minimal:    'thin elegant sans-serif, generous letter-spacing, refined alignment',
+  hype:       'bold extended display font, gradient fill, glow effects, electric energy',
+  retro:      'vintage athletic block letters, worn edges, halftone dot texture overlay'
 };
 
 function buildPrompt(raw, sport, style, type) {
   const layouts = {
-    'event-banner': 'wide horizontal banner, bold centered text, stadium-scale landscape',
-    'signage':      'tall vertical signage, bold text readable at distance',
-    'social':       'square social media graphic, thumb-stopping centered composition',
-    'scoreboard':   'widescreen 16:9 arena video board, team matchup display',
-    'poster':       'portrait poster, dramatic full-body athlete featured, championship announcement',
-    'countdown':    'portrait countdown poster, full-body athlete centered, oversized bold countdown number, diagonal color blocks, player name at bottom'
+    'event-banner': 'ultra-wide landscape banner (16:9). Dominant centered headline spanning full width. Date/details below.',
+    'signage':      'tall vertical sign (9:16). Stacked bold text hierarchy. Readable from 50 feet.',
+    'social':       'perfect square (1:1). Bold centered hero text. High contrast thumb-stopper.',
+    'scoreboard':   'widescreen (16:9). Home vs Away matchup. Score/time display. Arena video board.',
+    'poster':       'portrait poster (2:3). Full-body athlete hero. Large name at top. Event info at bottom.',
+    'countdown':    'portrait (2:3). MASSIVE oversized countdown number filling upper 40%. Player name in bold condensed type below. Diagonal color-block background.'
   };
-  return `Professional ${sport} sports graphic design. ${raw}. ` +
-    `Layout: ${layouts[type] || layouts['poster']}. ` +
-    `Color scheme: ${_colors[style] || _colors.aggressive}. ` +
-    `Visual style: ${_styles[style] || _styles.aggressive}. ` +
-    `Championship-quality sports marketing poster, photorealistic, ultra detailed. ` +
-    `No watermarks, no logos unless specified.`;
+  return `Create a PROFESSIONAL ${sport.toUpperCase()} SPORTS MARKETING GRAPHIC at Nike/Jordan Brand quality level.
+
+DESIGN BRIEF: ${raw}
+
+FORMAT: ${layouts[type] || layouts['poster']}
+COLORS: ${_colors[style] || _colors.aggressive}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+
+REQUIREMENTS:
+• All text must be RAZOR-SHARP, perfectly rendered, fully legible
+• Typography should feel like it was set by a professional sports design agency
+• Bold geometric shapes, diagonal color blocks, dynamic composition
+• Cinematic lighting, professional depth and dimension
+• Ultra-high detail — every element crisp and intentional
+• Championship quality — could appear on ESPN, NBA, NFL broadcast
+• Photorealistic athlete if included, studio-quality lighting`;
 }
 
-// Used when athlete cutout is uploaded — generates background only, DALL-E 3 renders any text
+// Background-only prompt (used when real athlete photo is uploaded for compositing)
 function buildBackgroundPrompt(raw, sport, style, type) {
   const layouts = {
-    'event-banner': 'wide horizontal banner background, bold typography zone at center, landscape format',
-    'signage':      'tall vertical background design, bold text area at top, portrait format',
-    'social':       'square background design, strong center composition',
-    'scoreboard':   'widescreen 16:9 background, broadcast-style layout',
-    'poster':       'portrait background, large bold text at top third, clear open space at bottom two-thirds for athlete figure',
-    'countdown':    'portrait background, oversized bold number/text at top, diagonal color blocks, clear open center-bottom space for athlete silhouette'
+    'event-banner': 'ultra-wide 16:9 landscape. Bold text zone at center. Graphic elements at edges.',
+    'signage':      'tall 9:16 portrait. Text stacked top-to-bottom. Strong vertical rhythm.',
+    'social':       'square 1:1. Centered graphic composition. Strong focal point.',
+    'scoreboard':   'widescreen 16:9. Broadcast lower-third style. Team color zones.',
+    'poster':       'portrait 2:3. Large type at top. Clear open space from mid-frame to bottom for athlete overlay.',
+    'countdown':    'portrait 2:3. GIANT number/text in top 35%. Clear empty zone in bottom 55% for athlete. Diagonal color blocks behind text zone.'
   };
-  return `Professional ${sport} sports graphic design BACKGROUND ONLY — absolutely no people, no athletes, no human figures, no faces, no bodies. ` +
-    `${raw}. ` +
-    `Layout: ${layouts[type] || layouts['countdown']}. ` +
-    `Color scheme: ${_colors[style] || _colors.aggressive}. ` +
-    `Style: ${_styles[style] || _styles.aggressive}. ` +
-    `Include bold typographic design elements, diagonal geometric shapes, gradient overlays, texture. ` +
-    `Leave the center-bottom area open and clear for an athlete photo to be placed on top. ` +
-    `Championship sports marketing agency quality. Ultra detailed graphic design background.`;
+  return `Design a PROFESSIONAL SPORTS MARKETING BACKGROUND GRAPHIC — ZERO humans, ZERO athletes, ZERO faces, ZERO body parts, ZERO silhouettes.
+
+DESIGN BRIEF: ${raw}
+
+FORMAT: ${layouts[type] || layouts['countdown']}
+COLORS: ${_colors[style] || _colors.aggressive}
+TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
+
+TYPOGRAPHY ELEMENTS TO INCLUDE (text only, no people):
+• Bold ALL-CAPS headline text as specified in the brief
+• Large semi-transparent jersey number or stat as background texture element
+• Team name or event detail as supporting type
+• All text must be SHARP, CRISP, PROFESSIONAL — zero blur, perfect edges
+
+BACKGROUND DESIGN:
+• Diagonal geometric color blocks at 30-45° angles
+• Subtle paper grain or noise texture overlay for premium feel
+• Dynamic radial or diagonal gradient vignette
+• Bold graphic lines and shape elements
+• Professional shadow and depth effects
+• The lower 55% of the canvas should be CLEAR of heavy design elements — leave space for athlete photo
+
+QUALITY: Nike / Jordan Brand / ESPN broadcast graphic level. Every pixel intentional. Ultra-crisp, zero amateur elements.`;
 }
 
 function getDims(type) {
@@ -1304,7 +1329,7 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
         const valid = imgs.filter(Boolean);
         if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.95)); return; }
 
-        const heightFrac = slots === 1 ? 0.90 : slots === 2 ? 0.82 : 0.74;
+        const heightFrac = slots === 1 ? 0.91 : slots === 2 ? 0.82 : 0.74;
         const targetH    = canvas.height * heightFrac;
 
         valid.forEach((cutout, i) => {
@@ -1314,20 +1339,37 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
           const x     = slot * i + (slot - w) / 2;
           const y     = canvas.height - targetH;
 
-          // Drop shadow for depth
+          // --- Render athlete to offscreen canvas so we can mask feet ---
+          const off    = document.createElement('canvas');
+          off.width    = canvas.width;
+          off.height   = canvas.height;
+          const offCtx = off.getContext('2d');
+          offCtx.drawImage(cutout, x, y, w, targetH);
+
+          // Gradient fade at feet (professional floating effect)
+          const fadeStart = y + targetH * 0.80;
+          const fadeEnd   = y + targetH;
+          const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
+          grad.addColorStop(0, 'rgba(0,0,0,1)');
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          offCtx.globalCompositeOperation = 'destination-in';
+          offCtx.fillStyle = grad;
+          offCtx.fillRect(0, fadeStart, canvas.width, fadeEnd - fadeStart);
+
+          // --- Draw masked athlete onto main canvas with drop shadow ---
           ctx.save();
-          ctx.shadowColor   = 'rgba(0,0,0,0.55)';
-          ctx.shadowBlur    = 28;
-          ctx.shadowOffsetX = 4;
-          ctx.shadowOffsetY = 12;
-          ctx.drawImage(cutout, x, y, w, targetH);
+          ctx.shadowColor   = 'rgba(0,0,0,0.65)';
+          ctx.shadowBlur    = 35;
+          ctx.shadowOffsetX = 5;
+          ctx.shadowOffsetY = 18;
+          ctx.drawImage(off, 0, 0);
           ctx.restore();
         });
 
-        // Sharpen the final composite for crisp edges
+        // Strong sharpen pass for crisp edges on the final composite
         sharpenCanvas(ctx, canvas.width, canvas.height);
 
-        resolve(canvas.toDataURL('image/jpeg', 0.95));
+        resolve(canvas.toDataURL('image/jpeg', 0.96));
       }
     };
 
