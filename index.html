@@ -1159,8 +1159,9 @@ const S = {
   sport:'football', type:'recruiting', style:'aggressive',
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
-  athleteCutouts:[],  // array of base64 PNGs (transparent) after bg removal
-  bgRemoving:0        // count of photos still being processed
+  athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
+  athleteOriginals:[], // original compressed photos (shown immediately, sent to vision AI)
+  bgRemoving:0         // count of photos still being processed
 };
 
 // ── Utility: safe getElementById ──────────────────────
@@ -1273,57 +1274,70 @@ function compressImage(file, maxPx = 768, quality = 0.72) {
   });
 }
 
-// ── File upload ───────────────────────────────────────
+// ── File upload ─────────────────────────────────────────────────────────
 const fileInputEl = el('fileInput');
 if (fileInputEl) {
   fileInputEl.addEventListener('change', function() {
     const chips = el('fChips');
     if (!chips) return;
     chips.innerHTML = '';
-    S.athleteCutouts = [];
+    S.athleteCutouts   = [];
+    S.athleteOriginals = [];
     S.bgRemoving = 0;
-    const files = Array.from(this.files);
-    files.forEach((f) => {
+
+    const files    = Array.from(this.files);
+    const imgFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 5);
+    if (!imgFiles.length) return;
+
+    imgFiles.forEach(f => {
       const ch = document.createElement('div');
       ch.className = 'fchip';
-      const nm = f.name.length > 18 ? f.name.slice(0,16) + '\u2026' : f.name;
-      ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="fc-rm">\u2715</span>';
+      const nm = f.name.length > 18 ? f.name.slice(0,16) + '…' : f.name;
+      ch.innerHTML = '📎 ' + nm + ' <span class="rm" style="cursor:pointer;color:#666;margin-left:4px">✕</span>';
       chips.appendChild(ch);
     });
-    // Process all uploaded images sequentially: remove BG client-side → store blob URLs
-    const imgFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 5);
-    if (imgFiles.length) {
-      S.athleteCutouts = [];
-      S.bgRemoving = imgFiles.length;
-      setStatus('Cutting out ' + imgFiles.length + ' photo' + (imgFiles.length > 1 ? 's' : '') + '…');
 
-      (async () => {
-        for (let i = 0; i < imgFiles.length; i++) {
-          setStatus('Cutting out photo ' + (i + 1) + ' of ' + imgFiles.length + '…');
+    S.bgRemoving = imgFiles.length;
+    setStatus('Processing photo' + (imgFiles.length > 1 ? 's' : '') + '…');
+
+    (async () => {
+      for (let i = 0; i < imgFiles.length; i++) {
+        try {
+          const original = await compressImage(imgFiles[i], 1024, 0.88);
+          S.athleteOriginals.push(original);
+          if (i === 0) showPhotoPreview(original);
+
+          setStatus('Removing background from photo ' + (i + 1) + '…');
           try {
-            const dataUri = await removeBg(imgFiles[i]);
-            S.athleteCutouts.push(dataUri);
-          } catch(e) {
-            console.error('BG removal failed:', e);
-            // Show the actual error so we can debug
-            setStatus('⚠ Cut-out failed: ' + (e.message || 'unknown').slice(0, 80));
-            toast('Photo ' + (i+1) + ' failed: ' + (e.message || 'error'), 'err');
-          } finally {
-            S.bgRemoving--;
+            const cutout = await removeBg(imgFiles[i]);
+            S.athleteCutouts.push(cutout);
+          } catch(bgErr) {
+            console.warn('BG removal failed for photo ' + (i+1) + ':', bgErr.message);
           }
+        } catch(e) {
+          console.error('Photo processing error:', e);
+          toast('Photo ' + (i+1) + ' error: ' + (e.message || 'unknown'), 'err');
+        } finally {
+          S.bgRemoving--;
         }
-        const n = S.athleteCutouts.length;
-        if (n > 0) {
-          setStatus('✓ ' + n + ' athlete' + (n > 1 ? 's' : '') + ' ready — click Generate');
-          toast(n + ' photo' + (n > 1 ? 's' : '') + ' cut out ✓', 'ok');
-        } else {
-          setStatus('Cut-out failed — Generate will create AI athlete instead');
-        }
-      })();
-    }
+      }
+      const n = S.athleteOriginals.length;
+      const c = S.athleteCutouts.length;
+      setStatus('✓ ' + n + ' photo' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' — click Generate');
+      toast(n + ' photo' + (n>1?'s':'') + ' ready ✓', 'ok');
+    })();
   });
 }
 
+// Show uploaded photo immediately in canvas preview
+function showPhotoPreview(dataUri) {
+  const img = el('generatedImg');
+  if (img) { img.src = dataUri; img.style.display = 'block'; }
+  const def = el('prevDefault');
+  if (def) def.style.display = 'none';
+  const aiTxtEl = el('aiTxt');
+  if (aiTxtEl) aiTxtEl.textContent = 'Photo loaded — add description and Generate';
+}
 // ── API key ───────────────────────────────────────────
 const akf = el('apiKeyField');
 if (akf) {
@@ -1359,69 +1373,85 @@ const _typo = {
 
 function buildPrompt(raw, sport, style, type) {
   const layouts = {
-    'recruiting':   'portrait (4:5). Athlete as hero, large name in bold condensed type below. School/team logo zone at top. Stats strip at bottom.',
-    'commitment':   'square (1:1). Bold centered announcement. School colors dominant. Player name and committed school large. Celebration energy.',
-    'player-card':  'tall portrait (9:16). Trading card layout. Full athlete photo upper two-thirds. Stats grid below. Name at top in bold.',
-    'schedule':     'square (1:1). Grid of games/dates. Team branding top and bottom. Clean structured layout.',
-    'team-poster':  'portrait (2:3). Full team or individual athlete. Large team name. Season year. Championship energy.',
-    'senior-night': 'portrait (4:5). Celebratory. Senior athlete featured. SENIOR NIGHT text prominent. Emotional, commemorative feel.',
-    'mvp':          'portrait (4:5). Award graphic. MVP or Player of the Week bold headline. Athlete featured prominently. Gold/award color accents.',
-    'championship': 'landscape (3:2). Wide celebratory banner. Championship text dominant. Trophy or confetti motif. Team colors celebration.'
+    'recruiting':   'portrait (4:5 ratio). Athlete as the full hero. Large name in bold condensed type at bottom. School/team logo zone at top.',
+    'commitment':   'square (1:1 ratio). Bold centered commitment announcement. School colors dominant. Player name and school large and clear.',
+    'player-card':  'tall portrait (9:16 ratio). Trading card style. Stats displayed below name. Name dominant at top.',
+    'schedule':     'square (1:1 ratio). Season schedule grid. Team branding top and bottom. Clean structured text layout.',
+    'team-poster':  'portrait (2:3 ratio). Full team or athlete featured. Large team name. Season year prominent.',
+    'senior-night': 'portrait (4:5 ratio). Celebratory design. SENIOR NIGHT bold headline. Athlete celebrated.',
+    'mvp':          'portrait (4:5 ratio). Award graphic. MVP bold headline. Gold or award color accents.',
+    'championship': 'landscape (3:2 ratio). Wide celebration banner. Championship text dominant. Team colors.'
   };
-  return `Create a PROFESSIONAL ${sport.toUpperCase()} SPORTS GRAPHIC at Nike/Jordan Brand quality level.
+  return \`SPORTS GRAPHIC DESIGN REQUEST — follow this brief EXACTLY:
 
-DESIGN BRIEF: ${raw}
+"${raw}"
 
+SPORT: ${sport.toUpperCase()}
+FORMAT: ${layouts[type] || layouts['recruiting']}
+COLOR PALETTE: ${_colors[style] || _colors.aggressive}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+
+MANDATORY REQUIREMENTS:
+• Include ALL text mentioned in the brief above — names, numbers, schools, dates, everything
+• Text must be SHARP, readable, perfectly rendered — no blur, no artifacts
+• Pro sports design quality — ESPN, Nike, Rivals.com broadcast level
+• Bold geometric shapes, diagonal color blocks, dynamic composition
+• Ultra high detail, cinematic lighting, professional depth\`;
+}
+
+// Background-only prompt — used when photo is uploaded for composite (fallback path)
+function buildBackgroundPrompt(raw, sport, style, type) {
+  const layouts = {
+    'recruiting':   'portrait 4:5 — leave bottom 55% EMPTY for athlete overlay. Bold type at top.',
+    'commitment':   'square 1:1 — text zone top 35%, clear center zone for athlete.',
+    'player-card':  'tall 9:16 — name and header at top, CLEAR zone 25-75% for athlete, stats at bottom.',
+    'schedule':     'square 1:1 — grid structure with team accent colors framing edges.',
+    'team-poster':  'portrait 2:3 — type at top, CLEAR zone from mid-frame down for athlete.',
+    'senior-night': 'portrait 4:5 — SENIOR NIGHT top 30%, CLEAR zone 30-80% for athlete overlay.',
+    'mvp':          'portrait 4:5 — MVP headline top 30%, CLEAR zone 30-75% for athlete.',
+    'championship': 'landscape 3:2 — Championship text top zone, CLEAR center for athlete.'
+  };
+  return \`BACKGROUND ONLY — ZERO humans, ZERO athletes, ZERO faces, ZERO silhouettes, ZERO body parts.
+
+Design brief: "${raw}"
+
+SPORT: ${sport.toUpperCase()}
 FORMAT: ${layouts[type] || layouts['recruiting']}
 COLORS: ${_colors[style] || _colors.aggressive}
 TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
-REQUIREMENTS:
-• All text must be RAZOR-SHARP, perfectly rendered, fully legible
-• Typography should feel like it was set by a professional sports design agency
-• Bold geometric shapes, diagonal color blocks, dynamic composition
-• Cinematic lighting, professional depth and dimension
-• Ultra-high detail — every element crisp and intentional
-• Championship quality — could appear on ESPN, Rivals, 247Sports
-• Photorealistic athlete if included, studio-quality lighting`;
+Include ALL text from the brief (names, numbers, teams) as graphic type elements.
+Large semi-transparent jersey number as background texture.
+Diagonal color blocks, geometric shapes, professional sports design.
+The CLEAR zone must stay open for athlete photo compositing.\`;
 }
 
-// Background-only prompt (used when real athlete photo is uploaded for compositing)
-function buildBackgroundPrompt(raw, sport, style, type) {
-  const layouts = {
-    'recruiting':   'portrait 4:5. Large type at top for name/school. Clear open space in bottom 55% for athlete overlay. Bold diagonal color blocks.',
-    'commitment':   'square 1:1. School colors dominant. Announcement text zone centered top. Clear middle zone for athlete.',
-    'player-card':  'tall 9:16 portrait. Stats header at top. GIANT empty zone 25-75% for athlete. Stats strip at bottom.',
-    'schedule':     'square 1:1. Grid structure with text zones. Team accent colors framing edges.',
-    'team-poster':  'portrait 2:3. Large type at top. Clear open space from mid-frame down for athlete overlay.',
-    'senior-night': 'portrait 4:5. SENIOR NIGHT text in top 30%. Clear empty zone 30-80% for athlete. Celebratory confetti or stars at edges.',
-    'mvp':          'portrait 4:5. MVP / AWARD text top 30%. Clear zone 30-75% for athlete. Gold accent elements framing.',
-    'championship': 'landscape 3:2. CHAMPIONSHIP text zone at top. Clear center zone for athlete. Trophy or celebration elements at edges.'
+// Vision prompt — used when athlete photo is sent directly to the AI
+function buildVisionPrompt(raw, sport, style, type) {
+  const instructions = {
+    'recruiting':   'Transform this into a RECRUITING GRAPHIC. Keep the athlete clearly visible and prominent.',
+    'commitment':   'Transform into a COMMITMENT ANNOUNCEMENT GRAPHIC. Make the athlete the hero with announcement energy.',
+    'player-card':  'Transform into a PLAYER CARD trading card design. Athlete in upper section, text/stats below.',
+    'schedule':     'Create a SCHEDULE GRAPHIC featuring this athlete. Add schedule/game info around them.',
+    'team-poster':  'Transform into a TEAM POSTER. Athlete prominent, bold team branding around them.',
+    'senior-night': 'Transform into a SENIOR NIGHT GRAPHIC. Celebratory design, athlete honored.',
+    'mvp':          'Transform into an MVP AWARD GRAPHIC. Award/gold accents, athlete celebrated.',
+    'championship': 'Transform into a CHAMPIONSHIP GRAPHIC. Victory celebration, athlete featured.'
   };
-  return `Design a PROFESSIONAL SPORTS GRAPHIC BACKGROUND — ZERO humans, ZERO athletes, ZERO faces, ZERO body parts, ZERO silhouettes.
+  return \`${instructions[type] || instructions['recruiting']}
 
-DESIGN BRIEF: ${raw}
+EXACT design brief to follow: "${raw}"
 
-FORMAT: ${layouts[type] || layouts['recruiting']}
-COLORS: ${_colors[style] || _colors.aggressive}
+SPORT: ${sport.toUpperCase()}
+COLOR PALETTE: ${_colors[style] || _colors.aggressive}
 TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
 
-TYPOGRAPHY ELEMENTS TO INCLUDE (text only, no people):
-• Bold ALL-CAPS headline text as specified in the brief
-• Large semi-transparent jersey number or stat as background texture element
-• Team name or event detail as supporting type
-• All text must be SHARP, CRISP, PROFESSIONAL — zero blur, perfect edges
-
-BACKGROUND DESIGN:
-• Diagonal geometric color blocks at 30-45° angles
-• Subtle paper grain or noise texture overlay for premium feel
-• Dynamic radial or diagonal gradient vignette
-• Bold graphic lines and shape elements
-• Professional shadow and depth effects
-• The lower 55% of the canvas should be CLEAR of heavy design elements — leave space for athlete photo
-
-QUALITY: Nike / Jordan Brand / Rivals.com graphic level. Every pixel intentional. Ultra-crisp, zero amateur elements.`;
+Keep the ATHLETE CLEARLY VISIBLE and recognizable in the final design.
+Add professional sports graphic design elements around and behind the athlete.
+Include ALL text mentioned in the brief — names, numbers, schools, dates — exactly as specified.
+Championship quality — Nike / Jordan Brand / ESPN level.\`;
 }
+
 
 function getDims(type) {
   // gpt-image-1 valid sizes: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
@@ -1539,6 +1569,36 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
   });
 }
 
+// ── Vision-based generation: sends athlete photo + prompt to AI ──────────────
+async function callGenerateWithImage(athleteImageDataUri, prompt, type) {
+  const {w, h} = getDims(type);
+  setStatus('AI generating with your photo…');
+
+  const response = await fetch('/api/generate', {
+    method:  'POST',
+    headers: {'Content-Type': 'application/json'},
+    body:    JSON.stringify({
+      action:       'generate-with-image',
+      athleteImage: athleteImageDataUri,
+      prompt,
+      width:  w,
+      height: h
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Vision generation failed (' + response.status + ')');
+  }
+
+  const data = await response.json();
+  if (data.status === 'succeeded' && data.imageUrl) {
+    setStatus('Design Ready ✓');
+    return data.imageUrl;
+  }
+  throw new Error(data.error || 'No image returned from vision API');
+}
+
 async function callReplicate(prompt, type) {
   const {w, h} = getDims(type);
 
@@ -1610,18 +1670,30 @@ async function generate(raw) {
       S.generating = false; setGenBtn(false); return;
     }
 
-    const hasCutouts = S.athleteCutouts.length > 0;
+    const hasOriginals = S.athleteOriginals && S.athleteOriginals.length > 0;
+    const hasCutouts  = S.athleteCutouts.length > 0;
 
-    const prompt = hasCutouts
-      ? buildBackgroundPrompt(raw, S.sport, S.style, S.type)
-      : buildPrompt(raw, S.sport, S.style, S.type);
+    let finalUrl;
 
-    const bgUrl = await callReplicate(prompt, S.type);
-
-    let finalUrl = bgUrl;
-    if (hasCutouts) {
-      setStatus('Compositing athlete' + (S.athleteCutouts.length > 1 ? 's' : '') + '\u2026');
-      finalUrl = await compositeLayers(bgUrl, S.athleteCutouts);
+    if (hasOriginals) {
+      // VISION PATH: send actual athlete photo to AI so it sees and designs around them
+      setStatus('AI analyzing your photo…');
+      const visionPrompt = buildVisionPrompt(raw, S.sport, S.style, S.type);
+      try {
+        finalUrl = await callGenerateWithImage(S.athleteOriginals[0], visionPrompt, S.type);
+      } catch(visionErr) {
+        console.warn('Vision generation failed, falling back to composite:', visionErr.message);
+        toast('Falling back to composite mode…', '');
+        const bgPrompt = buildBackgroundPrompt(raw, S.sport, S.style, S.type);
+        const bgUrl    = await callReplicate(bgPrompt, S.type);
+        finalUrl = hasCutouts
+          ? await compositeLayers(bgUrl, S.athleteCutouts)
+          : bgUrl;
+      }
+    } else {
+      // TEXT-TO-IMAGE PATH: no photo uploaded
+      const prompt = buildPrompt(raw, S.sport, S.style, S.type);
+      finalUrl = await callReplicate(prompt, S.type);
     }
 
     showResult(finalUrl);
@@ -2253,4 +2325,70 @@ if (openEditorBtn) openEditorBtn.addEventListener('click', openEditor);
 </script>
 
 </body>
-</html>
+</html// ── File upload ────────────────────────────────────────────────────
+const fileInputEl = el('fileInput');
+if (fileInputEl) {
+  fileInputEl.addEventListener('change', function() {
+    const chips = el('fChips');
+    if (!chips) return;
+    chips.innerHTML = '';
+    S.athleteCutouts   = [];
+    S.athleteOriginals = [];
+    S.bgRemoving = 0;
+
+    const files    = Array.from(this.files);
+    const imgFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 5);
+    if (!imgFiles.length) return;
+
+    // Show filename chips
+    imgFiles.forEach(f => {
+      const ch = document.createElement('div');
+      ch.className = 'fchip';
+      const nm = f.name.length > 18 ? f.name.slice(0,16) + '\u2026' : f.name;
+      ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="rm" style="cursor:pointer;color:#666;margin-left:4px">\u2715</span>';
+      chips.appendChild(ch);
+    });
+
+    S.bgRemoving = imgFiles.length;
+    setStatus('Processing photo' + (imgFiles.length > 1 ? 's' : '') + '\u2026');
+
+    (async () => {
+      for (let i = 0; i < imgFiles.length; i++) {
+        try {
+          // Compress and store original \u2014 show in canvas IMMEDIATELY
+          const original = await compressImage(imgFiles[i], 1024, 0.88);
+          S.athleteOriginals.push(original);
+          if (i === 0) showPhotoPreview(original);
+
+          // Remove background in parallel (used as fallback compositing)
+          setStatus('Removing background from photo ' + (i + 1) + '\u2026');
+          try {
+            const cutout = await removeBg(imgFiles[i]);
+            S.athleteCutouts.push(cutout);
+          } catch(e) {
+            console.warn('BG removal failed for photo ' + (i+1) + ':', e.message);
+          }
+        } catch(e) {
+          console.error('Photo processing error:', e);
+          toast('Photo ' + (i+1) + ' error: ' + (e.message || 'unknown'), 'err');
+        } finally {
+          S.bgRemoving--;
+        }
+      }
+      const n = S.athleteOriginals.length;
+      const c = S.athleteCutouts.length;
+      setStatus('\u2713 ' + n + ' photo' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' \u2014 click Generate');
+      toast(n + ' photo' + (n>1?'s':'') + ' ready \u2713', 'ok');
+    })();
+  });
+}
+
+// Show uploaded photo immediately in canvas preview
+function showPhotoPreview(dataUri) {
+  const img = el('generatedImg');
+  if (img) { img.src = dataUri; img.style.display = 'block'; }
+  const def = el('prevDefault');
+  if (def) def.style.display = 'none';
+  const aiTxtEl = el('aiTxt');
+  if (aiTxtEl) aiTxtEl.textContent = 'Photo loaded \u2014 add description and Generate';
+}>
