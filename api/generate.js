@@ -88,6 +88,45 @@ export default async function handler(req, res) {
     if (action === 'generate-video' && prompt) {
       if (!FAL_KEY) return res.status(500).json({ error: 'FAL_KEY not configured' });
 
+      // Prefer image-to-video when a design image is available (animates the actual graphic)
+      if (req.body.imageDataUrl) {
+        try {
+          const match = req.body.imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            const [, mimeType, b64] = match;
+            const ext    = mimeType.includes('png') ? 'png' : 'jpg';
+            const buffer = Buffer.from(b64, 'base64');
+
+            const initRes = await fetch('https://rest.fal.ai/storage/upload/initiate', {
+              method:  'POST',
+              headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+              body:    JSON.stringify({ content_type: mimeType, file_name: `design.${ext}` })
+            });
+
+            if (initRes.ok) {
+              const { file_url, upload_url } = await initRes.json();
+              await fetch(upload_url, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: buffer });
+
+              const falRes = await fetch(
+                'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video',
+                {
+                  method:  'POST',
+                  headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+                  body:    JSON.stringify({ prompt, image_url: file_url, duration: '5', aspect_ratio: '9:16' })
+                }
+              );
+              const falData = await falRes.json();
+              if (falData.request_id) {
+                return res.status(202).json({ status: 'processing', jobId: falData.request_id });
+              }
+            }
+          }
+        } catch(e) {
+          console.warn('Image-to-video failed, falling back to text-to-video:', e.message);
+        }
+      }
+
+      // Fallback: text-to-video
       const falRes = await fetch(
         'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video',
         {

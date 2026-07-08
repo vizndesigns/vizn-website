@@ -1406,9 +1406,10 @@ if (fileInputEl) {
     const imgFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 5);
     if (!imgFiles.length) return;
 
-    imgFiles.forEach(f => {
+    imgFiles.forEach((f, i) => {
       const ch = document.createElement('div');
       ch.className = 'fchip';
+      ch.dataset.idx = i;
       const nm = f.name.length > 18 ? f.name.slice(0,16) + '…' : f.name;
       ch.innerHTML = '📎 ' + nm + ' <span class="rm" style="cursor:pointer;color:#666;margin-left:4px">✕</span>';
       chips.appendChild(ch);
@@ -1446,6 +1447,30 @@ if (fileInputEl) {
   });
 }
 
+// X button — remove individual uploaded photo chip
+document.getElementById('fChips')?.addEventListener('click', e => {
+  const rm = e.target.closest('.rm');
+  if (!rm) return;
+  const chip = rm.closest('.fchip');
+  if (!chip) return;
+  const idx = parseInt(chip.dataset.idx);
+  chip.remove();
+  S.athleteOriginals.splice(idx, 1);
+  S.athleteCutouts.splice(idx, 1);
+  document.querySelectorAll('#fChips .fchip').forEach((c, ni) => { c.dataset.idx = ni; });
+  if (S.athleteOriginals.length === 0) {
+    const img = el('generatedImg');
+    if (img) { img.src = ''; img.style.display = 'none'; }
+    const def = el('prevDefault');
+    if (def) def.style.display = '';
+    const aiTxtEl = el('aiTxt');
+    if (aiTxtEl) aiTxtEl.textContent = 'Describe your design and click Generate';
+    S.lastImage = null;
+  } else {
+    showPhotoPreview(S.athleteOriginals[0]);
+  }
+});
+
 // Show uploaded photo immediately in canvas preview
 function showPhotoPreview(dataUri) {
   const img = el('generatedImg');
@@ -1480,12 +1505,12 @@ const _colors = {
   retro:      'burnt orange (#CC5500) and cream (#F5F0E8), worn sepia texture'
 };
 const _typo = {
-  aggressive: 'ultra-bold condensed Impact/Bebas Neue style, all-caps, heavy black stroke outline, dramatic italic lean',
-  modern:     'clean geometric sans-serif, tight tracking, sharp edges, no stroke',
-  collegiate: 'bold slab serif with classic athletic styling, strong baseline',
-  minimal:    'thin elegant sans-serif, generous letter-spacing, refined alignment',
-  hype:       'bold extended display font, gradient fill, glow effects, electric energy',
-  retro:      'vintage athletic block letters, worn edges, halftone dot texture overlay'
+  aggressive: 'ultra-bold condensed typeface (Impact, Bebas Neue, or Anton), ALL CAPS, heavy 4–6px black stroke outline, dramatic 8–12° italic lean forward',
+  modern:     'clean geometric sans (Futura, Montserrat, or similar), tight −2 to 0 letter-spacing, no stroke, razor-sharp letterforms',
+  collegiate: 'bold slab serif (Rockwell, Clarendon, or similar), 0–2px baseline stroke, mixed-case headline with all-caps subhead',
+  minimal:    'ultra-light sans (Helvetica Neue UltraLight or similar), wide +10–20 letter-spacing, no stroke, precise baseline grid alignment',
+  hype:       'bold extended display (Industry, Azonix, or similar), gradient fill from primary to secondary color, outer glow effect, electric energy',
+  retro:      'vintage block letter style (Chunk Five, Alfa Slab, or similar), worn edge texture, distressed ink treatment, halftone dot pattern overlay'
 };
 
 const _negatives = 'text or graphics outside the canvas boundary, text cut off at any edge, colors not in the specified palette, watermarks, stock photography feel, blurry or illegible text, amateur composition, 3D render artifacts, clip art, generic drop shadows, overused gradients, muddy low-contrast combinations, mismatched fonts, stray colors not listed in the palette.';
@@ -1568,7 +1593,8 @@ MANDATORY:
 
 ${qualityRule}
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}
+FINAL COLOR LOCK: Every color visible in this output must be one of: ${_colorsHex[style] || _colorsHex.aggressive}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1603,7 +1629,8 @@ Include ALL text from the brief as pure typographic elements — player names, n
 Large semi-transparent jersey number (40% opacity) as background texture element.
 Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}
+FINAL COLOR LOCK: Every color visible in this output must be one of: ${_colorsHex[style] || _colorsHex.aggressive}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1640,7 +1667,8 @@ Typography hierarchy: one dominant headline, one supporting size, one detail siz
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}
+FINAL COLOR LOCK: Every color visible in this output must be one of: ${_colorsHex[style] || _colorsHex.aggressive}`;
 }
 
 
@@ -2269,19 +2297,24 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 setStatus('AI Ready \u2014 Click Generate');
 console.log('VIZN: JS loaded OK');
 
-// ── Sora 2 Video Generation ────────────────────────────
+// ── Motion Graphic Video Generation ─────────────────────
 let S_videoGenerating = false;
 
 function buildVideoPrompt(p, sport, style) {
   const motions = {
-    aggressive: 'explosive slow-motion highlights, dramatic push-in, lens flares, particle burst',
-    modern:     'smooth cinematic tracking shot, clean motion graphics, sleek transitions',
-    collegiate: 'hype reveal, roaring crowd energy, stadium atmosphere',
-    minimal:    'elegant minimal reveal, subtle motion',
-    hype:       'high-energy neon light trails, rapid cuts, electric atmosphere',
-    retro:      'vintage film grain, VHS flicker, nostalgic slow reveal'
+    aggressive: 'Typography kinetically crashes onto screen with explosive impact. Crimson and white color blocks slam into position from opposite edges. Dramatic lens flare bursts across the graphic. Slow push-in camera ends on sharp freeze frame of the complete design.',
+    modern:     'Design elements elegantly slide and fade into their final positions. Clean geometric shapes draw themselves on screen with precise motion paths. Smooth cinematic dolly move reveals the full composition. Refined, editorial motion quality.',
+    collegiate: 'Classic unveil unfolds from center outward. Maroon and gold color fields sweep across the frame. Bold slab type stamps down with authority one line at a time. Final frame holds the complete design.',
+    minimal:    'Elements appear one at a time with long, deliberate fades. Thin rule lines draw across the composition. Single electric lime accent element sparks on last. Extended hold on the finished design. Breathing, meditative motion.',
+    hype:       'Rapid-fire neon light trails streak across the frame. Purple and cyan type glitches and resolves into sharp letterforms. Electric particle burst radiates from the center. High-energy flash cuts between design build stages.',
+    retro:      'Vintage film grain flickers over the design. Sepia warm tones fade in slowly. Type elements stamp onto screen with ink-press weight. VHS scan-line artifact sweeps across once. Nostalgic slow dissolve to final hold.'
   };
-  return `Championship sports hype video. ${p}. ${motions[style]||motions.aggressive}. Professional broadcast quality, cinematic, 5 seconds.`;
+  return `MOTION GRAPHIC DESIGN ANIMATION — animate this sports graphic design, not a sports scene.
+Design content: ${p}
+Animation direction: ${motions[style] || motions.aggressive}
+All text and graphic elements animate ON from off-screen or zero opacity into their final composed positions.
+The final 1–2 seconds hold on the complete, finished graphic design.
+Style: professional motion design / broadcast graphics package. 5 seconds total.`;
 }
 
 async function generateVideo() {
@@ -2295,21 +2328,25 @@ async function generateVideo() {
   if (videoEl)  videoEl.style.display = 'none';
   if (dlBtn)    dlBtn.style.display = 'none';
   if (loading)  loading.style.display = 'block';
-  if (statusEl) statusEl.textContent = 'Queuing with Sora 2…';
+  if (statusEl) statusEl.textContent = S.lastImage ? 'Creating motion graphic…' : 'Queuing video…';
   if (progress) progress.style.width = '5%';
 
   try {
     const r1 = await fetch('/api/generate', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ action: 'generate-video', prompt: buildVideoPrompt(S.lastPrompt, S.sport, S.style) })
+      body: JSON.stringify({
+        action: 'generate-video',
+        prompt: buildVideoPrompt(S.lastPrompt, S.sport, S.style),
+        imageDataUrl: S.lastImage || null
+      })
     });
     const d1 = await r1.json();
-    if (!r1.ok || d1.error) throw new Error(d1.error || 'Sora error ' + r1.status);
+    if (!r1.ok || d1.error) throw new Error(d1.error || 'Video error ' + r1.status);
     if (d1.status === 'succeeded' && d1.videoUrl) { _showVid(d1.videoUrl); return; }
 
     const jobId = d1.jobId;
     if (!jobId) throw new Error('No job ID returned: ' + JSON.stringify(d1).slice(0, 100));
-    if (statusEl) statusEl.textContent = 'Sora 2 generating… (30–90s)';
+    if (statusEl) statusEl.textContent = 'Rendering motion graphic… (30–90s)';
 
     for (let i = 0, pct = 10; i < 60; i++) {
       await sleep(5000);
