@@ -367,17 +367,45 @@ CRITICAL RULES:
       return res.status(200).json({ expanded: prompt });
     }
 
-    // ── Image generation — Gemini → gpt-image-1 → FLUX ───────
+    // ── Image generation — gpt-image-1 → Gemini → FLUX ───────
+    // gpt-image-1 first: follows color/style instructions most reliably
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // Primary: Gemini 3.1 Flash Image (fastest, great text rendering)
+    // Primary: gpt-image-1 — best color and instruction adherence
+    if (OPENAI_KEY) {
+      const size = (width === height) ? '1024x1024'
+                 : (width  > height)  ? '1536x1024'
+                 :                      '1024x1536';
+
+      try {
+        const imgRes  = await fetch('https://api.openai.com/v1/images/generations', {
+          method:  'POST',
+          headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality: 'high' })
+        });
+        const imgData = await imgRes.json();
+
+        if (imgRes.ok) {
+          const b64      = imgData.data?.[0]?.b64_json;
+          const url      = imgData.data?.[0]?.url;
+          const imageUrl = url || (b64 ? `data:image/png;base64,${b64}` : null);
+          if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1' });
+        } else {
+          console.warn('gpt-image-1 error, falling back to Gemini:', imgData.error?.message || imgRes.status);
+        }
+      } catch(e) {
+        console.warn('gpt-image-1 failed, falling back to Gemini:', e.message);
+      }
+    }
+
+    // Secondary: Gemini (fallback when OpenAI unavailable)
     if (GOOGLE_KEY) {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 45000); // 45s cap
+        const timer = setTimeout(() => controller.abort(), 45000);
 
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${GOOGLE_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
           {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -396,48 +424,15 @@ CRITICAL RULES:
           const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
           if (imgPart?.inlineData) {
             const { mimeType, data } = imgPart.inlineData;
-            return res.status(200).json({
-              status:   'succeeded',
-              imageUrl: `data:${mimeType};base64,${data}`,
-              engine:   'gemini-3.1-flash-image'
-            });
+            return res.status(200).json({ status: 'succeeded', imageUrl: `data:${mimeType};base64,${data}`, engine: 'gemini' });
           }
         } else {
           const err = await geminiRes.json().catch(() => ({}));
-          console.warn('Gemini error, falling back:', err.error?.message || geminiRes.status);
+          console.warn('Gemini error, falling back to FLUX:', err.error?.message || geminiRes.status);
         }
       } catch(e) {
-        console.warn('Gemini timed out or failed, falling back to gpt-image-1:', e.message);
+        console.warn('Gemini failed, falling back to FLUX:', e.message);
       }
-    }
-
-    // Secondary: gpt-image-1 (ChatGPT image engine)
-    if (OPENAI_KEY) {
-      const size = (width === height) ? '1024x1024'
-                 : (width  > height)  ? '1536x1024'
-                 :                      '1024x1536';
-
-      const imgRes  = await fetch('https://api.openai.com/v1/images/generations', {
-        method:  'POST',
-        headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality: 'high' })
-      });
-      const imgData = await imgRes.json();
-
-      if (!imgRes.ok) {
-        return res.status(imgRes.status).json({
-          error: imgData.error?.message || 'gpt-image-1 error',
-          hint:  imgRes.status === 401 ? 'Invalid OpenAI API key'
-               : imgRes.status === 400 ? 'Prompt rejected — rephrase it'
-               : 'Check OPENAI_API_KEY in Vercel env vars'
-        });
-      }
-
-      const b64      = imgData.data[0].b64_json;
-      const url      = imgData.data[0].url;
-      const imageUrl = url || (b64 ? `data:image/png;base64,${b64}` : null);
-      if (!imageUrl) return res.status(500).json({ error: 'No image in response' });
-      return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1' });
     }
 
     // Fallback: FLUX Dev

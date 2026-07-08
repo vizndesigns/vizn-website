@@ -1295,11 +1295,9 @@ qsa('.ti').forEach(d => {
     qsa('.ti').forEach(x => x.classList.remove('on'));
     d.classList.add('on');
     S.type = d.dataset.type;
-    updatePreviewRatio(S.type);
+    // size dropdown controls aspect ratio — type click does not override it
   });
 });
-
-updatePreviewRatio(S.type); // set correct ratio on load
 
 // ── Size dropdown — real-time preview + generation dims ──
 const dimSel = document.getElementById('dimSelect');
@@ -1726,18 +1724,8 @@ DO NOT INCLUDE: ${_negatives}`;
 
 
 function getDims(type) {
-  if (S.outputW && S.outputH) return { w: S.outputW, h: S.outputH };
-  const map = {
-    'recruiting':   {w:1024, h:1536},
-    'commitment':   {w:1024, h:1024},
-    'player-card':  {w:1024, h:1536},
-    'schedule':     {w:1024, h:1024},
-    'team-poster':  {w:1024, h:1536},
-    'senior-night': {w:1024, h:1536},
-    'mvp':          {w:1024, h:1536},
-    'championship': {w:1536, h:1024}
-  };
-  return map[type] || {w:1024, h:1536};
+  // Size dropdown (applyDim) always sets these on load — type never changes canvas size
+  return { w: S.outputW || 1024, h: S.outputH || 1536 };
 }
 
 // ── Canvas unsharp mask (sharpens final composite) ───────────
