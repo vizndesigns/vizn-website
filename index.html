@@ -1403,7 +1403,7 @@ if (fileInputEl) {
     S.bgRemoving = 0;
 
     const files    = Array.from(this.files);
-    const imgFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 5);
+    const imgFiles = files.filter(f => f.type.startsWith('image/'));
     if (!imgFiles.length) return;
 
     imgFiles.forEach((f, i) => {
@@ -1569,32 +1569,33 @@ function buildPrompt(raw, sport, style, type) {
     lacrosse:   'grass field atmosphere, helmet and stick visual language',
     wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
   };
-  const boundsRule = `CANVAS BOUNDARY — NON-NEGOTIABLE: Every element — text, shapes, graphics, gradients — must be ENTIRELY within the image frame. No text cut off at any edge. Maintain minimum 4% safe margin from all four edges. Size typography so it fits completely inside.`;
-  const colorRule  = `STRICT COLOR ENFORCEMENT — USE ONLY: ${_colorsHex[style] || _colorsHex.aggressive}. Every fill, stroke, gradient, and accent must use only these colors. Introducing any unlisted color is a failure.`;
-  const qualityRule = `PREMIUM QUALITY: Single dramatic key light (upper-left or upper-right), soft ambient fill, deep cast shadows. Layered depth: foreground elements → midground subject → atmospheric background. Typography hierarchy: one dominant headline, one supporting size, one detail size. Every text element must be legible at thumbnail scale. Output must pass as a real Nike, ESPN, Under Armour, or Jordan Brand commissioned asset.`;
+  const palette    = _colorsHex[style] || _colorsHex.aggressive;
+  const boundsRule = `CANVAS BOUNDARY — NON-NEGOTIABLE: Every element must be ENTIRELY within the image frame. No text cut off at any edge. Maintain 4% safe margin from all four edges.`;
+  const qualityRule = `PREMIUM QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Typography hierarchy: one dominant headline, one supporting size, one detail size. Legible at thumbnail scale. Must pass as Nike, ESPN, or Jordan Brand commissioned asset.`;
 
-  return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality. Follow this brief EXACTLY:
+  return `════ COLOR PALETTE — APPLY THIS FIRST, BEFORE ANYTHING ELSE ════
+${palette}
+This palette is MANDATORY. Every background, text, shape, stroke, and gradient uses ONLY these colors. Any other color is wrong.
+════════════════════════════════════════════════════════════════
 
+PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
+
+DESIGN BRIEF (follow exactly):
 "${raw}"
 
 FORMAT: ${layouts[type] || layouts['recruiting']}
 SPORT: ${sport.toUpperCase()} — ${sportCtx[sport] || 'athletic competition atmosphere'}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
 VISUAL REFERENCE: ${_typeVocab[type] || _typeVocab['recruiting']}
-TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
 ${boundsRule}
-
-${colorRule}
-
-MANDATORY:
-• Render EVERY piece of text from the brief with pixel-sharp clarity — names, numbers, schools, dates, exactly as written
-• All text must be 100% inside the frame — no letters touching or crossing any edge
-
 ${qualityRule}
 
+MANDATORY: Render EVERY text element from the brief pixel-sharp — names, numbers, schools, dates, exactly as written. All text 100% inside the frame.
+
 DO NOT INCLUDE: ${_negatives}
-FINAL COLOR LOCK: Every color visible in this output must be one of: ${_colorsHex[style] || _colorsHex.aggressive}`;
+FINAL COLOR LOCK — confirm output uses ONLY: ${palette}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1609,28 +1610,30 @@ function buildBackgroundPrompt(raw, sport, style, type) {
     'mvp':          'CLEAR ZONE: 30% to 75% height — empty. MVP headline at top, award graphic accents at bottom.',
     'championship': 'CLEAR ZONE: center 40% to 70% — empty. Championship text fills upper band, celebration elements at very bottom.'
   };
-  const colorRule  = `STRICT COLOR ENFORCEMENT — USE ONLY: ${_colorsHex[style] || _colorsHex.aggressive}. Every fill, stroke, gradient must use only these colors. Any unlisted color is a failure.`;
-  const boundsRule = `CANVAS BOUNDARY: Every typographic element and graphic shape must be ENTIRELY within the image frame. Maintain 4% safe margin from all edges.`;
+  const palette = _colorsHex[style] || _colorsHex.aggressive;
 
-  return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
+  return `════ COLOR PALETTE — APPLY THIS FIRST, BEFORE ANYTHING ELSE ════
+${palette}
+This palette is MANDATORY. Every background, text, shape, stroke, and gradient uses ONLY these colors. Any other color is wrong.
+════════════════════════════════════════════════════════════════
+
+BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
 Design brief: "${raw}"
 
 SPORT: ${sport.toUpperCase()}
 ${clearZones[type] || clearZones['recruiting']}
-TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
-COMPOSITION STYLE: ${_composition[type] || _composition['recruiting']}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+COMPOSITION: ${_composition[type] || _composition['recruiting']}
 
-${colorRule}
+CANVAS BOUNDARY: All elements entirely within frame. 4% safe margin from all edges.
 
-${boundsRule}
-
-Include ALL text from the brief as pure typographic elements — player names, numbers, teams, schools — pixel-sharp and fully inside the frame.
-Large semi-transparent jersey number (40% opacity) as background texture element.
+Include ALL text from brief as typographic elements — pixel-sharp, fully inside the frame.
+Large semi-transparent jersey number (40% opacity) as background texture.
 Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
 
 DO NOT INCLUDE: ${_negatives}
-FINAL COLOR LOCK: Every color visible in this output must be one of: ${_colorsHex[style] || _colorsHex.aggressive}`;
+FINAL COLOR LOCK — confirm output uses ONLY: ${palette}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1645,30 +1648,32 @@ function buildVisionPrompt(raw, sport, style, type) {
     'mvp':          `Transform this athlete photo into an MVP AWARD GRAPHIC. Athlete appears triumphant. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
     'championship': `Transform this athlete photo into a CHAMPIONSHIP CELEBRATION GRAPHIC. Athlete appears victorious. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
   };
-  const colorRule  = `STRICT COLOR ENFORCEMENT — USE ONLY: ${_colorsHex[style] || _colorsHex.aggressive}. Every fill, stroke, gradient, and accent uses only these colors. Any unlisted color is a failure.`;
-  const boundsRule = `CANVAS BOUNDARY: All text, graphics, and design elements must be ENTIRELY within the image frame. No element cut off at any edge. Maintain 4% safe margin from all edges.`;
+  const palette = _colorsHex[style] || _colorsHex.aggressive;
 
-  return `${typeDirectives[type] || typeDirectives['recruiting']}
+  return `════ COLOR PALETTE — APPLY THIS FIRST, BEFORE ANYTHING ELSE ════
+${palette}
+This palette is MANDATORY. Every background, text, shape, stroke, and gradient uses ONLY these colors. Any other color is wrong.
+════════════════════════════════════════════════════════════════
 
-EXACT DESIGN BRIEF — include every element specified:
+${typeDirectives[type] || typeDirectives['recruiting']}
+
+DESIGN BRIEF (include every element):
 "${raw}"
 
 SPORT: ${sport.toUpperCase()}
-TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
-${colorRule}
-
-${boundsRule}
+CANVAS BOUNDARY: All elements entirely within frame. 4% safe margin from all edges.
 
 ATHLETE: The person in the photo MUST remain clearly visible, recognizable, and prominently featured.
 Add professional sports graphic design elements behind, beside, and around the athlete.
-Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp, fully inside the frame.
+Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
 Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
 
 DO NOT INCLUDE: ${_negatives}
-FINAL COLOR LOCK: Every color visible in this output must be one of: ${_colorsHex[style] || _colorsHex.aggressive}`;
+FINAL COLOR LOCK — confirm output uses ONLY: ${palette}`;
 }
 
 
