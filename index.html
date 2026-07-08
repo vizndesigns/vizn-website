@@ -1382,7 +1382,7 @@ function buildPrompt(raw, sport, style, type) {
     'mvp':          'portrait (4:5 ratio). Award graphic. MVP bold headline. Gold or award color accents.',
     'championship': 'landscape (3:2 ratio). Wide celebration banner. Championship text dominant. Team colors.'
   };
-  return \`SPORTS GRAPHIC DESIGN REQUEST — follow this brief EXACTLY:
+  return `SPORTS GRAPHIC DESIGN REQUEST — follow this brief EXACTLY:
 
 "${raw}"
 
@@ -1396,7 +1396,7 @@ MANDATORY REQUIREMENTS:
 • Text must be SHARP, readable, perfectly rendered — no blur, no artifacts
 • Pro sports design quality — ESPN, Nike, Rivals.com broadcast level
 • Bold geometric shapes, diagonal color blocks, dynamic composition
-• Ultra high detail, cinematic lighting, professional depth\`;
+• Ultra high detail, cinematic lighting, professional depth`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1411,7 +1411,7 @@ function buildBackgroundPrompt(raw, sport, style, type) {
     'mvp':          'portrait 4:5 — MVP headline top 30%, CLEAR zone 30-75% for athlete.',
     'championship': 'landscape 3:2 — Championship text top zone, CLEAR center for athlete.'
   };
-  return \`BACKGROUND ONLY — ZERO humans, ZERO athletes, ZERO faces, ZERO silhouettes, ZERO body parts.
+  return `BACKGROUND ONLY — ZERO humans, ZERO athletes, ZERO faces, ZERO silhouettes, ZERO body parts.
 
 Design brief: "${raw}"
 
@@ -1423,7 +1423,7 @@ TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 Include ALL text from the brief (names, numbers, teams) as graphic type elements.
 Large semi-transparent jersey number as background texture.
 Diagonal color blocks, geometric shapes, professional sports design.
-The CLEAR zone must stay open for athlete photo compositing.\`;
+The CLEAR zone must stay open for athlete photo compositing.`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1438,7 +1438,7 @@ function buildVisionPrompt(raw, sport, style, type) {
     'mvp':          'Transform into an MVP AWARD GRAPHIC. Award/gold accents, athlete celebrated.',
     'championship': 'Transform into a CHAMPIONSHIP GRAPHIC. Victory celebration, athlete featured.'
   };
-  return \`${instructions[type] || instructions['recruiting']}
+  return `${instructions[type] || instructions['recruiting']}
 
 EXACT design brief to follow: "${raw}"
 
@@ -1449,7 +1449,7 @@ TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
 Keep the ATHLETE CLEARLY VISIBLE and recognizable in the final design.
 Add professional sports graphic design elements around and behind the athlete.
 Include ALL text mentioned in the brief — names, numbers, schools, dates — exactly as specified.
-Championship quality — Nike / Jordan Brand / ESPN level.\`;
+Championship quality — Nike / Jordan Brand / ESPN level.`;
 }
 
 
@@ -2325,70 +2325,4 @@ if (openEditorBtn) openEditorBtn.addEventListener('click', openEditor);
 </script>
 
 </body>
-</html// ── File upload ────────────────────────────────────────────────────
-const fileInputEl = el('fileInput');
-if (fileInputEl) {
-  fileInputEl.addEventListener('change', function() {
-    const chips = el('fChips');
-    if (!chips) return;
-    chips.innerHTML = '';
-    S.athleteCutouts   = [];
-    S.athleteOriginals = [];
-    S.bgRemoving = 0;
-
-    const files    = Array.from(this.files);
-    const imgFiles = files.filter(f => f.type.startsWith('image/')).slice(0, 5);
-    if (!imgFiles.length) return;
-
-    // Show filename chips
-    imgFiles.forEach(f => {
-      const ch = document.createElement('div');
-      ch.className = 'fchip';
-      const nm = f.name.length > 18 ? f.name.slice(0,16) + '\u2026' : f.name;
-      ch.innerHTML = '\uD83D\uDCCE ' + nm + ' <span class="rm" style="cursor:pointer;color:#666;margin-left:4px">\u2715</span>';
-      chips.appendChild(ch);
-    });
-
-    S.bgRemoving = imgFiles.length;
-    setStatus('Processing photo' + (imgFiles.length > 1 ? 's' : '') + '\u2026');
-
-    (async () => {
-      for (let i = 0; i < imgFiles.length; i++) {
-        try {
-          // Compress and store original \u2014 show in canvas IMMEDIATELY
-          const original = await compressImage(imgFiles[i], 1024, 0.88);
-          S.athleteOriginals.push(original);
-          if (i === 0) showPhotoPreview(original);
-
-          // Remove background in parallel (used as fallback compositing)
-          setStatus('Removing background from photo ' + (i + 1) + '\u2026');
-          try {
-            const cutout = await removeBg(imgFiles[i]);
-            S.athleteCutouts.push(cutout);
-          } catch(e) {
-            console.warn('BG removal failed for photo ' + (i+1) + ':', e.message);
-          }
-        } catch(e) {
-          console.error('Photo processing error:', e);
-          toast('Photo ' + (i+1) + ' error: ' + (e.message || 'unknown'), 'err');
-        } finally {
-          S.bgRemoving--;
-        }
-      }
-      const n = S.athleteOriginals.length;
-      const c = S.athleteCutouts.length;
-      setStatus('\u2713 ' + n + ' photo' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' \u2014 click Generate');
-      toast(n + ' photo' + (n>1?'s':'') + ' ready \u2713', 'ok');
-    })();
-  });
-}
-
-// Show uploaded photo immediately in canvas preview
-function showPhotoPreview(dataUri) {
-  const img = el('generatedImg');
-  if (img) { img.src = dataUri; img.style.display = 'block'; }
-  const def = el('prevDefault');
-  if (def) def.style.display = 'none';
-  const aiTxtEl = el('aiTxt');
-  if (aiTxtEl) aiTxtEl.textContent = 'Photo loaded \u2014 add description and Generate';
-}>
+</html>
