@@ -241,6 +241,30 @@ select.fin{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .ra-ghost{background:rgba(0,0,0,0.88);border:1px solid var(--borderb)!important;color:var(--text)}
 .ra-ghost:hover{border-color:var(--lime)!important;color:var(--lime)}
 .refine-row{display:none;gap:8px;padding:10px 18px;border-top:1px solid var(--border);background:var(--dark)}
+/* ── Generation Loading Overlay ──────────────────── */
+.gen-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:10}
+.gen-overlay.active{display:flex}
+.gen-shimmer{position:absolute;inset:0;background:linear-gradient(110deg,rgba(204,255,0,0) 0%,rgba(204,255,0,0.05) 30%,rgba(0,229,255,0.07) 50%,rgba(204,255,0,0.05) 70%,rgba(204,255,0,0) 100%);background-size:200% 100%;animation:shimmer-sweep 2.4s ease-in-out infinite}
+@keyframes shimmer-sweep{0%{background-position:-100% 0}100%{background-position:200% 0}}
+.preview-frame.generating{border-color:rgba(204,255,0,0.4);animation:fglow 4s ease-in-out infinite,gpulse 1.8s ease-in-out infinite}
+@keyframes gpulse{0%,100%{border-color:rgba(204,255,0,0.15)}50%{border-color:rgba(204,255,0,0.7)}}
+.gen-timer{font-family:var(--fa);font-size:38px;letter-spacing:0.04em;color:var(--white);position:relative;z-index:2;line-height:1}
+.gen-timer span{color:var(--lime)}
+.gen-steps{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:9px}
+.gen-step{font-family:var(--fm);font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;opacity:0.35;transition:opacity 0.4s,color 0.4s}
+.gen-step.active{color:var(--lime);opacity:1}
+.gen-step.done{color:var(--white);opacity:0.6}
+.gen-step-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.gen-step.active .gen-step-dot{animation:blink 1.1s ease-in-out infinite}
+.engine-badge{position:absolute;top:14px;left:14px;display:none;align-items:center;gap:7px;background:rgba(0,0,0,0.94);border:1px solid var(--border);padding:6px 12px;font-family:var(--fm);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--lime);opacity:0;transition:opacity 0.7s ease;z-index:5}
+.engine-badge.show{display:flex;opacity:1}
+.gen-stats-bar{display:none;padding:7px 18px;background:var(--dark);border-top:1px solid var(--border);font-family:var(--fm);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);gap:14px;align-items:center;flex-wrap:wrap}
+.gen-stats-bar.show{display:flex}
+.gen-stats-bar span{color:var(--white)}
+.gen-stat-sep{color:var(--border)}
+/* ── Expand prompt button ──────────────────────────── */
+.expand-btn{font-family:var(--fm);font-size:9px;letter-spacing:0.1em;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 0;display:flex;align-items:center;gap:5px;transition:color 0.2s}
+.expand-btn:hover{color:var(--lime)}
 .refine-row.show{display:flex}
 .refine-row input{flex:1;background:var(--panel);border:1px solid var(--border);color:var(--white);font-family:var(--fd);font-size:13px;padding:9px 12px;outline:none}
 .refine-row input:focus{border-color:var(--lime)}
@@ -502,6 +526,12 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 .ed-prop-row input,.ed-prop-row select{flex:1;height:26px;background:#1a1a1a;border:1px solid #333;color:#ccc;font-size:11px;padding:0 6px;border-radius:2px;outline:none}
 .ed-prop-row input[type=color]{padding:0 2px;cursor:pointer}
 .ed-btn-full{width:100%;padding:9px;font-family:var(--fa);font-size:11px;letter-spacing:.1em;cursor:pointer;border-radius:3px;border:none;transition:all .2s}
+.ed-layer-eye,.ed-layer-up,.ed-layer-dn{opacity:0;color:#555;font-size:11px;transition:opacity .15s;cursor:pointer;padding:0 2px;flex-shrink:0}
+.ed-layer:hover .ed-layer-eye,.ed-layer:hover .ed-layer-up,.ed-layer:hover .ed-layer-dn{opacity:1}
+.ed-layer-eye:hover{color:#00e5ff}
+.ed-layer-up:hover,.ed-layer-dn:hover{color:var(--lime)}
+.ed-layer-hidden{opacity:0.35}
+.ed-align-sep{width:1px;height:20px;background:#333;margin:0 3px;flex-shrink:0}
 </style>
 
 <!-- ── Fabric.js Editor Modal ─────────────────────────── -->
@@ -511,7 +541,12 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     <button class="ed-tool on" id="edTool_select" title="Select / Move">↖</button>
     <button class="ed-tool" id="edTool_text" title="Add Text">T</button>
     <button class="ed-tool" id="edTool_rect" title="Add Rectangle">▭</button>
+    <button class="ed-tool" id="edTool_circle" title="Add Circle">⬤</button>
+    <button class="ed-tool" id="edTool_triangle" title="Add Triangle">▲</button>
     <button class="ed-tool" id="edTool_line" title="Add Line">╱</button>
+    <label class="ed-tool" title="Add Image" style="cursor:pointer;display:flex;align-items:center;justify-content:center">🖼
+      <input type="file" id="edImgInput" accept="image/*" style="display:none">
+    </label>
     <div class="ed-sep"></div>
     <!-- Text properties (shown when text selected) -->
     <select class="ed-prop" id="edFontFamily" style="width:130px">
@@ -530,10 +565,27 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     <input class="ed-prop" id="edStrokeWidth" type="number" value="0" min="0" max="20" style="width:48px" title="Stroke width">
     <button class="ed-tool" id="edBold" title="Bold" style="font-weight:700">B</button>
     <button class="ed-tool" id="edItalic" title="Italic" style="font-style:italic">I</button>
+    <button class="ed-tool" id="edAlignL" title="Align Left">&#8801;L</button>
+    <button class="ed-tool" id="edAlignC" title="Align Center">&#8801;C</button>
+    <button class="ed-tool" id="edAlignR" title="Align Right">&#8801;R</button>
+    <input class="ed-prop" id="edLetterSpacing" type="number" value="0" min="-10" max="80" style="width:44px" title="Letter spacing (px)">
+    <input class="ed-prop" id="edLineHeight" type="number" value="1.2" min="0.5" max="4" step="0.1" style="width:42px" title="Line height">
+    <label class="ed-tool" title="Drop Shadow" style="gap:4px;padding:0 8px;font-family:var(--fm);font-size:9px;letter-spacing:0.06em;cursor:pointer">
+      <input type="checkbox" id="edShadow" style="accent-color:var(--lime)"> Shad
+    </label>
     <div class="ed-sep"></div>
     <input class="ed-prop" id="edObjColor" type="color" value="#ccff00" style="width:36px" title="Shape fill">
     <input class="ed-prop" id="edOpacity" type="number" value="100" min="0" max="100" style="width:52px" title="Opacity %">
     <div class="ed-bar-right">
+      <div class="ed-align-sep"></div>
+      <button class="ed-tool" title="Align Left" onclick="edAlign('left')">⬛←</button>
+      <button class="ed-tool" title="Center H" onclick="edAlign('centerH')">⬛↔</button>
+      <button class="ed-tool" title="Align Right" onclick="edAlign('right')">→⬛</button>
+      <button class="ed-tool" title="Align Top" onclick="edAlign('top')">⬛↑</button>
+      <button class="ed-tool" title="Center V" onclick="edAlign('centerV')">⬛↕</button>
+      <button class="ed-tool" title="Align Bottom" onclick="edAlign('bottom')">↓⬛</button>
+      <div class="ed-align-sep"></div>
+      <button class="ed-tool" id="edRedo" title="Redo">↪</button>
       <button class="ed-tool" id="edUndo" title="Undo">↩</button>
       <button class="ed-tool" id="edDelete" title="Delete selected" style="color:#ff4455">✕</button>
       <div class="ed-sep"></div>
@@ -554,6 +606,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="ed-props">
         <button class="ed-btn-full" onclick="edAddText()" style="background:#1f2a00;border:1px solid var(--lime);color:var(--lime)">+ Add Text</button>
         <button class="ed-btn-full" onclick="edDuplicateSelected()" style="background:#1a1a1a;border:1px solid #333;color:#aaa;margin-top:4px">⧉ Duplicate</button>
+        <button class="ed-btn-full" onclick="edLockSelected()" style="background:#1a1a1a;border:1px solid #333;color:#555;margin-top:4px" id="edLockBtn">🔒 Lock / Unlock</button>
       </div>
     </div>
   </div>
@@ -735,6 +788,10 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="sidebar">
         <div class="cg"><div class="clabel">Describe Your Design</div>
           <textarea class="fin" id="promptInput" placeholder="Ryan Williams #13 Alabama Crimson Tide, bold crimson and white, 25 days until season opener — include the text exactly as written…"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <button class="expand-btn" id="expandPromptBtn">&#10022; Auto-expand prompt</button>
+            <span id="expandSpinner" style="display:none;font-size:9px;color:var(--muted)">expanding…</span>
+          </div>
         </div>
         <div class="cg"><div class="clabel">Sport</div>
           <div class="chip-grid">
@@ -817,6 +874,20 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
               <div class="prev-stamp"><img src="data:image/png;base64,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" alt=""><span>VIZN</span></div>
             </div>
             <img id="generatedImg" src="" alt="Generated Design">
+            <div class="gen-overlay" id="genOverlay">
+              <div class="gen-shimmer"></div>
+              <div class="gen-timer" id="genTimer"><span>0</span>:00</div>
+              <div class="gen-steps">
+                <div class="gen-step" id="step-analyze"><div class="gen-step-dot"></div>Analyzing brief</div>
+                <div class="gen-step" id="step-design"><div class="gen-step-dot"></div>Designing composition</div>
+                <div class="gen-step" id="step-render"><div class="gen-step-dot"></div>Rendering output</div>
+                <div class="gen-step" id="step-finish"><div class="gen-step-dot"></div>Finalizing</div>
+              </div>
+            </div>
+            <div class="engine-badge" id="engineBadge">
+              <div class="ai-stat-dot"></div>
+              <span id="engineBadgeTxt">AI Generated</span>
+            </div>
           </div>
           <div class="ai-stat"><div class="ai-stat-dot"></div><span class="ai-stat-txt" id="aiTxt">Set API Key → Generate</span></div>
           <div class="result-acts" id="resultActs">
@@ -826,6 +897,13 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <button class="ra ra-ghost" id="openExport">⬇ Export</button>
             <button class="ra ra-ghost" id="generateVideoBtn" style="background:linear-gradient(135deg,#7B2FFF,#FF2D78);border:none;color:#fff;font-weight:700">🎬 Video</button>
           </div>
+        </div>
+        <div class="gen-stats-bar" id="genStatsBar">
+          Generated in <span id="statTime">&#8212;</span>
+          <span class="gen-stat-sep">&#183;</span>
+          Engine: <span id="statEngine">&#8212;</span>
+          <span class="gen-stat-sep">&#183;</span>
+          Format: <span id="statFormat">&#8212;</span>
         </div>
         <div class="refine-row" id="refineRow">
           <input type="text" id="refineInput" placeholder="Make it more aggressive, swap to navy &amp; red, add motion blur…">
@@ -1252,6 +1330,28 @@ async function removeBg(file) {
 }
 
 // ── Image compression (keeps uploaded photos under Vercel's 4.5MB body limit)
+function compressImageAsPng(file, maxPx = 900) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxPx || h > maxPx) {
+          if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else        { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(cv.toDataURL('image/png'));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function compressImage(file, maxPx = 768, quality = 0.72) {
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -1303,7 +1403,7 @@ if (fileInputEl) {
     (async () => {
       for (let i = 0; i < imgFiles.length; i++) {
         try {
-          const original = await compressImage(imgFiles[i], 1024, 0.88);
+          const original = await compressImageAsPng(imgFiles[i], 900);
           S.athleteOriginals.push(original);
           if (i === 0) showPhotoPreview(original);
 
@@ -1371,85 +1471,129 @@ const _typo = {
   retro:      'vintage athletic block letters, worn edges, halftone dot texture overlay'
 };
 
+const _negatives = 'No watermarks, no stock photography feel, no blurry or illegible text, no amateur composition, no 3D render artifacts, no clip art, no white backgrounds, no generic borders, no overused gradients, no muddy low-contrast colors.';
+
+const _composition = {
+  'recruiting':   "Low camera angle (worm's-eye view), athlete dominant left two-thirds, typographic lockup right third, stadium depth-of-field background blur.",
+  'commitment':   "Bilateral symmetry, athlete centered, school logo floating above head, player name as cinematic super-title, confetti or light-burst particles radiating outward.",
+  'player-card':  "3/4 portrait athlete fills upper 60%, stats grid in lower 40%, diagonal foil-stripe divides the two zones, serial number watermark in background.",
+  'schedule':     "Grid-based information design — not photographic. Modular schedule rows with alternating row treatments, team mark anchoring upper-left, strong horizontal hierarchy.",
+  'team-poster':  "Wide-angle establishing shot, team color fills 70% as solid bleed, player or team name runs full-width as a display banner, year as secondary element.",
+  'senior-night': "Warm spotlight vignette, athlete centered in circle of light, celebratory particles (gold stars, confetti, streamers), serif display headline for gravitas.",
+  'mvp':          "Award podium perspective — athlete elevated, trophy or award element casting dramatic shadow, gold foil texture on award typography, light rays radiating from award center.",
+  'championship': "Victory panorama — full-bleed team color, confetti and streamers, trophy in foreground, championship banner fills upper quarter at massive scale."
+};
+
+const _typeVocab = {
+  'recruiting':   'ESPN recruiting profile aesthetic, Rivals.com visual language, 247Sports layout energy',
+  'commitment':   'Nike signing day campaign style, Under Armour commitment reveal visual, NBC Sports announcement energy',
+  'player-card':  'Panini Prizm card design, Topps Chrome holographic styling, Upper Deck Portraits aesthetic',
+  'schedule':     'NFL schedule release broadcast aesthetic, lower-third network typography, ESPN schedule graphic language',
+  'team-poster':  'Nike team campaign poster, Adidas squad poster energy, Jordan Brand team release visual',
+  'senior-night': 'High school athletics tribute design, letterman jacket appreciation aesthetic, local sports broadcast honoring',
+  'mvp':          'Sports Illustrated cover design, ESPY Award graphic aesthetic, Golden Globes typographic energy',
+  'championship': 'Championship ring announcement visual, SportsCenter title card, CBS Sports trophy ceremony aesthetic'
+};
+
 function buildPrompt(raw, sport, style, type) {
   const layouts = {
-    'recruiting':   'portrait (4:5 ratio). Athlete as the full hero. Large name in bold condensed type at bottom. School/team logo zone at top.',
-    'commitment':   'square (1:1 ratio). Bold centered commitment announcement. School colors dominant. Player name and school large and clear.',
-    'player-card':  'tall portrait (9:16 ratio). Trading card style. Stats displayed below name. Name dominant at top.',
-    'schedule':     'square (1:1 ratio). Season schedule grid. Team branding top and bottom. Clean structured text layout.',
-    'team-poster':  'portrait (2:3 ratio). Full team or athlete featured. Large team name. Season year prominent.',
-    'senior-night': 'portrait (4:5 ratio). Celebratory design. SENIOR NIGHT bold headline. Athlete celebrated.',
-    'mvp':          'portrait (4:5 ratio). Award graphic. MVP bold headline. Gold or award color accents.',
-    'championship': 'landscape (3:2 ratio). Wide celebration banner. Championship text dominant. Team colors.'
+    'recruiting':   'PORTRAIT 4:5. Full-bleed athlete as center-frame hero from shoulders to feet. Heavy typographic lockup in lower third with name, number, school.',
+    'commitment':   'SQUARE 1:1. Centered commitment announcement graphic. Player name in massive display type. School or team identity prominently featured.',
+    'player-card':  'TALL PORTRAIT 9:16. Trading card structure — athlete portrait upper 60%, stats and info grid lower 40%. Card border treatment with foil accents.',
+    'schedule':     'SQUARE 1:1. Information design — season schedule presented as a bold typographic grid. Team mark prominent, dates and opponents clearly readable.',
+    'team-poster':  'PORTRAIT 2:3. Full-bleed team or athlete poster. Giant team name anchors composition. Season year and program identity as secondary elements.',
+    'senior-night': 'PORTRAIT 4:5. Celebratory tribute graphic honoring the senior athlete. Warm, prestigious design energy with emotional resonance.',
+    'mvp':          'PORTRAIT 4:5. Award recognition graphic. MVP typography dominates upper zone. Trophy or award element featured with gold or metallic treatment.',
+    'championship': 'LANDSCAPE 3:2. Wide championship celebration banner. Bold championship text across full width. Victory energy fills every corner.'
   };
-  return `SPORTS GRAPHIC DESIGN REQUEST — follow this brief EXACTLY:
+  const sportCtx = {
+    football:   'stadium turf texture background, Friday night lights, helmet and jersey visual language',
+    basketball: 'hardwood court floor pattern, arena crowd bokeh, sneaker and jersey visual language',
+    baseball:   'diamond infield dirt texture, ballpark atmosphere, mitt and bat visual language',
+    soccer:     'grass pitch pattern background, stadium floodlight atmosphere, boot and jersey visual language',
+    hockey:     'ice rink surface texture, arena boards, helmet and stick visual language',
+    tennis:     'hard court line geometry, stadium grandstand atmosphere',
+    track:      'tartan track lane markings, finish line perspective, spikes visual language',
+    volleyball: 'court line geometry, gymnasium lighting, net visual language',
+    lacrosse:   'grass field atmosphere, helmet and stick visual language',
+    wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
+  };
+  return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality. Follow this brief EXACTLY:
 
 "${raw}"
 
-SPORT: ${sport.toUpperCase()}
 FORMAT: ${layouts[type] || layouts['recruiting']}
+SPORT: ${sport.toUpperCase()} — ${sportCtx[sport] || 'athletic competition atmosphere'}
 COLOR PALETTE: ${_colors[style] || _colors.aggressive}
 TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+COMPOSITION: ${_composition[type] || _composition['recruiting']}
+VISUAL REFERENCE: ${_typeVocab[type] || _typeVocab['recruiting']}
 
-MANDATORY REQUIREMENTS:
-• Include ALL text mentioned in the brief above — names, numbers, schools, dates, everything
-• Text must be SHARP, readable, perfectly rendered — no blur, no artifacts
-• Pro sports design quality — ESPN, Nike, Rivals.com broadcast level
-• Bold geometric shapes, diagonal color blocks, dynamic composition
-• Ultra high detail, cinematic lighting, professional depth`;
+MANDATORY:
+• Render EVERY piece of text from the brief with pixel-sharp clarity — names, numbers, schools, dates, exactly as written
+• Cinematic single key light source, natural ambient fill, deep black shadows
+• Layered spatial depth: foreground elements, midground subject, background atmosphere
+• This must look like a real Nike, ESPN, or Jordan Brand commissioned graphic
+
+OUTPUT MUST NOT CONTAIN: ${_negatives}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
 function buildBackgroundPrompt(raw, sport, style, type) {
-  const layouts = {
-    'recruiting':   'portrait 4:5 — leave bottom 55% EMPTY for athlete overlay. Bold type at top.',
-    'commitment':   'square 1:1 — text zone top 35%, clear center zone for athlete.',
-    'player-card':  'tall 9:16 — name and header at top, CLEAR zone 25-75% for athlete, stats at bottom.',
-    'schedule':     'square 1:1 — grid structure with team accent colors framing edges.',
-    'team-poster':  'portrait 2:3 — type at top, CLEAR zone from mid-frame down for athlete.',
-    'senior-night': 'portrait 4:5 — SENIOR NIGHT top 30%, CLEAR zone 30-80% for athlete overlay.',
-    'mvp':          'portrait 4:5 — MVP headline top 30%, CLEAR zone 30-75% for athlete.',
-    'championship': 'landscape 3:2 — Championship text top zone, CLEAR center for athlete.'
+  const clearZones = {
+    'recruiting':   'CLEAR ZONE: bottom 55% of frame — completely empty negative space for athlete overlay. Design elements and type occupy top 40% only.',
+    'commitment':   'CLEAR ZONE: center 60% of frame — empty. Text and logo elements float in top 30%, accent elements at bottom.',
+    'player-card':  'CLEAR ZONE: 25% to 75% height — completely empty for athlete portrait. Name header at top, stats grid at bottom.',
+    'schedule':     'Full frame information design — no clear zone. Bold geometric grid structure only, no humans or athletes anywhere.',
+    'team-poster':  'CLEAR ZONE: 50% to 90% height — empty. Type at top, abstract team color elements at bottom.',
+    'senior-night': 'CLEAR ZONE: 30% to 80% height — empty. SENIOR NIGHT headline at top 25%, accent elements at very bottom.',
+    'mvp':          'CLEAR ZONE: 30% to 75% height — empty. MVP headline at top, award graphic accents at bottom.',
+    'championship': 'CLEAR ZONE: center 40% to 70% — empty. Championship text fills upper band, celebration elements at very bottom.'
   };
-  return `BACKGROUND ONLY — ZERO humans, ZERO athletes, ZERO faces, ZERO silhouettes, ZERO body parts.
+  return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
 Design brief: "${raw}"
 
 SPORT: ${sport.toUpperCase()}
-FORMAT: ${layouts[type] || layouts['recruiting']}
+${clearZones[type] || clearZones['recruiting']}
 COLORS: ${_colors[style] || _colors.aggressive}
 TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+COMPOSITION STYLE: ${_composition[type] || _composition['recruiting']}
 
-Include ALL text from the brief (names, numbers, teams) as graphic type elements.
-Large semi-transparent jersey number as background texture.
-Diagonal color blocks, geometric shapes, professional sports design.
-The CLEAR zone must stay open for athlete photo compositing.`;
+Include ALL text from the brief as pure typographic elements — player names, numbers, teams, schools.
+Large semi-transparent jersey number (40% opacity) as background texture element.
+Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
+
+OUTPUT MUST NOT CONTAIN: ${_negatives}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
 function buildVisionPrompt(raw, sport, style, type) {
-  const instructions = {
-    'recruiting':   'Transform this into a RECRUITING GRAPHIC. Keep the athlete clearly visible and prominent.',
-    'commitment':   'Transform into a COMMITMENT ANNOUNCEMENT GRAPHIC. Make the athlete the hero with announcement energy.',
-    'player-card':  'Transform into a PLAYER CARD trading card design. Athlete in upper section, text/stats below.',
-    'schedule':     'Create a SCHEDULE GRAPHIC featuring this athlete. Add schedule/game info around them.',
-    'team-poster':  'Transform into a TEAM POSTER. Athlete prominent, bold team branding around them.',
-    'senior-night': 'Transform into a SENIOR NIGHT GRAPHIC. Celebratory design, athlete honored.',
-    'mvp':          'Transform into an MVP AWARD GRAPHIC. Award/gold accents, athlete celebrated.',
-    'championship': 'Transform into a CHAMPIONSHIP GRAPHIC. Victory celebration, athlete featured.'
+  const typeDirectives = {
+    'recruiting':   `Transform this athlete photo into a PROFESSIONAL RECRUITING GRAPHIC. The athlete is the visual hero — keep them clearly recognizable and prominent. Surround them with ${_typeVocab['recruiting']} visual elements. ${_composition['recruiting']}`,
+    'commitment':   `Transform this athlete photo into a COMMITMENT ANNOUNCEMENT GRAPHIC. The athlete appears confident and celebratory. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
+    'player-card':  `Transform this athlete photo into a PLAYER CARD / TRADING CARD. Athlete portrait in upper portion, stats and name information in lower section. ${_typeVocab['player-card']} aesthetic.`,
+    'schedule':     `Create a SCHEDULE GRAPHIC featuring this athlete as the face of the season. Athlete as supporting element; schedule information grid is primary content.`,
+    'team-poster':  `Transform this athlete photo into a TEAM POSTER. Athlete featured prominently, bold team identity surrounds them. ${_typeVocab['team-poster']} energy.`,
+    'senior-night': `Transform this athlete photo into a SENIOR NIGHT TRIBUTE GRAPHIC. Celebratory and emotional tone. Athlete honored with dignity. ${_typeVocab['senior-night']} aesthetic.`,
+    'mvp':          `Transform this athlete photo into an MVP AWARD GRAPHIC. Athlete appears triumphant. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
+    'championship': `Transform this athlete photo into a CHAMPIONSHIP CELEBRATION GRAPHIC. Athlete appears victorious. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
   };
-  return `${instructions[type] || instructions['recruiting']}
+  return `${typeDirectives[type] || typeDirectives['recruiting']}
 
-EXACT design brief to follow: "${raw}"
+EXACT DESIGN BRIEF — include every element specified:
+"${raw}"
 
 SPORT: ${sport.toUpperCase()}
 COLOR PALETTE: ${_colors[style] || _colors.aggressive}
-TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
-Keep the ATHLETE CLEARLY VISIBLE and recognizable in the final design.
-Add professional sports graphic design elements around and behind the athlete.
-Include ALL text mentioned in the brief — names, numbers, schools, dates — exactly as specified.
-Championship quality — Nike / Jordan Brand / ESPN level.`;
+CRITICAL: The athlete in the photo MUST remain clearly visible and recognizable.
+Add professional sports graphic design elements behind, beside, and around the athlete.
+Include ALL text from the brief — names, numbers, schools, dates — exactly as written, rendered pixel-sharp.
+Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
+
+OUTPUT MUST NOT CONTAIN: ${_negatives}`;
 }
 
 
@@ -1594,7 +1738,7 @@ async function callGenerateWithImage(athleteImageDataUri, prompt, type) {
   const data = await response.json();
   if (data.status === 'succeeded' && data.imageUrl) {
     setStatus('Design Ready ✓');
-    return data.imageUrl;
+    return { url: data.imageUrl, engine: data.engine || 'AI Vision' };
   }
   throw new Error(data.error || 'No image returned from vision API');
 }
@@ -1628,22 +1772,26 @@ async function callReplicate(prompt, type) {
   // Succeeded immediately
   if (data.status === 'succeeded' && data.imageUrl) {
     setStatus('Design Ready \u2713');
-    return data.imageUrl;
+    return { url: data.imageUrl, engine: data.engine || 'AI' };
   }
 
   // Still processing — poll until done
   if (data.status === 'processing' && data.predictionId) {
-    return await pollUntilDone(data.predictionId);
+    return await pollUntilDone(data.predictionId, data.engine);
   }
 
   throw new Error(data.error || 'Unexpected response from server');
 }
 
 // Poll Replicate directly if the function timed out waiting
-async function pollUntilDone(predictionId) {
+// Poll Replicate directly if the function timed out waiting
+async function pollUntilDone(predictionId, engine) {
+  const pollStart = Date.now();
   for (let i = 0; i < 45; i++) {
     await sleep(2500);
-    setStatus('Rendering \u00b7 ' + Math.min(95, i * 7) + '%');
+    const elapsed = Math.round((Date.now() - pollStart) / 1000);
+    setStatus('Rendering \u00b7 ' + elapsed + 's elapsed\u2026');
+    if (elapsed > 20) _activateStep('step-finish');
 
     const r = await fetch('/api/generate', {
       method: 'POST',
@@ -1651,7 +1799,7 @@ async function pollUntilDone(predictionId) {
       body: JSON.stringify({action: 'poll', predictionId: predictionId})
     });
     const d = await r.json();
-    if (d.status === 'succeeded' && d.imageUrl) return d.imageUrl;
+    if (d.status === 'succeeded' && d.imageUrl) return { url: d.imageUrl, engine: engine || d.engine || 'FLUX' };
     if (d.status === 'failed') throw new Error(d.error || 'Generation failed');
   }
   throw new Error('Timed out \u2014 try again');
@@ -1672,35 +1820,39 @@ async function generate(raw) {
 
     const hasOriginals = S.athleteOriginals && S.athleteOriginals.length > 0;
     const hasCutouts  = S.athleteCutouts.length > 0;
+    startGenOverlay(hasOriginals);
 
-    let finalUrl;
+    let finalUrl, finalEngine;
 
     if (hasOriginals) {
       // VISION PATH: send actual athlete photo to AI so it sees and designs around them
-      setStatus('AI analyzing your photo…');
+      setStatus('AI analyzing your photo\u2026');
       const visionPrompt = buildVisionPrompt(raw, S.sport, S.style, S.type);
       try {
-        finalUrl = await callGenerateWithImage(S.athleteOriginals[0], visionPrompt, S.type);
+        const result = await callGenerateWithImage(S.athleteOriginals[0], visionPrompt, S.type);
+        finalUrl    = result.url;
+        finalEngine = result.engine;
       } catch(visionErr) {
         console.warn('Vision generation failed, falling back to composite:', visionErr.message);
-        toast('Falling back to composite mode…', '');
+        toast('Falling back to composite mode\u2026', '');
         const bgPrompt = buildBackgroundPrompt(raw, S.sport, S.style, S.type);
-        const bgUrl    = await callReplicate(bgPrompt, S.type);
-        finalUrl = hasCutouts
-          ? await compositeLayers(bgUrl, S.athleteCutouts)
-          : bgUrl;
+        const bgResult = await callReplicate(bgPrompt, S.type);
+        finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts) : bgResult.url;
+        finalEngine = bgResult.engine;
       }
     } else {
       // TEXT-TO-IMAGE PATH: no photo uploaded
       const prompt = buildPrompt(raw, S.sport, S.style, S.type);
-      finalUrl = await callReplicate(prompt, S.type);
+      const result = await callReplicate(prompt, S.type);
+      finalUrl    = result.url;
+      finalEngine = result.engine;
     }
-
     showResult(finalUrl);
     S.lastImage = finalUrl;
     toast('Design generated \u2713', 'ok');
   } catch(e) {
     console.error('VIZN generate error:', e);
+    clearGenOverlay();
     // Show specific helpful error messages
     const msg = e.message || 'Unknown error';
     if (msg.includes('API key') || msg.includes('401')) {
@@ -1729,7 +1881,7 @@ function setGenBtn(on) {
   );
 }
 
-function showResult(url) {
+function showResult(url, engine) {
   const img = el('generatedImg');
   if (img) { img.src = url; img.style.display = 'block'; }
   const def = el('prevDefault');
@@ -1740,6 +1892,99 @@ function showResult(url) {
   if (expBtn) expBtn.classList.add('show');
   const refRow = el('refineRow');
   if (refRow) refRow.classList.add('show');
+  stopGenOverlay(engine || 'AI', getDims(S.type));
+}
+
+
+// ── Generation loading overlay system ────────────────
+let _genTimerInterval = null;
+let _genStartTime     = 0;
+
+function startGenOverlay(hasPhoto) {
+  _genStartTime = Date.now();
+  const overlay = el('genOverlay');
+  const frame   = qs('.preview-frame');
+  if (overlay) overlay.classList.add('active');
+  if (frame)   frame.classList.add('generating');
+
+  // Reset steps
+  ['step-analyze','step-design','step-render','step-finish'].forEach(id => {
+    const s = el(id); if (s) s.className = 'gen-step';
+  });
+  _activateStep('step-analyze');
+
+  // Phase steps with realistic timing based on whether we have a photo
+  setTimeout(() => _activateStep('step-design'),  hasPhoto ? 4000 : 2500);
+  setTimeout(() => _activateStep('step-render'),  hasPhoto ? 10000 : 6000);
+  setTimeout(() => _activateStep('step-finish'),  hasPhoto ? 22000 : 14000);
+
+  // Live elapsed timer
+  const timerEl = el('genTimer');
+  _genTimerInterval = setInterval(() => {
+    if (!timerEl) return;
+    const secs = Math.floor((Date.now() - _genStartTime) / 1000);
+    const m    = Math.floor(secs / 60);
+    const s2   = String(secs % 60).padStart(2, '0');
+    timerEl.innerHTML = '<span>' + m + '</span>:' + s2;
+  }, 1000);
+}
+
+function _activateStep(id) {
+  const steps = ['step-analyze','step-design','step-render','step-finish'];
+  const idx   = steps.indexOf(id);
+  if (idx > 0) {
+    const prev = el(steps[idx - 1]);
+    if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
+  }
+  const step = el(id);
+  if (step) step.classList.add('active');
+}
+
+function stopGenOverlay(engine, dims) {
+  clearInterval(_genTimerInterval);
+  const overlay  = el('genOverlay');
+  const frame    = qs('.preview-frame');
+  if (overlay) overlay.classList.remove('active');
+  if (frame)   frame.classList.remove('generating');
+
+  // Mark all steps done
+  ['step-analyze','step-design','step-render','step-finish'].forEach(id => {
+    const s = el(id); if (s) { s.classList.remove('active'); s.classList.add('done'); }
+  });
+
+  // Engine badge
+  const badge    = el('engineBadge');
+  const badgeTxt = el('engineBadgeTxt');
+  const engineLabel = (engine || 'AI').replace('gemini-vision','Gemini Vision').replace('gpt-image-1-edit','GPT-Image-1 Edit').replace('gemini-3.1-flash-image','Gemini Flash').replace('gpt-image-1','GPT-Image-1').replace('flux','FLUX Dev');
+  if (badgeTxt) badgeTxt.textContent = '\u2713 ' + engineLabel;
+  if (badge) {
+    badge.style.opacity = '0';
+    badge.style.display = 'flex';
+    setTimeout(() => { badge.style.transition = 'opacity 0.7s ease'; badge.style.opacity = '1'; }, 30);
+  }
+
+  // Stats bar
+  const elapsed  = Math.round((Date.now() - _genStartTime) / 1000);
+  const statsBar = el('genStatsBar');
+  const statTime = el('statTime');
+  const statEng  = el('statEngine');
+  const statFmt  = el('statFormat');
+  if (statTime) statTime.textContent = elapsed + 's';
+  if (statEng)  statEng.textContent  = engineLabel;
+  if (statFmt && dims) statFmt.textContent = dims.w + '\u00d7' + dims.h + ' \u00b7 High Quality';
+  if (statsBar) statsBar.classList.add('show');
+}
+
+function clearGenOverlay() {
+  clearInterval(_genTimerInterval);
+  const overlay  = el('genOverlay');
+  const frame    = qs('.preview-frame');
+  const badge    = el('engineBadge');
+  const statsBar = el('genStatsBar');
+  if (overlay)  overlay.classList.remove('active');
+  if (frame)    frame.classList.remove('generating');
+  if (badge)    { badge.style.display = 'none'; badge.style.opacity = '0'; }
+  if (statsBar) statsBar.classList.remove('show');
 }
 
 function setStatus(s) {
@@ -2035,6 +2280,7 @@ if (vidBtn) vidBtn.addEventListener('click', generateVideo);
 // ── Fabric.js Layer Editor ──────────────────────────────────────
 let FC = null;        // Fabric canvas instance
 let FC_history = [];  // undo stack (JSON snapshots)
+let FC_future  = [];  // redo stack
 let FC_activeTool = 'select';
 
 function initEditor() {
@@ -2054,38 +2300,90 @@ function initEditor() {
   FC.on('object:removed',     () => { renderLayers(); saveHistory(); });
 
   // Wire text/style controls
-  ['edFontFamily','edFontSize','edFontColor','edStrokeColor','edStrokeWidth','edBold','edItalic','edObjColor','edOpacity'].forEach(id => {
+  ['edFontFamily','edFontSize','edFontColor','edStrokeColor','edStrokeWidth','edBold','edItalic','edObjColor','edOpacity','edLetterSpacing','edLineHeight','edShadow'].forEach(id => {
     const el2 = document.getElementById(id);
     if (el2) el2.addEventListener('input', applyProps);
   });
 
-  // Tools
-  ['select','text','rect','line'].forEach(t => {
+  // Tools (including new shapes)
+  ['select','text','rect','circle','triangle','line'].forEach(t => {
     const btn = document.getElementById('edTool_' + t);
     if (btn) btn.addEventListener('click', () => setEdTool(t));
   });
 
   document.getElementById('edUndo')?.addEventListener('click', edUndo);
+  document.getElementById('edRedo')?.addEventListener('click', edRedo);
   document.getElementById('edDelete')?.addEventListener('click', edDeleteSelected);
   document.getElementById('edBold')?.addEventListener('click', () => {
     const obj = FC.getActiveObject();
-    if (obj && obj.type.includes('text')) { obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold'); FC.renderAll(); }
+    if (obj && obj.type.includes('text')) { obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold'); FC.renderAll(); saveHistory(); }
   });
   document.getElementById('edItalic')?.addEventListener('click', () => {
     const obj = FC.getActiveObject();
-    if (obj && obj.type.includes('text')) { obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic'); FC.renderAll(); }
+    if (obj && obj.type.includes('text')) { obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic'); FC.renderAll(); saveHistory(); }
+  });
+  document.getElementById('edAlignL')?.addEventListener('click', () => edSetTextAlign('left'));
+  document.getElementById('edAlignC')?.addEventListener('click', () => edSetTextAlign('center'));
+  document.getElementById('edAlignR')?.addEventListener('click', () => edSetTextAlign('right'));
+
+  // Image upload
+  document.getElementById('edImgInput')?.addEventListener('change', function() {
+    const file = this.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e2 => {
+      fabric.Image.fromURL(e2.target.result, img => {
+        const maxW = FC.width * 0.6;
+        if (img.width > maxW) img.scaleToWidth(maxW);
+        img.set({ left: FC.width / 2, top: FC.height / 2, originX: 'center', originY: 'center',
+                  data: { type: 'image', name: (file.name || 'Image').slice(0, 20) } });
+        FC.add(img); FC.setActiveObject(img); FC.renderAll(); saveHistory();
+      });
+    };
+    reader.readAsDataURL(file);
+    this.value = '';
   });
 
-  // Layer list click handling
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    const overlay = document.getElementById('editorOverlay');
+    if (!overlay?.classList.contains('open')) return;
+    const inInput = e.target.matches('input,textarea,[contenteditable]');
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !inInput) edDeleteSelected();
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); edUndo(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); edRedo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); edDuplicateSelected(); }
+    if (e.key === 'Escape') { FC.discardActiveObject(); FC.renderAll(); setEdTool('select'); }
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+      const obj = FC.getActiveObject(); if (!obj) return;
+      e.preventDefault();
+      const d = e.shiftKey ? 10 : 1;
+      if (e.key === 'ArrowUp')    obj.set('top',  obj.top  - d);
+      if (e.key === 'ArrowDown')  obj.set('top',  obj.top  + d);
+      if (e.key === 'ArrowLeft')  obj.set('left', obj.left - d);
+      if (e.key === 'ArrowRight') obj.set('left', obj.left + d);
+      obj.setCoords(); FC.renderAll(); saveHistory();
+    }
+  });
+
+  // Layer list click handling (with up/down/eye)
   document.getElementById('edLayerList')?.addEventListener('click', e => {
     const item = e.target.closest('[data-idx]');
     if (!item) return;
+    const idx = parseInt(item.dataset.idx);
+    const obj = FC.getObjects()[idx];
+    if (!obj) return;
     if (e.target.classList.contains('ed-layer-del')) {
-      const obj = FC.getObjects()[parseInt(item.dataset.idx)];
-      if (obj && !obj.data?.locked) { FC.remove(obj); }
+      if (!obj.data?.locked) { FC.remove(obj); }
+    } else if (e.target.classList.contains('ed-layer-up')) {
+      FC.bringForward(obj); saveHistory(); renderLayers();
+    } else if (e.target.classList.contains('ed-layer-dn')) {
+      FC.sendBackwards(obj); saveHistory(); renderLayers();
+    } else if (e.target.classList.contains('ed-layer-eye')) {
+      obj.set('visible', !obj.visible);
+      obj.data = { ...(obj.data || {}), hidden: !obj.visible };
+      FC.renderAll(); renderLayers();
     } else {
-      const obj = FC.getObjects()[parseInt(item.dataset.idx)];
-      if (obj) { FC.setActiveObject(obj); FC.renderAll(); renderLayers(); }
+      FC.setActiveObject(obj); FC.renderAll(); renderLayers();
     }
   });
 }
@@ -2115,6 +2413,26 @@ function setEdTool(tool) {
         data: { type: 'shape', name: 'Rectangle' }
       });
       FC.add(rect); FC.setActiveObject(rect); setEdTool('select');
+    });
+  } else if (tool === 'circle') {
+    FC.once('mouse:down', (opt) => {
+      const p = FC.getPointer(opt.e);
+      FC.add(new fabric.Circle({
+        left: p.x - 60, top: p.y - 60, radius: 60,
+        fill: document.getElementById('edObjColor')?.value || '#ccff00',
+        data: { type: 'shape', name: 'Circle' }
+      }));
+      setEdTool('select');
+    });
+  } else if (tool === 'triangle') {
+    FC.once('mouse:down', (opt) => {
+      const p = FC.getPointer(opt.e);
+      FC.add(new fabric.Triangle({
+        left: p.x - 70, top: p.y - 60, width: 140, height: 120,
+        fill: document.getElementById('edObjColor')?.value || '#ccff00',
+        data: { type: 'shape', name: 'Triangle' }
+      }));
+      setEdTool('select');
     });
   } else if (tool === 'line') {
     FC.once('mouse:down', (opt) => {
@@ -2171,23 +2489,56 @@ function edDeleteSelected() {
   }
 }
 
+function edAlign(dir) {
+  const obj = FC.getActiveObject(); if (!obj) return;
+  const bnd = obj.getBoundingRect();
+  if (dir === 'left')    obj.set('left', 0);
+  if (dir === 'right')   obj.set('left', FC.width  - bnd.width);
+  if (dir === 'centerH') obj.set('left', (FC.width  - bnd.width)  / 2);
+  if (dir === 'top')     obj.set('top',  0);
+  if (dir === 'bottom')  obj.set('top',  FC.height - bnd.height);
+  if (dir === 'centerV') obj.set('top',  (FC.height - bnd.height) / 2);
+  obj.setCoords(); FC.renderAll(); saveHistory();
+}
+
+function edSetTextAlign(align) {
+  const obj = FC.getActiveObject();
+  if (obj && obj.type?.includes('text')) { obj.set('textAlign', align); FC.renderAll(); saveHistory(); }
+}
+
+function edLockSelected() {
+  const obj = FC.getActiveObject(); if (!obj) return;
+  const locked = !obj.data?.locked;
+  obj.data = { ...(obj.data || {}), locked };
+  obj.set({ selectable: !locked, evented: !locked, lockMovementX: locked, lockMovementY: locked,
+            lockRotation: locked, lockScalingX: locked, lockScalingY: locked });
+  if (locked) FC.discardActiveObject();
+  FC.renderAll(); renderLayers();
+}
+
 function applyProps() {
   const obj = FC.getActiveObject();
   if (!obj) return;
-  const ff = document.getElementById('edFontFamily')?.value;
-  const fs = parseInt(document.getElementById('edFontSize')?.value);
-  const fc = document.getElementById('edFontColor')?.value;
-  const sc = document.getElementById('edStrokeColor')?.value;
-  const sw = parseInt(document.getElementById('edStrokeWidth')?.value) || 0;
-  const oc = document.getElementById('edObjColor')?.value;
-  const op = parseInt(document.getElementById('edOpacity')?.value) / 100;
+  const ff  = document.getElementById('edFontFamily')?.value;
+  const fs  = parseInt(document.getElementById('edFontSize')?.value);
+  const fc  = document.getElementById('edFontColor')?.value;
+  const sc  = document.getElementById('edStrokeColor')?.value;
+  const sw  = parseInt(document.getElementById('edStrokeWidth')?.value) || 0;
+  const oc  = document.getElementById('edObjColor')?.value;
+  const op  = parseInt(document.getElementById('edOpacity')?.value) / 100;
+  const ls  = parseFloat(document.getElementById('edLetterSpacing')?.value) || 0;
+  const lh  = parseFloat(document.getElementById('edLineHeight')?.value) || 1.2;
+  const shd = document.getElementById('edShadow')?.checked;
 
   if (obj.type?.includes('text')) {
-    obj.set({ fontFamily: ff, fontSize: fs, fill: fc, stroke: sw > 0 ? sc : null, strokeWidth: sw });
+    obj.set({ fontFamily: ff, fontSize: fs, fill: fc,
+              stroke: sw > 0 ? sc : null, strokeWidth: sw,
+              charSpacing: ls * 10, lineHeight: lh });
   } else {
     obj.set({ fill: oc });
   }
   obj.set('opacity', op);
+  obj.set('shadow', shd ? new fabric.Shadow({ color: 'rgba(0,0,0,0.65)', blur: 20, offsetX: 4, offsetY: 8 }) : null);
   FC.renderAll();
 }
 
@@ -2195,13 +2546,16 @@ function syncProps() {
   const obj = FC.getActiveObject();
   if (!obj) return;
   if (obj.type?.includes('text')) {
-    if (document.getElementById('edFontFamily')) document.getElementById('edFontFamily').value = obj.fontFamily || 'Impact';
-    if (document.getElementById('edFontSize'))   document.getElementById('edFontSize').value   = obj.fontSize  || 72;
-    if (document.getElementById('edFontColor'))  document.getElementById('edFontColor').value  = obj.fill      || '#ffffff';
-    if (document.getElementById('edStrokeWidth')) document.getElementById('edStrokeWidth').value = obj.strokeWidth || 0;
+    if (document.getElementById('edFontFamily'))   document.getElementById('edFontFamily').value   = obj.fontFamily  || 'Impact';
+    if (document.getElementById('edFontSize'))     document.getElementById('edFontSize').value     = obj.fontSize    || 72;
+    if (document.getElementById('edFontColor'))    document.getElementById('edFontColor').value    = obj.fill        || '#ffffff';
+    if (document.getElementById('edStrokeWidth'))  document.getElementById('edStrokeWidth').value  = obj.strokeWidth || 0;
     if (document.getElementById('edStrokeColor') && obj.stroke) document.getElementById('edStrokeColor').value = obj.stroke;
+    if (document.getElementById('edLetterSpacing')) document.getElementById('edLetterSpacing').value = Math.round((obj.charSpacing || 0) / 10);
+    if (document.getElementById('edLineHeight'))    document.getElementById('edLineHeight').value    = obj.lineHeight || 1.2;
   }
   if (document.getElementById('edOpacity')) document.getElementById('edOpacity').value = Math.round((obj.opacity || 1) * 100);
+  if (document.getElementById('edShadow'))  document.getElementById('edShadow').checked = !!obj.shadow;
   renderLayers();
 }
 
@@ -2211,29 +2565,43 @@ function renderLayers() {
   const objs = FC.getObjects();
   const active = FC.getActiveObject();
   list.innerHTML = objs.slice().reverse().map((o, ri) => {
-    const i   = objs.length - 1 - ri;
-    const ico = o.data?.type === 'text' ? 'T' : o.data?.type === 'athlete' ? '👤' : o.data?.type === 'bg' ? '🖼' : '▭';
-    const nm  = o.data?.name || o.type || 'Layer';
+    const i      = objs.length - 1 - ri;
+    const ico    = o.data?.type === 'text' ? 'T' : o.data?.type === 'athlete' ? '👤' : o.data?.type === 'bg' ? '🖼' : o.data?.type === 'image' ? '🖼' : '▭';
+    const nm     = o.data?.name || o.type || 'Layer';
     const isActive = o === active;
     const locked = o.data?.locked;
-    return `<div class="ed-layer ${isActive?'active':''}" data-idx="${i}">
+    const hidden = !o.visible;
+    return `<div class="ed-layer ${isActive ? 'active' : ''} ${hidden ? 'ed-layer-hidden' : ''}" data-idx="${i}">
       <span class="ed-layer-icon">${ico}</span>
-      <span class="ed-layer-name">${nm}</span>
-      ${!locked ? `<span class="ed-layer-del" title="Delete">✕</span>` : '🔒'}
+      <span class="ed-layer-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nm}</span>
+      <span class="ed-layer-eye" title="${hidden ? 'Show' : 'Hide'}">${hidden ? '🚫' : '👁'}</span>
+      ${!locked ? `
+        <span class="ed-layer-up" title="Move Up">↑</span>
+        <span class="ed-layer-dn" title="Move Down">↓</span>
+        <span class="ed-layer-del" title="Delete">✕</span>
+      ` : '🔒'}
     </div>`;
   }).join('');
 }
 
 function saveHistory() {
+  FC_future = [];
   FC_history.push(JSON.stringify(FC.toJSON(['data'])));
-  if (FC_history.length > 20) FC_history.shift();
+  if (FC_history.length > 30) FC_history.shift();
 }
 
 function edUndo() {
   if (FC_history.length < 2) return;
-  FC_history.pop();
+  FC_future.push(FC_history.pop());
   const prev = FC_history[FC_history.length - 1];
   FC.loadFromJSON(prev, () => { FC.renderAll(); renderLayers(); });
+}
+
+function edRedo() {
+  if (!FC_future.length) return;
+  const next = FC_future.pop();
+  FC_history.push(next);
+  FC.loadFromJSON(next, () => { FC.renderAll(); renderLayers(); });
 }
 
 function openEditor() {
@@ -2253,6 +2621,7 @@ function openEditor() {
 
   FC.clear();
   FC_history = [];
+  FC_future  = [];
 
   // Load background image
   if (S.lastImage) {
@@ -2318,6 +2687,39 @@ function exportFromEditor(fmt) {
   a.download = `vizn-design.${fmt}`;
   a.click();
   toast('Design exported ✓', 'ok');
+}
+
+
+// ── Auto-expand prompt ────────────────────────────────
+const expandBtn = el('expandPromptBtn');
+if (expandBtn) {
+  expandBtn.addEventListener('click', async () => {
+    const inp = el('promptInput');
+    const raw = inp ? inp.value.trim() : '';
+    if (!raw || raw.length < 4) { toast('Type a description first', 'err'); return; }
+    const spinner = el('expandSpinner');
+    expandBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline';
+    try {
+      const r = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
+      });
+      const d = await r.json();
+      if (d.expanded && d.expanded !== raw) {
+        inp.value = d.expanded;
+        toast('Prompt expanded \u2726', 'ok');
+      } else {
+        toast('Already detailed enough', '');
+      }
+    } catch(e) {
+      toast('Expansion failed', '');
+    } finally {
+      expandBtn.disabled = false;
+      if (spinner) spinner.style.display = 'none';
+    }
+  });
 }
 
 const openEditorBtn = el('openEditorBtn');

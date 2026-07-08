@@ -193,11 +193,12 @@ export default async function handler(req, res) {
         try {
           const match = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
-            const [, , b64data] = match;
+            const [, mimeType, b64data] = match;
             const buffer = Buffer.from(b64data, 'base64');
+            const ext    = mimeType.includes('png') ? 'png' : 'jpg';
 
             const form = new FormData();
-            form.append('image', new File([buffer], 'athlete.png', { type: 'image/png' }));
+            form.append('image', new File([buffer], `athlete.${ext}`, { type: mimeType }));
             form.append('prompt', prompt);
             form.append('model', 'gpt-image-1');
             form.append('size', size);
@@ -232,6 +233,30 @@ export default async function handler(req, res) {
       console.warn('Vision generation failed — falling back to text generation');
     }
 
+    // ── Prompt expansion — lightweight Gemini text call ────────
+    if (action === 'expand-prompt' && prompt) {
+      if (!GOOGLE_KEY) return res.status(200).json({ expanded: prompt });
+      try {
+        const expandRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `You are an expert sports graphic design director. Expand this short user prompt into a detailed 2–3 sentence design brief that adds professional design vocabulary, composition specifics, and visual detail. Keep all exact names, numbers, teams, schools. Return ONLY the expanded prompt text, no preamble, no quotes.\n\nUser prompt: "${prompt}"` }] }],
+              generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
+            })
+          }
+        );
+        if (expandRes.ok) {
+          const expandData = await expandRes.json();
+          const expanded   = expandData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (expanded) return res.status(200).json({ expanded });
+        }
+      } catch(e) { console.warn('Prompt expansion failed:', e.message); }
+      return res.status(200).json({ expanded: prompt });
+    }
+
     // ── Image generation — Gemini → gpt-image-1 → FLUX ───────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
@@ -249,7 +274,7 @@ export default async function handler(req, res) {
             signal:  controller.signal,
             body:    JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.9 }
             })
           }
         );
@@ -313,7 +338,17 @@ export default async function handler(req, res) {
       {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=55' },
-        body:    JSON.stringify({ input: { prompt, width: width||832, height: height||1024, num_outputs: 1, num_inference_steps: 28, guidance: 3.5, output_format: 'png', output_quality: 90 } })
+        body:    JSON.stringify({ input: {
+          prompt,
+          negative_prompt: 'watermark, blurry text, amateur design, white background, clip art, 3D render artifact, stock photo, low quality, ugly',
+          width:  width  || 832,
+          height: height || 1024,
+          num_outputs:         1,
+          num_inference_steps: 50,
+          guidance:            7.0,
+          output_format:       'png',
+          output_quality:      95
+        } })
       }
     );
 
