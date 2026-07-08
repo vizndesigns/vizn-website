@@ -234,6 +234,77 @@ export default async function handler(req, res) {
     }
 
     // ── Prompt expansion — lightweight Gemini text call ────────
+    // ── Surgical refine — image-to-image targeted edit ───────
+    if (action === 'refine' && req.body.imageDataUrl && req.body.prompt) {
+      const refinePrompt = `You are editing an existing professional sports graphic design.
+
+APPLY ONLY THIS SPECIFIC CHANGE: "${req.body.prompt}"
+
+CRITICAL RULES:
+- Change ONLY the element explicitly mentioned above
+- Preserve ALL other elements EXACTLY: same colors, same typography, same layout, same composition, same athlete position
+- Do NOT redesign, reimagine, or improve anything not mentioned
+- Result must look identical to input except for the one requested change
+- All text and graphics must remain within the canvas boundaries`;
+
+      if (GOOGLE_KEY) {
+        try {
+          const match = req.body.imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            const [, mime, b64] = match;
+            const gemRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [
+                    { inlineData: { mimeType: mime, data: b64 } },
+                    { text: refinePrompt }
+                  ]}],
+                  generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.3 }
+                })
+              }
+            );
+            const gd = await gemRes.json();
+            const part = gd.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+            if (part) {
+              return res.status(200).json({
+                url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+                engine: 'Gemini'
+              });
+            }
+          }
+        } catch(e) { console.error('Gemini refine failed:', e.message); }
+      }
+
+      if (OPENAI_KEY) {
+        try {
+          const match = req.body.imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            const [, mime, b64data] = match;
+            const buffer = Buffer.from(b64data, 'base64');
+            const ext    = mime.includes('png') ? 'png' : 'jpg';
+            const form   = new FormData();
+            form.append('model', 'gpt-image-1');
+            form.append('prompt', refinePrompt);
+            form.append('n', '1');
+            form.append('image', new File([buffer], `design.${ext}`, { type: mime }));
+            const editRes = await fetch('https://api.openai.com/v1/images/edits', {
+              method: 'POST', headers: { Authorization: `Bearer ${OPENAI_KEY}` }, body: form
+            });
+            const ed = await editRes.json();
+            const b64out = ed.data?.[0]?.b64_json;
+            if (b64out) {
+              return res.status(200).json({ url: `data:image/png;base64,${b64out}`, engine: 'GPT-Image-1' });
+            }
+          }
+        } catch(e) { console.error('GPT refine failed:', e.message); }
+      }
+
+      return res.status(500).json({ error: 'Refine failed — no vision engine available' });
+    }
+
     if (action === 'expand-prompt' && prompt) {
       if (!GOOGLE_KEY) return res.status(200).json({ expanded: prompt });
       try {

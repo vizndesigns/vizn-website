@@ -852,13 +852,16 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <div class="tbtn">−</div>
             <div class="tbtn">⊡</div>
           </div>
-          <select class="dim-sel">
-            <option>Stadium Banner — 30ft × 15ft</option>
-            <option>Game Day Banner — 6ft × 4ft</option>
-            <option>Instagram Post — 1080×1080</option>
-            <option>Instagram Story — 1080×1920</option>
-            <option>Twitter/X Header — 1500×500</option>
-            <option>Scoreboard HD — 1920×1080</option>
+          <select class="dim-sel" id="dimSelect">
+            <option value="sq"        data-ratio="1/1"  data-w="1024" data-h="1024">8" × 8" — Social Square</option>
+            <option value="story"     data-ratio="9/16" data-w="1024" data-h="1536">4" × 7" — Story / Reel (9:16)</option>
+            <option value="post12"    data-ratio="2/3"  data-w="1024" data-h="1536" selected>12" × 18" — Portrait Poster</option>
+            <option value="post18"    data-ratio="3/4"  data-w="1024" data-h="1536">18" × 24" — Tall Poster</option>
+            <option value="banner2x4" data-ratio="1/2"  data-w="832"  data-h="1664">2ft × 4ft — Vertical Banner ★</option>
+            <option value="land"      data-ratio="3/2"  data-w="1536" data-h="1024">18" × 12" — Landscape Banner</option>
+            <option value="game6x4"   data-ratio="3/2"  data-w="1536" data-h="1024">6ft × 4ft — Game Day Banner</option>
+            <option value="stadium"   data-ratio="2/1"  data-w="1536" data-h="1024">30ft × 15ft — Stadium Banner</option>
+            <option value="score"     data-ratio="16/9" data-w="1536" data-h="1024">Scoreboard HD (16:9)</option>
           </select>
           <div class="cbar-right">
             <button class="cbar-btn" onclick="document.getElementById('apiPanel').classList.toggle('show')" id="apiTopBtn">⚙ API Key</button>
@@ -1298,6 +1301,20 @@ qsa('.ti').forEach(d => {
 
 updatePreviewRatio(S.type); // set correct ratio on load
 
+// ── Size dropdown — real-time preview + generation dims ──
+const dimSel = document.getElementById('dimSelect');
+if (dimSel) {
+  const applyDim = () => {
+    const opt = dimSel.options[dimSel.selectedIndex];
+    S.outputW = parseInt(opt.dataset.w);
+    S.outputH = parseInt(opt.dataset.h);
+    const frame = document.querySelector('.preview-frame');
+    if (frame) frame.style.aspectRatio = opt.dataset.ratio;
+  };
+  dimSel.addEventListener('change', applyDim);
+  applyDim();
+}
+
 // ── Style preset ──────────────────────────────────────
 qsa('.sty').forEach(s => {
   s.addEventListener('click', () => {
@@ -1471,7 +1488,16 @@ const _typo = {
   retro:      'vintage athletic block letters, worn edges, halftone dot texture overlay'
 };
 
-const _negatives = 'No watermarks, no stock photography feel, no blurry or illegible text, no amateur composition, no 3D render artifacts, no clip art, no white backgrounds, no generic borders, no overused gradients, no muddy low-contrast colors.';
+const _negatives = 'text or graphics outside the canvas boundary, text cut off at any edge, colors not in the specified palette, watermarks, stock photography feel, blurry or illegible text, amateur composition, 3D render artifacts, clip art, generic drop shadows, overused gradients, muddy low-contrast combinations, mismatched fonts, stray colors not listed in the palette.';
+
+const _colorsHex = {
+  aggressive: 'PRIMARY #9E1B32 deep crimson | SECONDARY #FFFFFF pure white | ACCENT #111111 near-black. FORBIDDEN: any blue, green, purple, orange, or gold.',
+  modern:     'PRIMARY #041E42 navy | SECONDARY #FFB612 metallic gold | HIGHLIGHT #FFFFFF white. FORBIDDEN: any red, purple, green, or orange.',
+  collegiate: 'PRIMARY #6D2339 maroon | SECONDARY #F0C040 gold | ACCENT #F5F0E8 cream | DARK #222222 charcoal. FORBIDDEN: blue, green, red, or purple.',
+  minimal:    'PRIMARY #111111 jet black | SECONDARY #FFFFFF white | ACCENT #CCFF00 electric lime (one element only). FORBIDDEN: every other color — including red, blue, orange.',
+  hype:       'PRIMARY #7B2FFF electric purple | SECONDARY #00E5FF neon cyan | ACCENT #FF2D78 hot pink. FORBIDDEN: red, orange, brown, green, or yellow.',
+  retro:      'PRIMARY #CC5500 burnt orange | SECONDARY #F5F0E8 cream | TONES: warm sepia only. FORBIDDEN: bright colors, neon, blue, green, or purple.'
+};
 
 const _composition = {
   'recruiting':   "Low camera angle (worm's-eye view), athlete dominant left two-thirds, typographic lockup right third, stadium depth-of-field background blur.",
@@ -1518,24 +1544,31 @@ function buildPrompt(raw, sport, style, type) {
     lacrosse:   'grass field atmosphere, helmet and stick visual language',
     wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
   };
+  const boundsRule = `CANVAS BOUNDARY — NON-NEGOTIABLE: Every element — text, shapes, graphics, gradients — must be ENTIRELY within the image frame. No text cut off at any edge. Maintain minimum 4% safe margin from all four edges. Size typography so it fits completely inside.`;
+  const colorRule  = `STRICT COLOR ENFORCEMENT — USE ONLY: ${_colorsHex[style] || _colorsHex.aggressive}. Every fill, stroke, gradient, and accent must use only these colors. Introducing any unlisted color is a failure.`;
+  const qualityRule = `PREMIUM QUALITY: Single dramatic key light (upper-left or upper-right), soft ambient fill, deep cast shadows. Layered depth: foreground elements → midground subject → atmospheric background. Typography hierarchy: one dominant headline, one supporting size, one detail size. Every text element must be legible at thumbnail scale. Output must pass as a real Nike, ESPN, Under Armour, or Jordan Brand commissioned asset.`;
+
   return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality. Follow this brief EXACTLY:
 
 "${raw}"
 
 FORMAT: ${layouts[type] || layouts['recruiting']}
 SPORT: ${sport.toUpperCase()} — ${sportCtx[sport] || 'athletic competition atmosphere'}
-COLOR PALETTE: ${_colors[style] || _colors.aggressive}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
 VISUAL REFERENCE: ${_typeVocab[type] || _typeVocab['recruiting']}
+TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
+
+${boundsRule}
+
+${colorRule}
 
 MANDATORY:
 • Render EVERY piece of text from the brief with pixel-sharp clarity — names, numbers, schools, dates, exactly as written
-• Cinematic single key light source, natural ambient fill, deep black shadows
-• Layered spatial depth: foreground elements, midground subject, background atmosphere
-• This must look like a real Nike, ESPN, or Jordan Brand commissioned graphic
+• All text must be 100% inside the frame — no letters touching or crossing any edge
 
-OUTPUT MUST NOT CONTAIN: ${_negatives}`;
+${qualityRule}
+
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1550,21 +1583,27 @@ function buildBackgroundPrompt(raw, sport, style, type) {
     'mvp':          'CLEAR ZONE: 30% to 75% height — empty. MVP headline at top, award graphic accents at bottom.',
     'championship': 'CLEAR ZONE: center 40% to 70% — empty. Championship text fills upper band, celebration elements at very bottom.'
   };
+  const colorRule  = `STRICT COLOR ENFORCEMENT — USE ONLY: ${_colorsHex[style] || _colorsHex.aggressive}. Every fill, stroke, gradient must use only these colors. Any unlisted color is a failure.`;
+  const boundsRule = `CANVAS BOUNDARY: Every typographic element and graphic shape must be ENTIRELY within the image frame. Maintain 4% safe margin from all edges.`;
+
   return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
 Design brief: "${raw}"
 
 SPORT: ${sport.toUpperCase()}
 ${clearZones[type] || clearZones['recruiting']}
-COLORS: ${_colors[style] || _colors.aggressive}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
 COMPOSITION STYLE: ${_composition[type] || _composition['recruiting']}
 
-Include ALL text from the brief as pure typographic elements — player names, numbers, teams, schools.
+${colorRule}
+
+${boundsRule}
+
+Include ALL text from the brief as pure typographic elements — player names, numbers, teams, schools — pixel-sharp and fully inside the frame.
 Large semi-transparent jersey number (40% opacity) as background texture element.
 Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
 
-OUTPUT MUST NOT CONTAIN: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1579,26 +1618,34 @@ function buildVisionPrompt(raw, sport, style, type) {
     'mvp':          `Transform this athlete photo into an MVP AWARD GRAPHIC. Athlete appears triumphant. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
     'championship': `Transform this athlete photo into a CHAMPIONSHIP CELEBRATION GRAPHIC. Athlete appears victorious. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
   };
+  const colorRule  = `STRICT COLOR ENFORCEMENT — USE ONLY: ${_colorsHex[style] || _colorsHex.aggressive}. Every fill, stroke, gradient, and accent uses only these colors. Any unlisted color is a failure.`;
+  const boundsRule = `CANVAS BOUNDARY: All text, graphics, and design elements must be ENTIRELY within the image frame. No element cut off at any edge. Maintain 4% safe margin from all edges.`;
+
   return `${typeDirectives[type] || typeDirectives['recruiting']}
 
 EXACT DESIGN BRIEF — include every element specified:
 "${raw}"
 
 SPORT: ${sport.toUpperCase()}
-COLOR PALETTE: ${_colors[style] || _colors.aggressive}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+TYPOGRAPHY STYLE: ${_typo[style] || _typo.aggressive}
 
-CRITICAL: The athlete in the photo MUST remain clearly visible and recognizable.
+${colorRule}
+
+${boundsRule}
+
+ATHLETE: The person in the photo MUST remain clearly visible, recognizable, and prominently featured.
 Add professional sports graphic design elements behind, beside, and around the athlete.
-Include ALL text from the brief — names, numbers, schools, dates — exactly as written, rendered pixel-sharp.
+Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp, fully inside the frame.
+Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
+Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
 
-OUTPUT MUST NOT CONTAIN: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 
 function getDims(type) {
-  // gpt-image-1 valid sizes: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
+  if (S.outputW && S.outputH) return { w: S.outputW, h: S.outputH };
   const map = {
     'recruiting':   {w:1024, h:1536},
     'commitment':   {w:1024, h:1024},
@@ -2011,11 +2058,36 @@ if (refToggle) refToggle.addEventListener('click', () => {
 });
 
 const refApply = el('refineApply');
-if (refApply) refApply.addEventListener('click', () => {
+if (refApply) refApply.addEventListener('click', async () => {
   const inp = el('refineInput');
   const r = inp ? inp.value.trim() : '';
   if (!r) return;
-  generate(S.lastPrompt + '. Refinement: ' + r);
+  if (!S.lastImage) { generate(S.lastPrompt + '. Refinement: ' + r); return; }
+  startGenOverlay(true);
+  setStatus('Refining design…');
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'refine',
+        prompt: r,
+        imageDataUrl: S.lastImage,
+        sport: S.sport,
+        style: S.style,
+        type: S.type
+      })
+    });
+    const data = await res.json();
+    if (data.url) {
+      showResult(data.url, data.engine);
+    } else {
+      throw new Error(data.error || 'Refine failed');
+    }
+  } catch (err) {
+    clearGenOverlay();
+    setStatus('Refine failed: ' + err.message);
+  }
 });
 
 const dlBtn = el('downloadBtn');
@@ -2566,8 +2638,10 @@ function renderLayers() {
   const active = FC.getActiveObject();
   list.innerHTML = objs.slice().reverse().map((o, ri) => {
     const i      = objs.length - 1 - ri;
-    const ico    = o.data?.type === 'text' ? 'T' : o.data?.type === 'athlete' ? '👤' : o.data?.type === 'bg' ? '🖼' : o.data?.type === 'image' ? '🖼' : '▭';
-    const nm     = o.data?.name || o.type || 'Layer';
+    const isBg   = o.data?.type === 'bg';
+    const ico    = o.data?.type === 'text' ? 'T' : isBg ? '🖼' : o.data?.type === 'athlete' ? '👤' : o.data?.type === 'image' ? '📷' : '▭';
+    const nmRaw  = o.data?.name || o.type || 'Layer';
+    const nm     = isBg ? `<span style="color:#00e5ff">${nmRaw}</span>` : nmRaw;
     const isActive = o === active;
     const locked = o.data?.locked;
     const hidden = !o.visible;
@@ -2579,7 +2653,7 @@ function renderLayers() {
         <span class="ed-layer-up" title="Move Up">↑</span>
         <span class="ed-layer-dn" title="Move Down">↓</span>
         <span class="ed-layer-del" title="Delete">✕</span>
-      ` : '🔒'}
+      ` : '<span style="color:#555;font-size:11px">🔒</span>'}
     </div>`;
   }).join('');
 }
@@ -2630,8 +2704,8 @@ function openEditor() {
         left: 0, top: 0,
         scaleX: FC.width / img.width,
         scaleY: FC.height / img.height,
-        selectable: false, evented: false,
-        data: { type: 'bg', name: 'AI Background', locked: true }
+        selectable: true, evented: true,
+        data: { type: 'bg', name: 'Background' }
       });
       FC.add(img);
       FC.sendToBack(img);
