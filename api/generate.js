@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   const GOOGLE_KEY    = process.env.GOOGLE_API_KEY;
 
   try {
-    const { action, predictionId, jobId, image, prompt, width, height, athleteImage } = req.body;
+    const { action, predictionId, jobId, image, prompt, width, height, athleteImage, style } = req.body;
 
     // ── Poll FLUX prediction ──────────────────────────────────
     if (action === 'poll' && predictionId) {
@@ -384,7 +384,7 @@ CRITICAL RULES:
             signal:  controller.signal,
             body:    JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.9 }
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.4 }
             })
           }
         );
@@ -443,6 +443,16 @@ CRITICAL RULES:
     // Fallback: FLUX Dev
     if (!REPLICATE_KEY) return res.status(500).json({ error: 'No AI key configured. Add OPENAI_API_KEY or REPLICATE_API_KEY.' });
 
+    const styleColorNeg = {
+      aggressive: 'blue colors, navy, gold, yellow, purple, green, cyan',
+      modern:     'red colors, crimson, scarlet, purple, green, orange',
+      collegiate: 'blue, navy, purple, cyan, neon colors, orange',
+      minimal:    'red, blue, purple, orange, pink, brown, warm colors',
+      hype:       'red, orange, brown, green, yellow, earth tones, crimson',
+      retro:      'neon colors, electric blue, purple, cyan, bright colors, green'
+    };
+    const colorNeg = styleColorNeg[style] || '';
+
     const fluxRes = await fetch(
       'https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions',
       {
@@ -450,7 +460,7 @@ CRITICAL RULES:
         headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=55' },
         body:    JSON.stringify({ input: {
           prompt,
-          negative_prompt: 'watermark, blurry text, amateur design, white background, clip art, 3D render artifact, stock photo, low quality, ugly',
+          negative_prompt: `watermark, blurry text, amateur design, clip art, 3D render artifact, stock photo, low quality, text cut off at edges, typography cropped at border, elements outside frame, text touching image edge, ${colorNeg}`,
           width:  width  || 832,
           height: height || 1024,
           num_outputs:         1,
