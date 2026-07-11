@@ -2708,15 +2708,17 @@ function openEditor() {
   FC_history = [];
   FC_future  = [];
 
-  if (!S.lastImage) return;
+  if (!S.lastImage) { buildEditableLayers(w, h); return; }
 
   fabric.Image.fromURL(S.lastImage, img => {
+    // Use ORIGINAL dims (w,h) for scaling so image fills the full canvas at any zoom level
     img.set({
       left: 0, top: 0,
-      scaleX: FC.width / img.width,
-      scaleY: FC.height / img.height,
+      scaleX: w / img.width,
+      scaleY: h / img.height,
+      opacity: 0.55,          // dim so editable text layers are clearly visible on top
       selectable: true, evented: true,
-      data: { type: 'bg', name: 'Background' }
+      data: { type: 'bg', name: 'Background (original)' }
     });
     FC.add(img);
     FC.sendToBack(img);
@@ -2725,11 +2727,11 @@ function openEditor() {
     if (S.athleteCutouts && S.athleteCutouts.length > 0) {
       S.athleteCutouts.slice(0, 3).forEach((cutUrl, ci) => {
         fabric.Image.fromURL(cutUrl, ath => {
-          const targetH = FC.height * 0.88;
+          const targetH = h * 0.88;
           const sc2  = targetH / ath.height;
-          const slot = FC.width / S.athleteCutouts.slice(0,3).length;
+          const slot = w / Math.min(S.athleteCutouts.length, 3);
           ath.set({
-            left: slot * ci + slot / 2, top: FC.height,
+            left: slot * ci + slot / 2, top: h,
             originX: 'center', originY: 'bottom',
             scaleX: sc2, scaleY: sc2,
             selectable: true, evented: true,
@@ -2744,189 +2746,190 @@ function openEditor() {
 
     saveHistory();
     renderLayers();
-
-    // Build fully editable layer stack
-    buildEditableLayers();
+    buildEditableLayers(w, h);
   }, { crossOrigin: 'anonymous' });
 }
 
-// Erase detected text regions from background image so editable layers don't double
-// ── Layout positions per design type ────────────────────────
-function getTypeLayouts(type, W, H) {
+// ── Layout positions per design type (uses original image dims) ─
+function getTypeLayouts(type, w, h) {
   const base = {
-    headline: { x: W*0.5, y: H*0.70, size: Math.round(H*0.07), weight:'bold' },
-    number:   { x: W*0.5, y: H*0.45, size: Math.round(H*0.13), weight:'bold' },
-    school:   { x: W*0.5, y: H*0.82, size: Math.round(H*0.042), weight:'bold' },
-    subtitle: { x: W*0.5, y: H*0.89, size: Math.round(H*0.032), weight:'normal' },
-    detail:   { x: W*0.5, y: H*0.94, size: Math.round(H*0.025), weight:'normal' }
+    headline: { x: w*0.5, y: h*0.70, size: Math.round(h*0.07), weight:'bold' },
+    number:   { x: w*0.5, y: h*0.45, size: Math.round(h*0.13), weight:'bold' },
+    school:   { x: w*0.5, y: h*0.82, size: Math.round(h*0.042), weight:'bold' },
+    subtitle: { x: w*0.5, y: h*0.89, size: Math.round(h*0.032), weight:'normal' },
+    detail:   { x: w*0.5, y: h*0.94, size: Math.round(h*0.025), weight:'normal' }
   };
   const maps = {
     'player-card':  { ...base,
-      headline: { x:W*.5, y:H*.68, size:Math.round(H*.065), weight:'bold' },
-      number:   { x:W*.5, y:H*.32, size:Math.round(H*.14),  weight:'bold' },
-      school:   { x:W*.5, y:H*.78, size:Math.round(H*.04),  weight:'bold' },
-      subtitle: { x:W*.5, y:H*.85, size:Math.round(H*.032), weight:'normal' },
-      detail:   { x:W*.5, y:H*.91, size:Math.round(H*.025), weight:'normal' }
+      headline: { x:w*.5, y:h*.68, size:Math.round(h*.065), weight:'bold' },
+      number:   { x:w*.5, y:h*.32, size:Math.round(h*.14),  weight:'bold' },
+      school:   { x:w*.5, y:h*.78, size:Math.round(h*.04),  weight:'bold' },
+      subtitle: { x:w*.5, y:h*.85, size:Math.round(h*.032), weight:'normal' },
+      detail:   { x:w*.5, y:h*.91, size:Math.round(h*.025), weight:'normal' }
     },
     'recruiting':   { ...base,
-      headline: { x:W*.5, y:H*.73, size:Math.round(H*.075), weight:'bold' },
-      number:   { x:W*.5, y:H*.48, size:Math.round(H*.16),  weight:'bold' },
-      school:   { x:W*.5, y:H*.83, size:Math.round(H*.044), weight:'bold' },
-      subtitle: { x:W*.5, y:H*.90, size:Math.round(H*.033), weight:'normal' },
-      detail:   { x:W*.5, y:H*.95, size:Math.round(H*.025), weight:'normal' }
+      headline: { x:w*.5, y:h*.73, size:Math.round(h*.075), weight:'bold' },
+      number:   { x:w*.5, y:h*.48, size:Math.round(h*.16),  weight:'bold' },
+      school:   { x:w*.5, y:h*.83, size:Math.round(h*.044), weight:'bold' },
+      subtitle: { x:w*.5, y:h*.90, size:Math.round(h*.033), weight:'normal' },
+      detail:   { x:w*.5, y:h*.95, size:Math.round(h*.025), weight:'normal' }
     },
     'commitment':   { ...base,
-      headline: { x:W*.5, y:H*.12, size:Math.round(H*.075), weight:'bold' },
-      number:   { x:W*.5, y:H*.42, size:Math.round(H*.13),  weight:'bold' },
-      school:   { x:W*.5, y:H*.60, size:Math.round(H*.06),  weight:'bold' },
-      subtitle: { x:W*.5, y:H*.72, size:Math.round(H*.04),  weight:'normal' },
-      detail:   { x:W*.5, y:H*.82, size:Math.round(H*.03),  weight:'normal' }
+      headline: { x:w*.5, y:h*.12, size:Math.round(h*.075), weight:'bold' },
+      number:   { x:w*.5, y:h*.42, size:Math.round(h*.13),  weight:'bold' },
+      school:   { x:w*.5, y:h*.60, size:Math.round(h*.06),  weight:'bold' },
+      subtitle: { x:w*.5, y:h*.72, size:Math.round(h*.04),  weight:'normal' },
+      detail:   { x:w*.5, y:h*.82, size:Math.round(h*.03),  weight:'normal' }
     },
     'championship': { ...base,
-      headline: { x:W*.5, y:H*.22, size:Math.round(H*.11),  weight:'bold' },
-      number:   { x:W*.5, y:H*.40, size:Math.round(H*.08),  weight:'bold' },
-      school:   { x:W*.5, y:H*.55, size:Math.round(H*.065), weight:'bold' },
-      subtitle: { x:W*.5, y:H*.68, size:Math.round(H*.05),  weight:'normal' },
-      detail:   { x:W*.5, y:H*.78, size:Math.round(H*.038), weight:'normal' }
+      headline: { x:w*.5, y:h*.22, size:Math.round(h*.11),  weight:'bold' },
+      number:   { x:w*.5, y:h*.40, size:Math.round(h*.08),  weight:'bold' },
+      school:   { x:w*.5, y:h*.55, size:Math.round(h*.065), weight:'bold' },
+      subtitle: { x:w*.5, y:h*.68, size:Math.round(h*.05),  weight:'normal' },
+      detail:   { x:w*.5, y:h*.78, size:Math.round(h*.038), weight:'normal' }
     },
     'mvp':          { ...base,
-      headline: { x:W*.5, y:H*.15, size:Math.round(H*.09),  weight:'bold' },
-      number:   { x:W*.5, y:H*.42, size:Math.round(H*.13),  weight:'bold' },
-      school:   { x:W*.5, y:H*.63, size:Math.round(H*.05),  weight:'bold' },
-      subtitle: { x:W*.5, y:H*.74, size:Math.round(H*.038), weight:'normal' },
-      detail:   { x:W*.5, y:H*.83, size:Math.round(H*.03),  weight:'normal' }
+      headline: { x:w*.5, y:h*.15, size:Math.round(h*.09),  weight:'bold' },
+      number:   { x:w*.5, y:h*.42, size:Math.round(h*.13),  weight:'bold' },
+      school:   { x:w*.5, y:h*.63, size:Math.round(h*.05),  weight:'bold' },
+      subtitle: { x:w*.5, y:h*.74, size:Math.round(h*.038), weight:'normal' },
+      detail:   { x:w*.5, y:h*.83, size:Math.round(h*.03),  weight:'normal' }
     },
     'senior-night': { ...base,
-      headline: { x:W*.5, y:H*.12, size:Math.round(H*.075), weight:'bold' },
-      number:   { x:W*.5, y:H*.40, size:Math.round(H*.14),  weight:'bold' },
-      school:   { x:W*.5, y:H*.63, size:Math.round(H*.05),  weight:'bold' },
-      subtitle: { x:W*.5, y:H*.74, size:Math.round(H*.038), weight:'normal' },
-      detail:   { x:W*.5, y:H*.84, size:Math.round(H*.03),  weight:'normal' }
+      headline: { x:w*.5, y:h*.12, size:Math.round(h*.075), weight:'bold' },
+      number:   { x:w*.5, y:h*.40, size:Math.round(h*.14),  weight:'bold' },
+      school:   { x:w*.5, y:h*.63, size:Math.round(h*.05),  weight:'bold' },
+      subtitle: { x:w*.5, y:h*.74, size:Math.round(h*.038), weight:'normal' },
+      detail:   { x:w*.5, y:h*.84, size:Math.round(h*.03),  weight:'normal' }
     },
     'team-poster':  { ...base,
-      headline: { x:W*.5, y:H*.20, size:Math.round(H*.09),  weight:'bold' },
-      number:   { x:W*.5, y:H*.50, size:Math.round(H*.08),  weight:'bold' },
-      school:   { x:W*.5, y:H*.34, size:Math.round(H*.06),  weight:'bold' },
-      subtitle: { x:W*.5, y:H*.73, size:Math.round(H*.045), weight:'normal' },
-      detail:   { x:W*.5, y:H*.83, size:Math.round(H*.033), weight:'normal' }
+      headline: { x:w*.5, y:h*.20, size:Math.round(h*.09),  weight:'bold' },
+      number:   { x:w*.5, y:h*.50, size:Math.round(h*.08),  weight:'bold' },
+      school:   { x:w*.5, y:h*.34, size:Math.round(h*.06),  weight:'bold' },
+      subtitle: { x:w*.5, y:h*.73, size:Math.round(h*.045), weight:'normal' },
+      detail:   { x:w*.5, y:h*.83, size:Math.round(h*.033), weight:'normal' }
     },
     'schedule':     { ...base,
-      headline: { x:W*.5, y:H*.14, size:Math.round(H*.075), weight:'bold' },
-      school:   { x:W*.5, y:H*.26, size:Math.round(H*.055), weight:'bold' },
-      number:   { x:W*.5, y:H*.40, size:Math.round(H*.05),  weight:'bold' },
-      subtitle: { x:W*.5, y:H*.54, size:Math.round(H*.038), weight:'normal' },
-      detail:   { x:W*.5, y:H*.68, size:Math.round(H*.03),  weight:'normal' }
+      headline: { x:w*.5, y:h*.14, size:Math.round(h*.075), weight:'bold' },
+      school:   { x:w*.5, y:h*.26, size:Math.round(h*.055), weight:'bold' },
+      number:   { x:w*.5, y:h*.40, size:Math.round(h*.05),  weight:'bold' },
+      subtitle: { x:w*.5, y:h*.54, size:Math.round(h*.038), weight:'normal' },
+      detail:   { x:w*.5, y:h*.68, size:Math.round(h*.03),  weight:'normal' }
     }
   };
   return maps[type] || base;
 }
 
-// ── Build fully editable layer stack ────────────────────────
-async function buildEditableLayers() {
-  const statusEl = el('edLayerStatus');
-  const W = FC.width, H = FC.height;
-  const {w, h} = getDims(S.type);
+// ── Parse text elements from user's prompt locally (no API call) ──
+function parsePromptText(prompt) {
+  if (!prompt) return [];
+  const results = [];
+  const used = new Set();
 
-  try {
-    // Step 1: parse text content from user's prompt (fast, Gemini text)
-    if (statusEl) statusEl.textContent = 'parsing text…';
-    const parseR = await fetch('/api/generate', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ action: 'parse-prompt-text', prompt: S.lastPrompt || '' })
-    });
-    const { texts } = await parseR.json();
+  const add = (text, role) => {
+    const key = text.toLowerCase();
+    if (used.has(key)) return;
+    used.add(key);
+    results.push({ text, role });
+  };
 
-    // Step 2: generate a text-free background using background prompt
-    if (statusEl) statusEl.textContent = 'building clean background…';
-    const bgPrompt = buildBackgroundPrompt(S.lastPrompt || 'sports design background', S.sport, S.style, S.type)
-      + '\n\nCRITICAL RULE: ZERO text. ZERO typography. ZERO words. ZERO numbers. ZERO letters. Only background colors, shapes, textures, and effects — no readable content anywhere.';
+  // Jersey numbers: #13, #00, No. 7, jersey 23, number 4
+  const numMatches = prompt.match(/#\d{1,2}|(?:jersey|number|no\.?)\s*(\d{1,2})/gi) || [];
+  numMatches.forEach(m => {
+    const n = m.match(/\d+/);
+    if (n) add(n[0], 'number');
+  });
 
-    const bgRes = await fetch('/api/generate', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ prompt: bgPrompt, width: w, height: h })
-    });
-    const bgData = await bgRes.json();
+  // "Class of YYYY" or "2024" graduation year
+  const classMatch = prompt.match(/class of (\d{4})|'?(\d{2})\s*$/i);
+  if (classMatch) add(classMatch[0].toUpperCase(), 'detail');
 
-    // Handle async FLUX polling if needed
-    let bgImageUrl = null;
-    if (bgData.status === 'succeeded' && bgData.imageUrl) {
-      bgImageUrl = bgData.imageUrl;
-    } else if (bgData.status === 'processing' && bgData.predictionId) {
-      if (statusEl) statusEl.textContent = 'rendering background…';
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 3000));
-        const poll = await fetch('/api/generate', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({action:'poll', predictionId: bgData.predictionId})
-        });
-        const pd = await poll.json();
-        if (pd.status === 'succeeded' && pd.imageUrl) { bgImageUrl = pd.imageUrl; break; }
-        if (pd.status === 'failed') break;
-      }
-    }
+  // GPA / stats like "4.0 GPA", "6'2"", "185 lbs"
+  const statMatches = prompt.match(/[\d.]+\s*(?:gpa|lbs?|ft\.?|'|"|\d")/gi) || [];
+  statMatches.forEach(m => add(m.toUpperCase(), 'detail'));
 
-    if (statusEl) statusEl.textContent = '';
+  // Quoted strings are usually the most important explicit text
+  const quoted = prompt.match(/"([^"]{1,40})"|'([^']{1,40})'/g) || [];
+  quoted.forEach(m => {
+    const clean = m.replace(/['"]/g, '').trim();
+    if (clean.length > 1) add(clean, results.length === 0 ? 'headline' : 'subtitle');
+  });
 
-    // Step 3: replace background with text-free version
-    if (bgImageUrl) {
-      const bgObj = FC.getObjects().find(o => o.data?.type === 'bg');
-      await new Promise(resolve => {
-        fabric.Image.fromURL(bgImageUrl, newBg => {
-          newBg.set({
-            left: 0, top: 0,
-            scaleX: W / newBg.width,
-            scaleY: H / newBg.height,
-            selectable: true, evented: true,
-            data: { type: 'bg', name: 'Background' }
-          });
-          if (bgObj) FC.remove(bgObj);
-          FC.add(newBg);
-          FC.sendToBack(newBg);
-          resolve();
-        });
-      });
-    }
+  // Capitalized multi-word phrases (proper nouns — names, school names)
+  // Must be 2+ consecutive capitalized words
+  const properNouns = prompt.match(/(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/g) || [];
+  properNouns.forEach(m => {
+    const words = m.trim().split(/\s+/);
+    if (words.length < 2) return;
+    // Heuristic: shorter names are player names (headline), longer are school/team (school)
+    const role = words.length <= 3 ? 'headline' : 'school';
+    add(m.trim(), role);
+  });
 
-    // Step 4: add editable text layers at layout positions
-    const layouts = getTypeLayouts(S.type, W, H);
-    const usedRoles = new Set();
+  // Single ALL-CAPS words (team names, mottoes)
+  const caps = prompt.match(/\b[A-Z]{3,}\b/g) || [];
+  caps.forEach(m => {
+    if (/^(NFL|NBA|NCAA|MVP|GPA|VHS|THE|AND|FOR|WITH|THAT)$/.test(m)) return;
+    add(m, 'school');
+  });
 
-    (texts || []).forEach(elem => {
-      if (!elem.text) return;
-      const role = elem.role || 'detail';
-      const pos  = layouts[role] || layouts.detail;
-      // Offset duplicated roles downward so they don't stack
-      const roleCount = usedRoles.has(role) ? 1 : 0;
-      usedRoles.add(role);
-      const t = new fabric.IText(elem.text.toUpperCase(), {
-        left:        pos.x,
-        top:         pos.y + roleCount * pos.size * 1.4,
-        originX:     'center',
-        originY:     'center',
-        fontSize:    pos.size,
-        fill:        '#ffffff',
-        fontWeight:  pos.weight || 'bold',
-        fontFamily:  'Impact',
-        textAlign:   'center',
-        stroke:      pos.weight === 'bold' ? '#000000' : null,
-        strokeWidth: pos.weight === 'bold' ? Math.max(1, Math.round(pos.size * 0.04)) : 0,
-        selectable:  true,
-        editable:    true,
-        data: { type: 'text', name: elem.text.slice(0, 22), role, detected: true }
-      });
-      FC.add(t);
-    });
-
-    FC.renderAll();
-    saveHistory();
-    renderLayers();
-    toast('All layers ready — click any to select and edit', 'ok');
-
-  } catch(e) {
-    console.warn('buildEditableLayers failed:', e.message);
-    if (statusEl) statusEl.textContent = '';
-    toast('Layer build failed — try again', 'err');
+  // Fallback if nothing matched
+  if (results.length === 0) {
+    return [
+      { text: 'PLAYER NAME', role: 'headline' },
+      { text: '00',           role: 'number' },
+      { text: 'TEAM NAME',    role: 'school' }
+    ];
   }
+
+  return results;
+}
+
+// ── Build fully editable layer stack (instant — no API call) ────────────────────────
+function buildEditableLayers(w, h) {
+  const statusEl = el('edLayerStatus');
+  if (statusEl) statusEl.textContent = '';
+
+  const texts   = parsePromptText(S.lastPrompt || '');
+  const layouts = getTypeLayouts(S.type, w, h);
+  const roleCounts = {};
+
+  texts.forEach(elem => {
+    if (!elem.text) return;
+    const role = elem.role || 'detail';
+    const pos  = layouts[role] || layouts.detail;
+
+    const idx = roleCounts[role] || 0;
+    roleCounts[role] = idx + 1;
+
+    const yOffset = idx * (pos.size * 1.5);
+    const isBig   = pos.size > 30;
+
+    const t = new fabric.IText(elem.text.toUpperCase(), {
+      left:        pos.x,
+      top:         pos.y + yOffset,
+      originX:     'center',
+      originY:     'center',
+      fontSize:    pos.size,
+      fill:        '#ffffff',
+      fontWeight:  pos.weight || 'bold',
+      fontFamily:  'Impact',
+      textAlign:   'center',
+      stroke:      isBig ? '#000000' : null,
+      strokeWidth: isBig ? Math.max(1, Math.round(pos.size * 0.035)) : 0,
+      shadow:      new fabric.Shadow({ color: 'rgba(0,0,0,0.9)', blur: 10, offsetX: 2, offsetY: 3 }),
+      selectable:  true,
+      evented:     true,
+      editable:    true,
+      data: { type: 'text', name: elem.text.slice(0, 22), role, detected: true }
+    });
+    FC.add(t);
+  });
+
+  FC.renderAll();
+  saveHistory();
+  renderLayers();
+  toast('Click to select • Double-click text to edit', 'ok');
 }
 
 function closeEditor() {
