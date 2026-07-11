@@ -344,33 +344,31 @@ CRITICAL RULES:
       return res.status(500).json({ error: 'Refine failed — no vision engine available' });
     }
 
-    // ── Text layer detection — GPT-4o Vision ─────────────────
+    // ── Layer extraction — GPT-4o Vision (text + shapes) ─────
     if (action === 'detect-text' && req.body.imageDataUrl) {
-      if (!OPENAI_KEY) return res.status(200).json({ elements: [] });
+      if (!OPENAI_KEY) return res.status(200).json({ texts: [], shapes: [] });
       try {
-        const imageUrl = req.body.imageDataUrl; // data URL or https URL both work
+        const imageUrl = req.body.imageDataUrl;
         const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            max_tokens: 1500,
+            model: 'gpt-4o',
+            max_tokens: 2000,
             messages: [{
               role: 'user',
               content: [
                 { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } },
-                { type: 'text', text: `You are analyzing a sports graphic design image. Find every text element visible — headlines, names, numbers, labels, dates, taglines, everything.
+                { type: 'text', text: `Analyze this sports graphic design. Extract ALL design layers.
 
-For each text element return a JSON object with:
-- "text": exact text content as it appears
-- "cx": center X as fraction 0.0–1.0 of image width (0=left edge, 1=right edge)
-- "cy": center Y as fraction 0.0–1.0 of image height (0=top, 1=bottom)
-- "h": font height as fraction 0.0–1.0 of image height (a headline taking 10% of height = 0.10)
-- "color": best hex color approximation e.g. "#ffffff" or "#FFD700"
-- "bold": true or false
-- "align": "left" "center" or "right"
+TEXT ELEMENTS — every piece of visible text (headlines, names, numbers, subtitles, labels, dates):
+Each text object needs: "text" (exact string), "cx" (center-x 0-1), "cy" (center-y 0-1), "w" (width fraction 0-1), "h" (line-height fraction 0-1 of total image height), "color" (hex like "#ffffff"), "bold" (true/false), "italic" (true/false), "align" ("left"/"center"/"right")
 
-Return ONLY raw JSON with no markdown: {"elements":[...]}` }
+SHAPE ELEMENTS — color blocks, rectangles, diagonal overlays, gradient panels, borders, frames (NOT the athlete photo):
+Each shape object needs: "cx", "cy", "w", "h" (all fractions 0-1), "color" (hex of dominant fill), "opacity" (0-1), "angle" (rotation degrees, 0 if straight)
+
+Return ONLY this exact JSON, no markdown:
+{"texts":[...],"shapes":[...]}` }
               ]
             }]
           })
@@ -379,13 +377,13 @@ Return ONLY raw JSON with no markdown: {"elements":[...]}` }
           const vd = await visionRes.json();
           const raw = vd.choices?.[0]?.message?.content?.trim() || '{}';
           try {
-            const cleaned = raw.replace(/^```json\n?/,'').replace(/```$/,'').trim();
+            const cleaned = raw.replace(/^```json\n?/g,'').replace(/```\s*$/g,'').trim();
             const parsed  = JSON.parse(cleaned);
-            return res.status(200).json({ elements: parsed.elements || [] });
-          } catch(e) { console.warn('Layer parse error:', e.message); }
+            return res.status(200).json({ texts: parsed.texts || [], shapes: parsed.shapes || [] });
+          } catch(e) { console.warn('Layer parse error:', e.message, raw.slice(0,200)); }
         }
       } catch(e) { console.warn('detect-text failed:', e.message); }
-      return res.status(200).json({ elements: [] });
+      return res.status(200).json({ texts: [], shapes: [] });
     }
 
     if (action === 'expand-prompt' && prompt) {

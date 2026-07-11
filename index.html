@@ -2642,9 +2642,18 @@ function renderLayers() {
     const i      = objs.length - 1 - ri;
     const isBg   = o.data?.type === 'bg';
     const isDetected = o.data?.detected;
-    const ico    = o.data?.type === 'text' ? (isDetected ? '<span style="color:var(--lime)">T</span>' : 'T') : isBg ? '🖼' : o.data?.type === 'athlete' ? '👤' : o.data?.type === 'image' ? '📷' : '▭';
+    const isShape    = o.data?.type === 'shape';
+    const ico    = o.data?.type === 'text' ? (isDetected ? '<span style="color:var(--lime)">T</span>' : 'T')
+                 : isBg ? '🖼'
+                 : o.data?.type === 'athlete' ? '👤'
+                 : o.data?.type === 'image' ? '📷'
+                 : isShape && isDetected ? '<span style="color:#ffaa00">▭</span>'
+                 : '▭';
     const nmRaw  = o.data?.name || o.type || 'Layer';
-    const nm     = isBg ? `<span style="color:#00e5ff">${nmRaw}</span>` : isDetected ? `<span style="color:var(--lime)">${nmRaw}</span>` : nmRaw;
+    const nm     = isBg ? `<span style="color:#00e5ff">${nmRaw}</span>`
+                 : isDetected && !isShape ? `<span style="color:var(--lime)">${nmRaw}</span>`
+                 : isDetected && isShape  ? `<span style="color:#ffaa00">${nmRaw}</span>`
+                 : nmRaw;
     const isActive = o === active;
     const locked = o.data?.locked;
     const hidden = !o.visible;
@@ -2741,9 +2750,56 @@ function openEditor() {
   }, { crossOrigin: 'anonymous' });
 }
 
+// Erase detected text regions from background image so editable layers don't double
+async function maskTextFromImage(imgDataUrl, textElems) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const cv  = document.createElement('canvas');
+      cv.width  = img.width;
+      cv.height = img.height;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      textElems.forEach(elem => {
+        const pw = img.width, ph = img.height;
+        const bw = Math.ceil((elem.w  || 0.5)  * pw);
+        const bh = Math.ceil((elem.h  || 0.06) * ph * 2.4); // generous height
+        const bx = Math.max(0, Math.round((elem.cx || 0.5) * pw - bw / 2));
+        const by = Math.max(0, Math.round((elem.cy || 0.5) * ph - bh / 2));
+        const safeW = Math.min(bw, pw - bx);
+        const safeH = Math.min(bh, ph - by);
+        if (safeW <= 0 || safeH <= 0) return;
+
+        // Sample pixel color from directly above/below the text box
+        let r = 0, g = 0, b = 0, cnt = 0;
+        [[bx, Math.max(0, by - 8), safeW, 8], [bx, Math.min(ph - 8, by + safeH), safeW, 8]].forEach(([sx, sy, sw, sh]) => {
+          try {
+            const px = ctx.getImageData(sx, sy, Math.max(1, sw), Math.max(1, sh)).data;
+            for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i+1]; b += px[i+2]; cnt++; }
+          } catch(_) {}
+        });
+        if (!cnt) { r = g = b = 10; cnt = 1; }
+        r = Math.round(r/cnt); g = Math.round(g/cnt); b = Math.round(b/cnt);
+
+        // Paint over the text area with sampled background color
+        ctx.save();
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(bx, by, safeW, safeH);
+        ctx.restore();
+      });
+
+      resolve(cv.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(imgDataUrl);
+    img.src = imgDataUrl;
+  });
+}
+
 async function detectAndCreateTextLayers(W, H) {
   const statusEl = el('edLayerStatus');
-  if (statusEl) statusEl.textContent = 'detecting layers…';
+  if (statusEl) statusEl.textContent = 'extracting layers…';
 
   try {
     const r = await fetch('/api/generate', {
@@ -2754,10 +2810,55 @@ async function detectAndCreateTextLayers(W, H) {
     const data = await r.json();
     if (statusEl) statusEl.textContent = '';
 
-    const elements = data.elements || [];
-    if (!elements.length) { toast('No text layers detected', ''); return; }
+    const texts  = data.texts  || [];
+    const shapes = data.shapes || [];
+    if (!texts.length && !shapes.length) { toast('No layers detected', ''); return; }
 
-    elements.forEach(elem => {
+    // Mask the text regions from the background so editable layers don't double
+    if (texts.length) {
+      const maskedUrl = await maskTextFromImage(S.lastImage, texts);
+      const bgObj = FC.getObjects().find(o => o.data?.type === 'bg');
+      if (bgObj) {
+        fabric.Image.fromURL(maskedUrl, newImg => {
+          newImg.set({
+            left: 0, top: 0,
+            scaleX: bgObj.scaleX,
+            scaleY: bgObj.scaleY,
+            selectable: true, evented: true,
+            data: { type: 'bg', name: 'Background' }
+          });
+          FC.remove(bgObj);
+          FC.add(newImg);
+          FC.sendToBack(newImg);
+          FC.renderAll();
+          renderLayers();
+        });
+      }
+    }
+
+    // Add shape layers (behind text)
+    shapes.forEach(shape => {
+      const rect = new fabric.Rect({
+        left:    (shape.cx || 0.5) * W - ((shape.w || 0.5) * W) / 2,
+        top:     (shape.cy || 0.5) * H - ((shape.h || 0.3) * H) / 2,
+        width:   (shape.w  || 0.5) * W,
+        height:  (shape.h  || 0.3) * H,
+        fill:    shape.color   || '#111111',
+        opacity: shape.opacity != null ? shape.opacity : 0.85,
+        angle:   shape.angle   || 0,
+        rx: 4, ry: 4,
+        selectable: true, evented: true,
+        data: { type: 'shape', name: 'Shape ' + (shape.color || ''), detected: true }
+      });
+      FC.add(rect);
+      FC.sendToBack(rect);
+      // Keep bg furthest back after adding each shape
+      const bgObj2 = FC.getObjects().find(o => o.data?.type === 'bg');
+      if (bgObj2) FC.sendToBack(bgObj2);
+    });
+
+    // Add text layers on top
+    texts.forEach(elem => {
       if (!elem.text) return;
       const fontSize = Math.max(10, Math.min(Math.round((elem.h || 0.05) * H), 400));
       const t = new fabric.IText(elem.text, {
@@ -2766,13 +2867,13 @@ async function detectAndCreateTextLayers(W, H) {
         originX:    'center',
         originY:    'center',
         fontSize,
-        fill:        elem.color  || '#ffffff',
-        fontWeight:  elem.bold   ? 'bold' : 'normal',
-        fontStyle:   elem.italic ? 'italic' : 'normal',
-        textAlign:   elem.align  || 'center',
-        fontFamily:  'Impact',
-        selectable:  true,
-        editable:    true,
+        fill:       elem.color  || '#ffffff',
+        fontWeight: elem.bold   ? 'bold' : 'normal',
+        fontStyle:  elem.italic ? 'italic' : 'normal',
+        textAlign:  elem.align  || 'center',
+        fontFamily: 'Impact',
+        selectable: true,
+        editable:   true,
         data: { type: 'text', name: elem.text.slice(0, 22), detected: true }
       });
       FC.add(t);
@@ -2781,7 +2882,8 @@ async function detectAndCreateTextLayers(W, H) {
     FC.renderAll();
     saveHistory();
     renderLayers();
-    toast(elements.length + ' text layers ready — click any to edit', 'ok');
+    const total = texts.length + shapes.length;
+    toast(total + ' layers extracted — click any to edit', 'ok');
   } catch(e) {
     console.warn('Layer detection failed:', e.message);
     if (statusEl) statusEl.textContent = '';
