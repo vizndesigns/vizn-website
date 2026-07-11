@@ -819,8 +819,8 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
         </div>
         <div class="cg"><div class="clabel">Style Preset</div>
           <div class="sty-grid">
-            <div class="sty on" data-style="aggressive">Aggressive</div>
-            <div class="sty" data-style="modern">Modern</div>
+            <div class="sty" data-style="aggressive">Aggressive</div>
+            <div class="sty on" data-style="modern">Modern</div>
             <div class="sty" data-style="collegiate">Collegiate</div>
             <div class="sty" data-style="minimal">Minimal</div>
             <div class="sty" data-style="hype">Hype</div>
@@ -1237,7 +1237,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 // ═══════════════════════════════════════════════════════
 
 const S = {
-  sport:'football', type:'recruiting', style:'aggressive',
+  sport:'football', type:'recruiting', style:'modern',
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
   athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
@@ -1516,11 +1516,11 @@ const _negatives = 'text or graphics outside the canvas boundary, text cut off a
 // Color descriptions use real-world visual analogies — far more reliable than hex codes for AI image models
 const _colorDesc = {
   aggressive:
-`COLOR SCHEME: CRIMSON RED and WHITE only.
-- Large backgrounds and shapes: deep blood-red crimson (same red as Kansas City Chiefs jerseys, or the Chicago Bulls logo)
-- All typography: pure bright white
-- Outlines and shadow elements: jet black
-- ZERO blue, ZERO navy, ZERO gold, ZERO purple, ZERO green in this image`,
+`COLOR SCHEME: DEEP BLACK and ELECTRIC GOLD only.
+- Background and large shapes: pure jet black (same black as the Las Vegas Raiders, or the Pittsburgh Steelers helmet stripe)
+- All typography and key graphic elements: brilliant metallic gold (same gold as the Pittsburgh Steelers helmets, or the Vegas Golden Knights)
+- Accent highlights: white only — no other colors allowed
+- ZERO red, ZERO crimson, ZERO blue, ZERO purple, ZERO green, ZERO orange in this image`,
 
   modern:
 `COLOR SCHEME: NAVY BLUE and GOLD only.
@@ -1560,7 +1560,7 @@ const _colorDesc = {
 
 // Keep _colorsHex as fallback reference
 const _colorsHex = {
-  aggressive: '#9E1B32 crimson, #FFFFFF white, #111111 black',
+  aggressive: '#111111 black, #FFB612 gold, #FFFFFF white',
   modern:     '#041E42 navy, #FFB612 gold, #FFFFFF white',
   collegiate: '#6D2339 maroon, #F0C040 gold, #F5F0E8 cream',
   minimal:    '#111111 black, #FFFFFF white, #CCFF00 lime',
@@ -1645,7 +1645,11 @@ LAYOUT BOUNDARY: Position ALL text and graphic elements with generous padding �
 MANDATORY: Render EVERY text element from the brief pixel-sharp — names, numbers, schools, dates, exactly as written.
 QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Typography hierarchy: one dominant headline, one supporting size, one detail. Must pass as Nike/ESPN/Jordan Brand commissioned asset.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}
+
+⚠ FINAL COLOR CHECK — ENFORCE BEFORE RENDERING:
+${colorInstr}
+This is non-negotiable. Any color outside the scheme above will make this design WRONG.`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1681,7 +1685,11 @@ Include ALL text from brief as typographic elements — pixel-sharp, fully insid
 Large semi-transparent jersey number (40% opacity) as background texture.
 Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}
+
+⚠ FINAL COLOR CHECK — ENFORCE BEFORE RENDERING:
+${colorInstr}
+This is non-negotiable. Any color outside the scheme above will make this design WRONG.`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1719,7 +1727,11 @@ Typography hierarchy: one dominant headline, one supporting size, one detail siz
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}
+
+⚠ FINAL COLOR CHECK — ENFORCE BEFORE RENDERING:
+${colorInstr}
+This is non-negotiable. Any color outside the scheme above will make this design WRONG.`;
 }
 
 
