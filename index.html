@@ -2723,13 +2723,15 @@ function openEditor() {
     FC.add(img);
     FC.sendToBack(img);
 
-    // Athlete cutouts
-    if (S.athleteCutouts && S.athleteCutouts.length > 0) {
-      S.athleteCutouts.slice(0, 3).forEach((cutUrl, ci) => {
+    // Athlete cutouts — load all, then add text layers on top
+    const cutoutUrls = (S.athleteCutouts || []).slice(0, 3);
+    if (cutoutUrls.length > 0) {
+      let loaded = 0;
+      cutoutUrls.forEach((cutUrl, ci) => {
         fabric.Image.fromURL(cutUrl, ath => {
           const targetH = h * 0.88;
           const sc2  = targetH / ath.height;
-          const slot = w / Math.min(S.athleteCutouts.length, 3);
+          const slot = w / cutoutUrls.length;
           ath.set({
             left: slot * ci + slot / 2, top: h,
             originX: 'center', originY: 'bottom',
@@ -2738,15 +2740,20 @@ function openEditor() {
             data: { type: 'athlete', name: 'Athlete ' + (ci + 1) }
           });
           FC.add(ath);
-          FC.renderAll();
-          renderLayers();
+          loaded++;
+          if (loaded === cutoutUrls.length) {
+            // All athletes loaded — now add text ON TOP
+            saveHistory();
+            renderLayers();
+            buildEditableLayers(w, h);
+          }
         }, { crossOrigin: 'anonymous' });
       });
+    } else {
+      saveHistory();
+      renderLayers();
+      buildEditableLayers(w, h);
     }
-
-    saveHistory();
-    renderLayers();
-    buildEditableLayers(w, h);
   }, { crossOrigin: 'anonymous' });
 }
 
@@ -2924,6 +2931,7 @@ function buildEditableLayers(w, h) {
       data: { type: 'text', name: elem.text.slice(0, 22), role, detected: true }
     });
     FC.add(t);
+    FC.bringToFront(t);  // always above athletes and background
   });
 
   FC.renderAll();
