@@ -1513,70 +1513,6 @@ const _typo = {
 
 const _negatives = 'text or graphics outside the canvas boundary, text cut off at any edge, typography touching or crossing the image border, elements cropped at any edge, colors not in the specified palette, watermarks, stock photography feel, blurry or illegible text, amateur composition, 3D render artifacts, clip art, generic drop shadows, overused gradients, muddy low-contrast combinations, mismatched fonts, stray colors not listed in the palette.';
 
-// Color descriptions use real-world visual analogies — far more reliable than hex codes for AI image models
-const _colorDesc = {
-  aggressive:
-`COLOR SCHEME: DEEP BLACK and ELECTRIC GOLD only.
-- Background and large shapes: pure jet black (same black as the Las Vegas Raiders, or the Pittsburgh Steelers helmet stripe)
-- All typography and key graphic elements: brilliant metallic gold (same gold as the Pittsburgh Steelers helmets, or the Vegas Golden Knights)
-- Accent highlights: white only — no other colors allowed
-- ZERO red, ZERO crimson, ZERO blue, ZERO purple, ZERO green, ZERO orange in this image`,
-
-  modern:
-`COLOR SCHEME: NAVY BLUE and GOLD only.
-- Large backgrounds and shapes: deep midnight navy blue (same blue as Dallas Cowboys helmets, or the Golden State Warriors away uniform)
-- Typography and graphic accents: metallic championship gold (same gold as Pittsburgh Steelers helmets, or LSU Tigers gold)
-- Highlights: white only
-- ZERO red, ZERO crimson, ZERO orange, ZERO purple, ZERO green in this image`,
-
-  collegiate:
-`COLOR SCHEME: MAROON and GOLD only.
-- Large backgrounds and shapes: rich deep maroon (same color as Texas A&M Aggies, or Virginia Tech Hokies maroon)
-- Accent elements and highlights: bright golden yellow (same gold as University of Michigan, or the Iowa Hawkeyes)
-- Supporting tones: aged cream and dark charcoal only
-- ZERO blue, ZERO purple, ZERO bright red, ZERO orange in this image`,
-
-  minimal:
-`COLOR SCHEME: BLACK, WHITE, and ONE LIME GREEN accent only.
-- Background: pure jet black
-- All typography: clean bright white
-- Exactly ONE graphic element uses electric lime green (same green as a neon highlighter or tennis ball)
-- ZERO red, ZERO blue, ZERO purple, ZERO orange, ZERO brown in this image`,
-
-  hype:
-`COLOR SCHEME: ELECTRIC PURPLE, NEON CYAN, and HOT PINK only.
-- Background and large shapes: deep electric purple (same purple as the LA Lakers, or Minnesota Vikings purple)
-- Key graphic elements: bright neon cyan / electric blue-green (like a glowing swimming pool or laser light)
-- Accent highlights: hot magenta pink (like a neon club sign)
-- ZERO red, ZERO orange, ZERO yellow, ZERO brown, ZERO green in this image`,
-
-  retro:
-`COLOR SCHEME: BURNT ORANGE and CREAM only.
-- Dominant color: warm burnt sienna orange (same as an old leather basketball, or Syracuse University orange)
-- Secondary elements: aged cream and warm off-white (like old parchment paper or a vintage jersey)
-- Texture: warm sepia brown tones only
-- ZERO bright colors, ZERO neon, ZERO blue, ZERO purple, ZERO cool tones in this image`
-};
-
-// Keep _colorsHex as fallback reference
-const _colorsHex = {
-  aggressive: '#111111 black, #FFB612 gold, #FFFFFF white',
-  modern:     '#041E42 navy, #FFB612 gold, #FFFFFF white',
-  collegiate: '#6D2339 maroon, #F0C040 gold, #F5F0E8 cream',
-  minimal:    '#111111 black, #FFFFFF white, #CCFF00 lime',
-  hype:       '#7B2FFF purple, #00E5FF cyan, #FF2D78 pink',
-  retro:      '#CC5500 orange, #F5F0E8 cream'
-};
-
-// Style-specific color exclusions for FLUX negative_prompt
-const _styleNegatives = {
-  aggressive: 'blue colors, navy blue, gold, yellow, purple, green, cyan, teal',
-  modern:     'red colors, crimson, scarlet, purple, green, orange, warm red tones',
-  collegiate: 'blue, navy, purple, cyan, neon colors, electric colors, orange',
-  minimal:    'red, blue, purple, orange, pink, brown, warm colors, bright colors',
-  hype:       'red, orange, brown, green, yellow, earth tones, warm colors, crimson',
-  retro:      'neon colors, electric blue, purple, cyan, cool tones, bright colors, green'
-};
 
 const _composition = {
   'recruiting':   "Low camera angle (worm's-eye view), athlete dominant left two-thirds, typographic lockup right third, stadium depth-of-field background blur.",
@@ -1623,13 +1559,9 @@ function buildPrompt(raw, sport, style, type) {
     lacrosse:   'grass field atmosphere, helmet and stick visual language',
     wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
   };
-  const colorInstr = _colorDesc[style] || _colorDesc.aggressive;
+  return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
 
-  return `${colorInstr}
-
----
-
-PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
+COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
 
 DESIGN BRIEF (follow exactly):
 "${raw}"
@@ -1645,11 +1577,7 @@ LAYOUT BOUNDARY: Position ALL text and graphic elements with generous padding �
 MANDATORY: Render EVERY text element from the brief pixel-sharp — names, numbers, schools, dates, exactly as written.
 QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Typography hierarchy: one dominant headline, one supporting size, one detail. Must pass as Nike/ESPN/Jordan Brand commissioned asset.
 
-DO NOT INCLUDE: ${_negatives}
-
-⚠ FINAL COLOR CHECK — ENFORCE BEFORE RENDERING:
-${colorInstr}
-This is non-negotiable. Any color outside the scheme above will make this design WRONG.`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1664,13 +1592,9 @@ function buildBackgroundPrompt(raw, sport, style, type) {
     'mvp':          'CLEAR ZONE: 30% to 75% height — empty. MVP headline at top, award graphic accents at bottom.',
     'championship': 'CLEAR ZONE: center 40% to 70% — empty. Championship text fills upper band, celebration elements at very bottom.'
   };
-  const colorInstr = _colorDesc[style] || _colorDesc.aggressive;
+  return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
-  return `${colorInstr}
-
----
-
-BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
+COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
 
 Design brief: "${raw}"
 
@@ -1685,11 +1609,7 @@ Include ALL text from brief as typographic elements — pixel-sharp, fully insid
 Large semi-transparent jersey number (40% opacity) as background texture.
 Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
 
-DO NOT INCLUDE: ${_negatives}
-
-⚠ FINAL COLOR CHECK — ENFORCE BEFORE RENDERING:
-${colorInstr}
-This is non-negotiable. Any color outside the scheme above will make this design WRONG.`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1704,13 +1624,9 @@ function buildVisionPrompt(raw, sport, style, type) {
     'mvp':          `Transform this athlete photo into an MVP AWARD GRAPHIC. Athlete appears triumphant. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
     'championship': `Transform this athlete photo into a CHAMPIONSHIP CELEBRATION GRAPHIC. Athlete appears victorious. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
   };
-  const colorInstr = _colorDesc[style] || _colorDesc.aggressive;
+  return `${typeDirectives[type] || typeDirectives['recruiting']}
 
-  return `${colorInstr}
-
----
-
-${typeDirectives[type] || typeDirectives['recruiting']}
+COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
 
 DESIGN BRIEF (include every element):
 "${raw}"
@@ -1727,11 +1643,7 @@ Typography hierarchy: one dominant headline, one supporting size, one detail siz
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
 
-DO NOT INCLUDE: ${_negatives}
-
-⚠ FINAL COLOR CHECK — ENFORCE BEFORE RENDERING:
-${colorInstr}
-This is non-negotiable. Any color outside the scheme above will make this design WRONG.`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 
