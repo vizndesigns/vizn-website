@@ -2716,8 +2716,8 @@ function openEditor() {
       left: 0, top: 0,
       scaleX: w / img.width,
       scaleY: h / img.height,
-      opacity: 0.55,          // dim so editable text layers are clearly visible on top
-      selectable: true, evented: true,
+      opacity: 1,
+      selectable: false, evented: false,  // background is locked — clicks pass through to text layers
       data: { type: 'bg', name: 'Background (original)' }
     });
     FC.add(img);
@@ -2742,17 +2742,16 @@ function openEditor() {
           FC.add(ath);
           loaded++;
           if (loaded === cutoutUrls.length) {
-            // All athletes loaded — now add text ON TOP
             saveHistory();
             renderLayers();
-            buildEditableLayers(w, h);
+            detectAndBuildLayers(w, h);
           }
         }, { crossOrigin: 'anonymous' });
       });
     } else {
       saveHistory();
       renderLayers();
-      buildEditableLayers(w, h);
+      detectAndBuildLayers(w, h);
     }
   }, { crossOrigin: 'anonymous' });
 }
@@ -2825,6 +2824,61 @@ function getTypeLayouts(type, w, h) {
     }
   };
   return maps[type] || base;
+}
+
+// ── Detect actual text in design via GPT-4o vision, then build editable layers ──
+async function detectAndBuildLayers(w, h) {
+  const statusEl = el('edLayerStatus');
+
+  if (!S.lastImage) { buildEditableLayers(w, h); return; }
+
+  if (statusEl) statusEl.textContent = 'analyzing design…';
+
+  try {
+    const r = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'detect-text', imageDataUrl: S.lastImage })
+    });
+    const data = await r.json();
+
+    if (!r.ok || !data.texts || data.texts.length === 0) throw new Error('no texts detected');
+
+    if (statusEl) statusEl.textContent = '';
+
+    data.texts.forEach(td => {
+      if (!td.text || td.text.trim() === '') return;
+      const x  = td.cx * w;
+      const y  = td.cy * h;
+      const fs = Math.max(Math.round(td.h * h * 0.7), 11);
+      const fill = td.color || '#ffffff';
+
+      const itext = new fabric.IText(td.text, {
+        left: x, top: y,
+        originX: 'center', originY: 'center',
+        fontSize: fs,
+        fill: fill,
+        fontWeight: td.bold ? 'bold' : 'normal',
+        fontStyle:  td.italic ? 'italic' : 'normal',
+        textAlign:  td.align || 'center',
+        fontFamily: td.bold ? 'Impact' : 'Arial',
+        selectable: true, evented: true, editable: true,
+        data: { type: 'text', name: td.text.slice(0, 24), detected: true }
+      });
+      FC.add(itext);
+      FC.bringToFront(itext);
+    });
+
+    FC.renderAll();
+    saveHistory();
+    renderLayers();
+    toast(`${data.texts.length} text layers detected — double-click to edit`, 'ok');
+
+  } catch(e) {
+    console.warn('detect-text failed, using prompt parse:', e.message);
+    if (statusEl) statusEl.textContent = '';
+    buildEditableLayers(w, h);
+  }
 }
 
 // ── Parse text elements from user's prompt locally (no API call) ──
