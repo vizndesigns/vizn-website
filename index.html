@@ -601,7 +601,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <canvas id="fabricCanvas"></canvas>
     </div>
     <div class="ed-panel">
-      <div class="ed-panel-hd">Layers</div>
+      <div class="ed-panel-hd">Layers <span id="edLayerStatus" style="font-size:9px;color:#555;font-weight:400;margin-left:6px"></span></div>
       <div id="edLayerList" style="flex:1;overflow-y:auto"></div>
       <div class="ed-props">
         <button class="ed-btn-full" onclick="edAddText()" style="background:#1f2a00;border:1px solid var(--lime);color:var(--lime)">+ Add Text</button>
@@ -2641,9 +2641,10 @@ function renderLayers() {
   list.innerHTML = objs.slice().reverse().map((o, ri) => {
     const i      = objs.length - 1 - ri;
     const isBg   = o.data?.type === 'bg';
-    const ico    = o.data?.type === 'text' ? 'T' : isBg ? '🖼' : o.data?.type === 'athlete' ? '👤' : o.data?.type === 'image' ? '📷' : '▭';
+    const isDetected = o.data?.detected;
+    const ico    = o.data?.type === 'text' ? (isDetected ? '<span style="color:var(--lime)">T</span>' : 'T') : isBg ? '🖼' : o.data?.type === 'athlete' ? '👤' : o.data?.type === 'image' ? '📷' : '▭';
     const nmRaw  = o.data?.name || o.type || 'Layer';
-    const nm     = isBg ? `<span style="color:#00e5ff">${nmRaw}</span>` : nmRaw;
+    const nm     = isBg ? `<span style="color:#00e5ff">${nmRaw}</span>` : isDetected ? `<span style="color:var(--lime)">${nmRaw}</span>` : nmRaw;
     const isActive = o === active;
     const locked = o.data?.locked;
     const hidden = !o.visible;
@@ -2686,7 +2687,6 @@ function openEditor() {
   const overlay = document.getElementById('editorOverlay');
   overlay.classList.add('open');
 
-  // Size canvas to match design aspect ratio
   const {w, h} = getDims(S.type);
   const maxW = window.innerWidth - 220;
   const maxH = window.innerHeight - 90;
@@ -2699,45 +2699,92 @@ function openEditor() {
   FC_history = [];
   FC_future  = [];
 
-  // Load background image
-  if (S.lastImage) {
-    fabric.Image.fromURL(S.lastImage, img => {
-      img.set({
-        left: 0, top: 0,
-        scaleX: FC.width / img.width,
-        scaleY: FC.height / img.height,
-        selectable: true, evented: true,
-        data: { type: 'bg', name: 'Background' }
-      });
-      FC.add(img);
-      FC.sendToBack(img);
+  if (!S.lastImage) return;
 
-      // Load athlete cutout on top if available
-      if (S.athleteCutouts && S.athleteCutouts.length > 0) {
-        S.athleteCutouts.slice(0, 3).forEach((cutUrl, ci) => {
-          fabric.Image.fromURL(cutUrl, ath => {
-            const targetH = FC.height * 0.88;
-            const scale2  = targetH / ath.height;
-            const slot    = FC.width / S.athleteCutouts.slice(0,3).length;
-            ath.set({
-              left:    slot * ci + slot / 2,
-              top:     FC.height,
-              originX: 'center',
-              originY: 'bottom',
-              scaleX:  scale2,
-              scaleY:  scale2,
-              selectable: true, evented: true,
-              data: { type: 'athlete', name: 'Athlete ' + (ci + 1) }
-            });
-            FC.add(ath);
-            FC.renderAll();
-            renderLayers();
-          }, { crossOrigin: 'anonymous' });
-        });
-      }
-      saveHistory();
-      renderLayers();
-    }, { crossOrigin: 'anonymous' });
+  fabric.Image.fromURL(S.lastImage, img => {
+    img.set({
+      left: 0, top: 0,
+      scaleX: FC.width / img.width,
+      scaleY: FC.height / img.height,
+      selectable: true, evented: true,
+      data: { type: 'bg', name: 'Background' }
+    });
+    FC.add(img);
+    FC.sendToBack(img);
+
+    // Athlete cutouts
+    if (S.athleteCutouts && S.athleteCutouts.length > 0) {
+      S.athleteCutouts.slice(0, 3).forEach((cutUrl, ci) => {
+        fabric.Image.fromURL(cutUrl, ath => {
+          const targetH = FC.height * 0.88;
+          const sc2  = targetH / ath.height;
+          const slot = FC.width / S.athleteCutouts.slice(0,3).length;
+          ath.set({
+            left: slot * ci + slot / 2, top: FC.height,
+            originX: 'center', originY: 'bottom',
+            scaleX: sc2, scaleY: sc2,
+            selectable: true, evented: true,
+            data: { type: 'athlete', name: 'Athlete ' + (ci + 1) }
+          });
+          FC.add(ath);
+          FC.renderAll();
+          renderLayers();
+        }, { crossOrigin: 'anonymous' });
+      });
+    }
+
+    saveHistory();
+    renderLayers();
+
+    // Detect all text layers in the design
+    detectAndCreateTextLayers(FC.width, FC.height);
+  }, { crossOrigin: 'anonymous' });
+}
+
+async function detectAndCreateTextLayers(W, H) {
+  const statusEl = el('edLayerStatus');
+  if (statusEl) statusEl.textContent = 'detecting layers…';
+
+  try {
+    const r = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'detect-text', imageDataUrl: S.lastImage })
+    });
+    const data = await r.json();
+    if (statusEl) statusEl.textContent = '';
+
+    const elements = data.elements || [];
+    if (!elements.length) { toast('No text layers detected', ''); return; }
+
+    elements.forEach(elem => {
+      if (!elem.text) return;
+      const fontSize = Math.max(10, Math.min(Math.round((elem.h || 0.05) * H), 400));
+      const t = new fabric.IText(elem.text, {
+        left:       (elem.cx || 0.5) * W,
+        top:        (elem.cy || 0.5) * H,
+        originX:    'center',
+        originY:    'center',
+        fontSize,
+        fill:        elem.color  || '#ffffff',
+        fontWeight:  elem.bold   ? 'bold' : 'normal',
+        fontStyle:   elem.italic ? 'italic' : 'normal',
+        textAlign:   elem.align  || 'center',
+        fontFamily:  'Impact',
+        selectable:  true,
+        editable:    true,
+        data: { type: 'text', name: elem.text.slice(0, 22), detected: true }
+      });
+      FC.add(t);
+    });
+
+    FC.renderAll();
+    saveHistory();
+    renderLayers();
+    toast(elements.length + ' text layers ready — click any to edit', 'ok');
+  } catch(e) {
+    console.warn('Layer detection failed:', e.message);
+    if (statusEl) statusEl.textContent = '';
   }
 }
 

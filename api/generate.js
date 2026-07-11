@@ -344,6 +344,50 @@ CRITICAL RULES:
       return res.status(500).json({ error: 'Refine failed — no vision engine available' });
     }
 
+    // ── Text layer detection — GPT-4o Vision ─────────────────
+    if (action === 'detect-text' && req.body.imageDataUrl) {
+      if (!OPENAI_KEY) return res.status(200).json({ elements: [] });
+      try {
+        const imageUrl = req.body.imageDataUrl; // data URL or https URL both work
+        const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            max_tokens: 1500,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } },
+                { type: 'text', text: `You are analyzing a sports graphic design image. Find every text element visible — headlines, names, numbers, labels, dates, taglines, everything.
+
+For each text element return a JSON object with:
+- "text": exact text content as it appears
+- "cx": center X as fraction 0.0–1.0 of image width (0=left edge, 1=right edge)
+- "cy": center Y as fraction 0.0–1.0 of image height (0=top, 1=bottom)
+- "h": font height as fraction 0.0–1.0 of image height (a headline taking 10% of height = 0.10)
+- "color": best hex color approximation e.g. "#ffffff" or "#FFD700"
+- "bold": true or false
+- "align": "left" "center" or "right"
+
+Return ONLY raw JSON with no markdown: {"elements":[...]}` }
+              ]
+            }]
+          })
+        });
+        if (visionRes.ok) {
+          const vd = await visionRes.json();
+          const raw = vd.choices?.[0]?.message?.content?.trim() || '{}';
+          try {
+            const cleaned = raw.replace(/^```json\n?/,'').replace(/```$/,'').trim();
+            const parsed  = JSON.parse(cleaned);
+            return res.status(200).json({ elements: parsed.elements || [] });
+          } catch(e) { console.warn('Layer parse error:', e.message); }
+        }
+      } catch(e) { console.warn('detect-text failed:', e.message); }
+      return res.status(200).json({ elements: [] });
+    }
+
     if (action === 'expand-prompt' && prompt) {
       if (!GOOGLE_KEY) return res.status(200).json({ expanded: prompt });
       try {
