@@ -386,6 +386,50 @@ Return ONLY this exact JSON, no markdown:
       return res.status(200).json({ texts: [], shapes: [] });
     }
 
+    // ── Parse prompt → structured text elements ───────────────
+    if (action === 'parse-prompt-text' && prompt) {
+      const fallback = [
+        {text:'PLAYER NAME', role:'headline'},
+        {text:'#00',         role:'number'},
+        {text:'TEAM NAME',   role:'school'}
+      ];
+      if (!GOOGLE_KEY) return res.status(200).json({ texts: fallback });
+      try {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_KEY}`,
+          {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text:
+`Extract every text element from this sports graphic design prompt. Assign each a role.
+
+Roles:
+- "headline": player name or primary title (e.g. "JAMES WEBB", "CHAMPIONSHIP")
+- "number": jersey or player number (e.g. "#13", "13")
+- "school": school, team, or program name (e.g. "ALABAMA", "CRIMSON TIDE")
+- "subtitle": secondary descriptor (e.g. "WIDE RECEIVER", "CLASS OF 2025")
+- "detail": small text, dates, stats, taglines
+
+Prompt: "${prompt}"
+
+Return ONLY a raw JSON array, no markdown, no explanation:
+[{"text":"EXACT TEXT AS IT SHOULD APPEAR","role":"headline"},...]`
+              }]}],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 400 }
+            })
+          }
+        );
+        if (r.ok) {
+          const d = await r.json();
+          const raw = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '[]';
+          const cleaned = raw.replace(/^```json\n?/,'').replace(/```\s*$/,'').trim();
+          const texts = JSON.parse(cleaned);
+          if (Array.isArray(texts) && texts.length) return res.status(200).json({ texts });
+        }
+      } catch(e) { console.warn('parse-prompt-text failed:', e.message); }
+      return res.status(200).json({ texts: fallback });
+    }
+
     if (action === 'expand-prompt' && prompt) {
       if (!GOOGLE_KEY) return res.status(200).json({ expanded: prompt });
       try {

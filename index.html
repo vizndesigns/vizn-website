@@ -2745,136 +2745,174 @@ function openEditor() {
     saveHistory();
     renderLayers();
 
-    // Detect all text layers in the design
-    detectAndCreateTextLayers(FC.width, FC.height);
+    // Build fully editable layer stack
+    buildEditableLayers();
   }, { crossOrigin: 'anonymous' });
 }
 
 // Erase detected text regions from background image so editable layers don't double
-async function maskTextFromImage(imgDataUrl, textElems) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const cv  = document.createElement('canvas');
-      cv.width  = img.width;
-      cv.height = img.height;
-      const ctx = cv.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      textElems.forEach(elem => {
-        const pw = img.width, ph = img.height;
-        const bw = Math.ceil((elem.w  || 0.5)  * pw);
-        const bh = Math.ceil((elem.h  || 0.06) * ph * 2.4); // generous height
-        const bx = Math.max(0, Math.round((elem.cx || 0.5) * pw - bw / 2));
-        const by = Math.max(0, Math.round((elem.cy || 0.5) * ph - bh / 2));
-        const safeW = Math.min(bw, pw - bx);
-        const safeH = Math.min(bh, ph - by);
-        if (safeW <= 0 || safeH <= 0) return;
-
-        // Sample pixel color from directly above/below the text box
-        let r = 0, g = 0, b = 0, cnt = 0;
-        [[bx, Math.max(0, by - 8), safeW, 8], [bx, Math.min(ph - 8, by + safeH), safeW, 8]].forEach(([sx, sy, sw, sh]) => {
-          try {
-            const px = ctx.getImageData(sx, sy, Math.max(1, sw), Math.max(1, sh)).data;
-            for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i+1]; b += px[i+2]; cnt++; }
-          } catch(_) {}
-        });
-        if (!cnt) { r = g = b = 10; cnt = 1; }
-        r = Math.round(r/cnt); g = Math.round(g/cnt); b = Math.round(b/cnt);
-
-        // Paint over the text area with sampled background color
-        ctx.save();
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        ctx.fillRect(bx, by, safeW, safeH);
-        ctx.restore();
-      });
-
-      resolve(cv.toDataURL('image/png'));
-    };
-    img.onerror = () => resolve(imgDataUrl);
-    img.src = imgDataUrl;
-  });
+// ── Layout positions per design type ────────────────────────
+function getTypeLayouts(type, W, H) {
+  const base = {
+    headline: { x: W*0.5, y: H*0.70, size: Math.round(H*0.07), weight:'bold' },
+    number:   { x: W*0.5, y: H*0.45, size: Math.round(H*0.13), weight:'bold' },
+    school:   { x: W*0.5, y: H*0.82, size: Math.round(H*0.042), weight:'bold' },
+    subtitle: { x: W*0.5, y: H*0.89, size: Math.round(H*0.032), weight:'normal' },
+    detail:   { x: W*0.5, y: H*0.94, size: Math.round(H*0.025), weight:'normal' }
+  };
+  const maps = {
+    'player-card':  { ...base,
+      headline: { x:W*.5, y:H*.68, size:Math.round(H*.065), weight:'bold' },
+      number:   { x:W*.5, y:H*.32, size:Math.round(H*.14),  weight:'bold' },
+      school:   { x:W*.5, y:H*.78, size:Math.round(H*.04),  weight:'bold' },
+      subtitle: { x:W*.5, y:H*.85, size:Math.round(H*.032), weight:'normal' },
+      detail:   { x:W*.5, y:H*.91, size:Math.round(H*.025), weight:'normal' }
+    },
+    'recruiting':   { ...base,
+      headline: { x:W*.5, y:H*.73, size:Math.round(H*.075), weight:'bold' },
+      number:   { x:W*.5, y:H*.48, size:Math.round(H*.16),  weight:'bold' },
+      school:   { x:W*.5, y:H*.83, size:Math.round(H*.044), weight:'bold' },
+      subtitle: { x:W*.5, y:H*.90, size:Math.round(H*.033), weight:'normal' },
+      detail:   { x:W*.5, y:H*.95, size:Math.round(H*.025), weight:'normal' }
+    },
+    'commitment':   { ...base,
+      headline: { x:W*.5, y:H*.12, size:Math.round(H*.075), weight:'bold' },
+      number:   { x:W*.5, y:H*.42, size:Math.round(H*.13),  weight:'bold' },
+      school:   { x:W*.5, y:H*.60, size:Math.round(H*.06),  weight:'bold' },
+      subtitle: { x:W*.5, y:H*.72, size:Math.round(H*.04),  weight:'normal' },
+      detail:   { x:W*.5, y:H*.82, size:Math.round(H*.03),  weight:'normal' }
+    },
+    'championship': { ...base,
+      headline: { x:W*.5, y:H*.22, size:Math.round(H*.11),  weight:'bold' },
+      number:   { x:W*.5, y:H*.40, size:Math.round(H*.08),  weight:'bold' },
+      school:   { x:W*.5, y:H*.55, size:Math.round(H*.065), weight:'bold' },
+      subtitle: { x:W*.5, y:H*.68, size:Math.round(H*.05),  weight:'normal' },
+      detail:   { x:W*.5, y:H*.78, size:Math.round(H*.038), weight:'normal' }
+    },
+    'mvp':          { ...base,
+      headline: { x:W*.5, y:H*.15, size:Math.round(H*.09),  weight:'bold' },
+      number:   { x:W*.5, y:H*.42, size:Math.round(H*.13),  weight:'bold' },
+      school:   { x:W*.5, y:H*.63, size:Math.round(H*.05),  weight:'bold' },
+      subtitle: { x:W*.5, y:H*.74, size:Math.round(H*.038), weight:'normal' },
+      detail:   { x:W*.5, y:H*.83, size:Math.round(H*.03),  weight:'normal' }
+    },
+    'senior-night': { ...base,
+      headline: { x:W*.5, y:H*.12, size:Math.round(H*.075), weight:'bold' },
+      number:   { x:W*.5, y:H*.40, size:Math.round(H*.14),  weight:'bold' },
+      school:   { x:W*.5, y:H*.63, size:Math.round(H*.05),  weight:'bold' },
+      subtitle: { x:W*.5, y:H*.74, size:Math.round(H*.038), weight:'normal' },
+      detail:   { x:W*.5, y:H*.84, size:Math.round(H*.03),  weight:'normal' }
+    },
+    'team-poster':  { ...base,
+      headline: { x:W*.5, y:H*.20, size:Math.round(H*.09),  weight:'bold' },
+      number:   { x:W*.5, y:H*.50, size:Math.round(H*.08),  weight:'bold' },
+      school:   { x:W*.5, y:H*.34, size:Math.round(H*.06),  weight:'bold' },
+      subtitle: { x:W*.5, y:H*.73, size:Math.round(H*.045), weight:'normal' },
+      detail:   { x:W*.5, y:H*.83, size:Math.round(H*.033), weight:'normal' }
+    },
+    'schedule':     { ...base,
+      headline: { x:W*.5, y:H*.14, size:Math.round(H*.075), weight:'bold' },
+      school:   { x:W*.5, y:H*.26, size:Math.round(H*.055), weight:'bold' },
+      number:   { x:W*.5, y:H*.40, size:Math.round(H*.05),  weight:'bold' },
+      subtitle: { x:W*.5, y:H*.54, size:Math.round(H*.038), weight:'normal' },
+      detail:   { x:W*.5, y:H*.68, size:Math.round(H*.03),  weight:'normal' }
+    }
+  };
+  return maps[type] || base;
 }
 
-async function detectAndCreateTextLayers(W, H) {
+// ── Build fully editable layer stack ────────────────────────
+async function buildEditableLayers() {
   const statusEl = el('edLayerStatus');
-  if (statusEl) statusEl.textContent = 'extracting layers…';
+  const W = FC.width, H = FC.height;
+  const {w, h} = getDims(S.type);
 
   try {
-    const r = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'detect-text', imageDataUrl: S.lastImage })
+    // Step 1: parse text content from user's prompt (fast, Gemini text)
+    if (statusEl) statusEl.textContent = 'parsing text…';
+    const parseR = await fetch('/api/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ action: 'parse-prompt-text', prompt: S.lastPrompt || '' })
     });
-    const data = await r.json();
-    if (statusEl) statusEl.textContent = '';
+    const { texts } = await parseR.json();
 
-    const texts  = data.texts  || [];
-    const shapes = data.shapes || [];
-    if (!texts.length && !shapes.length) { toast('No layers detected', ''); return; }
+    // Step 2: generate a text-free background using background prompt
+    if (statusEl) statusEl.textContent = 'building clean background…';
+    const bgPrompt = buildBackgroundPrompt(S.lastPrompt || 'sports design background', S.sport, S.style, S.type)
+      + '\n\nCRITICAL RULE: ZERO text. ZERO typography. ZERO words. ZERO numbers. ZERO letters. Only background colors, shapes, textures, and effects — no readable content anywhere.';
 
-    // Mask the text regions from the background so editable layers don't double
-    if (texts.length) {
-      const maskedUrl = await maskTextFromImage(S.lastImage, texts);
-      const bgObj = FC.getObjects().find(o => o.data?.type === 'bg');
-      if (bgObj) {
-        fabric.Image.fromURL(maskedUrl, newImg => {
-          newImg.set({
-            left: 0, top: 0,
-            scaleX: bgObj.scaleX,
-            scaleY: bgObj.scaleY,
-            selectable: true, evented: true,
-            data: { type: 'bg', name: 'Background' }
-          });
-          FC.remove(bgObj);
-          FC.add(newImg);
-          FC.sendToBack(newImg);
-          FC.renderAll();
-          renderLayers();
+    const bgRes = await fetch('/api/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt: bgPrompt, width: w, height: h })
+    });
+    const bgData = await bgRes.json();
+
+    // Handle async FLUX polling if needed
+    let bgImageUrl = null;
+    if (bgData.status === 'succeeded' && bgData.imageUrl) {
+      bgImageUrl = bgData.imageUrl;
+    } else if (bgData.status === 'processing' && bgData.predictionId) {
+      if (statusEl) statusEl.textContent = 'rendering background…';
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const poll = await fetch('/api/generate', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({action:'poll', predictionId: bgData.predictionId})
         });
+        const pd = await poll.json();
+        if (pd.status === 'succeeded' && pd.imageUrl) { bgImageUrl = pd.imageUrl; break; }
+        if (pd.status === 'failed') break;
       }
     }
 
-    // Add shape layers (behind text)
-    shapes.forEach(shape => {
-      const rect = new fabric.Rect({
-        left:    (shape.cx || 0.5) * W - ((shape.w || 0.5) * W) / 2,
-        top:     (shape.cy || 0.5) * H - ((shape.h || 0.3) * H) / 2,
-        width:   (shape.w  || 0.5) * W,
-        height:  (shape.h  || 0.3) * H,
-        fill:    shape.color   || '#111111',
-        opacity: shape.opacity != null ? shape.opacity : 0.85,
-        angle:   shape.angle   || 0,
-        rx: 4, ry: 4,
-        selectable: true, evented: true,
-        data: { type: 'shape', name: 'Shape ' + (shape.color || ''), detected: true }
-      });
-      FC.add(rect);
-      FC.sendToBack(rect);
-      // Keep bg furthest back after adding each shape
-      const bgObj2 = FC.getObjects().find(o => o.data?.type === 'bg');
-      if (bgObj2) FC.sendToBack(bgObj2);
-    });
+    if (statusEl) statusEl.textContent = '';
 
-    // Add text layers on top
-    texts.forEach(elem => {
+    // Step 3: replace background with text-free version
+    if (bgImageUrl) {
+      const bgObj = FC.getObjects().find(o => o.data?.type === 'bg');
+      await new Promise(resolve => {
+        fabric.Image.fromURL(bgImageUrl, newBg => {
+          newBg.set({
+            left: 0, top: 0,
+            scaleX: W / newBg.width,
+            scaleY: H / newBg.height,
+            selectable: true, evented: true,
+            data: { type: 'bg', name: 'Background' }
+          });
+          if (bgObj) FC.remove(bgObj);
+          FC.add(newBg);
+          FC.sendToBack(newBg);
+          resolve();
+        });
+      });
+    }
+
+    // Step 4: add editable text layers at layout positions
+    const layouts = getTypeLayouts(S.type, W, H);
+    const usedRoles = new Set();
+
+    (texts || []).forEach(elem => {
       if (!elem.text) return;
-      const fontSize = Math.max(10, Math.min(Math.round((elem.h || 0.05) * H), 400));
-      const t = new fabric.IText(elem.text, {
-        left:       (elem.cx || 0.5) * W,
-        top:        (elem.cy || 0.5) * H,
-        originX:    'center',
-        originY:    'center',
-        fontSize,
-        fill:       elem.color  || '#ffffff',
-        fontWeight: elem.bold   ? 'bold' : 'normal',
-        fontStyle:  elem.italic ? 'italic' : 'normal',
-        textAlign:  elem.align  || 'center',
-        fontFamily: 'Impact',
-        selectable: true,
-        editable:   true,
-        data: { type: 'text', name: elem.text.slice(0, 22), detected: true }
+      const role = elem.role || 'detail';
+      const pos  = layouts[role] || layouts.detail;
+      // Offset duplicated roles downward so they don't stack
+      const roleCount = usedRoles.has(role) ? 1 : 0;
+      usedRoles.add(role);
+      const t = new fabric.IText(elem.text.toUpperCase(), {
+        left:        pos.x,
+        top:         pos.y + roleCount * pos.size * 1.4,
+        originX:     'center',
+        originY:     'center',
+        fontSize:    pos.size,
+        fill:        '#ffffff',
+        fontWeight:  pos.weight || 'bold',
+        fontFamily:  'Impact',
+        textAlign:   'center',
+        stroke:      pos.weight === 'bold' ? '#000000' : null,
+        strokeWidth: pos.weight === 'bold' ? Math.max(1, Math.round(pos.size * 0.04)) : 0,
+        selectable:  true,
+        editable:    true,
+        data: { type: 'text', name: elem.text.slice(0, 22), role, detected: true }
       });
       FC.add(t);
     });
@@ -2882,11 +2920,12 @@ async function detectAndCreateTextLayers(W, H) {
     FC.renderAll();
     saveHistory();
     renderLayers();
-    const total = texts.length + shapes.length;
-    toast(total + ' layers extracted — click any to edit', 'ok');
+    toast('All layers ready — click any to select and edit', 'ok');
+
   } catch(e) {
-    console.warn('Layer detection failed:', e.message);
+    console.warn('buildEditableLayers failed:', e.message);
     if (statusEl) statusEl.textContent = '';
+    toast('Layer build failed — try again', 'err');
   }
 }
 
