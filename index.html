@@ -1559,25 +1559,25 @@ function buildPrompt(raw, sport, style, type) {
     lacrosse:   'grass field atmosphere, helmet and stick visual language',
     wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
   };
-  return `PROFESSIONAL SPORTS GRAPHIC BACKGROUND — broadcast and print quality.
-
-TEXT-FREE BACKGROUND LAYER: Do NOT render any text, words, letters, numbers, or typography anywhere in this image. This is the visual background plate only — all text is added as separate editable layers after generation.
+  return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
 
 COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
 
-DESIGN BRIEF (visual elements only — ignore any text/names/numbers for this image):
+DESIGN BRIEF (follow exactly):
 "${raw}"
 
 FORMAT: ${layouts[type] || layouts['recruiting']}
 SPORT: ${sport.toUpperCase()} — ${sportCtx[sport] || 'athletic competition atmosphere'}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
 VISUAL REFERENCE: ${_typeVocab[type] || _typeVocab['recruiting']}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
-LAYOUT BOUNDARY: All graphic elements positioned with generous padding — nothing closer than 8% from any edge. No shape may touch or cross the image border.
+LAYOUT BOUNDARY: Position ALL text and graphic elements with generous padding — nothing closer than 8% from any edge. Every element must be 100% inside the frame. No letter, no shape, no graphic may touch or cross the image border.
 
-QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Must pass as Nike/ESPN/Jordan Brand commissioned background plate.
+MANDATORY: Render EVERY text element from the brief pixel-sharp — names, numbers, schools, dates, exactly as written.
+QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Typography hierarchy: one dominant headline, one supporting size, one detail. Must pass as Nike/ESPN/Jordan Brand commissioned asset.
 
-DO NOT INCLUDE: text, words, letters, numbers, typography, labels, captions, ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1594,21 +1594,22 @@ function buildBackgroundPrompt(raw, sport, style, type) {
   };
   return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
-TEXT-FREE BACKGROUND LAYER: Do NOT render any text, words, letters, numbers, or typography. Visual graphic elements only — all text is added as editable layers separately.
-
 COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
 
-Design brief (visual elements only): "${raw}"
+Design brief: "${raw}"
 
 SPORT: ${sport.toUpperCase()}
 ${clearZones[type] || clearZones['recruiting']}
+TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
 
-LAYOUT BOUNDARY: All shapes and graphic elements positioned with generous padding — nothing closer than 8% from any edge. Everything 100% inside the frame. No element touches or crosses the image border.
+LAYOUT BOUNDARY: All text and shapes positioned with generous padding — nothing closer than 8% from any edge. Everything 100% inside the frame. No element touches or crosses the image border.
 
-Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design. No text of any kind.
+Include ALL text from brief as typographic elements — pixel-sharp, fully inside the frame.
+Large semi-transparent jersey number (40% opacity) as background texture.
+Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
 
-DO NOT INCLUDE: text, words, letters, numbers, typography, ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1635,14 +1636,14 @@ TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
 LAYOUT BOUNDARY: All text and graphic elements positioned with generous padding — nothing closer than 8% from any edge. Every element 100% inside the frame. No letter or shape may touch or cross the image border.
 
-TEXT-FREE BACKGROUND: Do NOT render any text, words, letters, numbers, or typography. All text is added as editable layers after generation.
-
 ATHLETE: The person in the photo MUST remain clearly visible, recognizable, and prominently featured.
 Add professional sports graphic design elements behind, beside, and around the athlete.
+Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
+Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
 
-DO NOT INCLUDE: text, words, letters, numbers, typography, labels, ${_negatives}`;
+DO NOT INCLUDE: ${_negatives}`;
 }
 
 
@@ -2707,7 +2708,7 @@ function openEditor() {
   FC_history = [];
   FC_future  = [];
 
-  if (!S.lastImage) { saveHistory(); renderLayers(); buildEditableLayers(w, h); return; }
+  if (!S.lastImage) { saveHistory(); renderLayers(); buildEditableLayers(w, h); return; }  // no image: use prompt parse
 
   fabric.Image.fromURL(S.lastImage, img => {
     // Use ORIGINAL dims (w,h) for scaling so image fills the full canvas at any zoom level
@@ -2743,14 +2744,14 @@ function openEditor() {
           if (loaded === cutoutUrls.length) {
             saveHistory();
             renderLayers();
-            buildEditableLayers(w, h);
+            detectAndBuildLayers(w, h);
           }
         }, { crossOrigin: 'anonymous' });
       });
     } else {
       saveHistory();
       renderLayers();
-      buildEditableLayers(w, h);
+      detectAndBuildLayers(w, h);
     }
   }, { crossOrigin: 'anonymous' });
 }
