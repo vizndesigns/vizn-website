@@ -1559,25 +1559,25 @@ function buildPrompt(raw, sport, style, type) {
     lacrosse:   'grass field atmosphere, helmet and stick visual language',
     wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
   };
-  return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
+  return `PROFESSIONAL SPORTS GRAPHIC BACKGROUND — broadcast and print quality.
+
+TEXT-FREE BACKGROUND LAYER: Do NOT render any text, words, letters, numbers, or typography anywhere in this image. This is the visual background plate only — all text is added as separate editable layers after generation.
 
 COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
 
-DESIGN BRIEF (follow exactly):
+DESIGN BRIEF (visual elements only — ignore any text/names/numbers for this image):
 "${raw}"
 
 FORMAT: ${layouts[type] || layouts['recruiting']}
 SPORT: ${sport.toUpperCase()} — ${sportCtx[sport] || 'athletic competition atmosphere'}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
 VISUAL REFERENCE: ${_typeVocab[type] || _typeVocab['recruiting']}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
-LAYOUT BOUNDARY: Position ALL text and graphic elements with generous padding — nothing closer than 8% from any edge. Every element must be 100% inside the frame. No letter, no shape, no graphic may touch or cross the image border.
+LAYOUT BOUNDARY: All graphic elements positioned with generous padding — nothing closer than 8% from any edge. No shape may touch or cross the image border.
 
-MANDATORY: Render EVERY text element from the brief pixel-sharp — names, numbers, schools, dates, exactly as written.
-QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Typography hierarchy: one dominant headline, one supporting size, one detail. Must pass as Nike/ESPN/Jordan Brand commissioned asset.
+QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Must pass as Nike/ESPN/Jordan Brand commissioned background plate.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: text, words, letters, numbers, typography, labels, captions, ${_negatives}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
@@ -1594,22 +1594,21 @@ function buildBackgroundPrompt(raw, sport, style, type) {
   };
   return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
+TEXT-FREE BACKGROUND LAYER: Do NOT render any text, words, letters, numbers, or typography. Visual graphic elements only — all text is added as editable layers separately.
+
 COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
 
-Design brief: "${raw}"
+Design brief (visual elements only): "${raw}"
 
 SPORT: ${sport.toUpperCase()}
 ${clearZones[type] || clearZones['recruiting']}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
 
-LAYOUT BOUNDARY: All text and shapes positioned with generous padding — nothing closer than 8% from any edge. Everything 100% inside the frame. No element touches or crosses the image border.
+LAYOUT BOUNDARY: All shapes and graphic elements positioned with generous padding — nothing closer than 8% from any edge. Everything 100% inside the frame. No element touches or crosses the image border.
 
-Include ALL text from brief as typographic elements — pixel-sharp, fully inside the frame.
-Large semi-transparent jersey number (40% opacity) as background texture.
-Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
+Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design. No text of any kind.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: text, words, letters, numbers, typography, ${_negatives}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
@@ -1636,14 +1635,14 @@ TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
 LAYOUT BOUNDARY: All text and graphic elements positioned with generous padding — nothing closer than 8% from any edge. Every element 100% inside the frame. No letter or shape may touch or cross the image border.
 
+TEXT-FREE BACKGROUND: Do NOT render any text, words, letters, numbers, or typography. All text is added as editable layers after generation.
+
 ATHLETE: The person in the photo MUST remain clearly visible, recognizable, and prominently featured.
 Add professional sports graphic design elements behind, beside, and around the athlete.
-Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
-Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
 
-DO NOT INCLUDE: ${_negatives}`;
+DO NOT INCLUDE: text, words, letters, numbers, typography, labels, ${_negatives}`;
 }
 
 
@@ -1889,7 +1888,8 @@ async function generate(raw) {
     }
     showResult(finalUrl);
     S.lastImage = finalUrl;
-    toast('Design generated \u2713', 'ok');
+    toast('Design generated \u2713 \u2014 opening editor\u2026', 'ok');
+    setTimeout(openEditor, 300);
   } catch(e) {
     console.error('VIZN generate error:', e);
     clearGenOverlay();
@@ -2708,7 +2708,7 @@ function openEditor() {
   FC_history = [];
   FC_future  = [];
 
-  if (!S.lastImage) { buildEditableLayers(w, h); return; }
+  if (!S.lastImage) { saveHistory(); renderLayers(); buildEditableLayers(w, h); return; }
 
   fabric.Image.fromURL(S.lastImage, img => {
     // Use ORIGINAL dims (w,h) for scaling so image fills the full canvas at any zoom level
@@ -2717,7 +2717,7 @@ function openEditor() {
       scaleX: w / img.width,
       scaleY: h / img.height,
       opacity: 1,
-      selectable: false, evented: false,  // background is locked — clicks pass through to text layers
+      selectable: false, evented: false,
       data: { type: 'bg', name: 'Background (original)' }
     });
     FC.add(img);
@@ -2744,14 +2744,14 @@ function openEditor() {
           if (loaded === cutoutUrls.length) {
             saveHistory();
             renderLayers();
-            detectAndBuildLayers(w, h);
+            buildEditableLayers(w, h);
           }
         }, { crossOrigin: 'anonymous' });
       });
     } else {
       saveHistory();
       renderLayers();
-      detectAndBuildLayers(w, h);
+      buildEditableLayers(w, h);
     }
   }, { crossOrigin: 'anonymous' });
 }
@@ -2946,14 +2946,50 @@ function parsePromptText(prompt) {
   return results;
 }
 
-// ── Build fully editable layer stack (instant — no API call) ────────────────────────
+// ── Extract primary accent color from prompt or fall back to style default ──
+function extractAccentColor(prompt, style) {
+  const colorMap = {
+    'lime green': '#88cc00', lime: '#c8f000',
+    crimson: '#cc0000', scarlet: '#cc0000', red: '#cc0000',
+    navy: '#001f5b', royal: '#003087', blue: '#0044aa',
+    gold: '#c8a84b', yellow: '#ffd700',
+    green: '#006633',
+    purple: '#6a0dad',
+    orange: '#e86500',
+    silver: '#c0c0c0',
+    maroon: '#800000',
+    pink: '#ff69b4',
+    teal: '#008080',
+    cyan: '#00bfff',
+    white: '#ffffff',
+    black: '#1a1a1a'
+  };
+  const styleDefaults = {
+    aggressive: '#c8a84b', modern: '#c8f000', collegiate: '#c8a84b',
+    minimal: '#c8f000', hype: '#ff00ff', retro: '#d4380d'
+  };
+  const lower = (prompt || '').toLowerCase();
+  for (const [name, hex] of Object.entries(colorMap)) {
+    if (lower.includes(name)) return hex;
+  }
+  return styleDefaults[style] || '#c8a84b';
+}
+
+// ── Build fully editable layer stack (instant — background is text-free) ──
 function buildEditableLayers(w, h) {
   const statusEl = el('edLayerStatus');
   if (statusEl) statusEl.textContent = '';
 
-  const texts   = parsePromptText(S.lastPrompt || '');
-  const layouts = getTypeLayouts(S.type, w, h);
+  const texts      = parsePromptText(S.lastPrompt || '');
+  const layouts    = getTypeLayouts(S.type, w, h);
   const roleCounts = {};
+  const accent     = extractAccentColor(S.lastPrompt, S.style);
+
+  const styleFonts = {
+    aggressive: 'Impact', modern: 'Impact', collegiate: 'Impact',
+    minimal: 'Arial', hype: 'Impact', retro: 'Impact'
+  };
+  const font = styleFonts[S.style] || 'Impact';
 
   texts.forEach(elem => {
     if (!elem.text) return;
@@ -2964,7 +3000,9 @@ function buildEditableLayers(w, h) {
     roleCounts[role] = idx + 1;
 
     const yOffset = idx * (pos.size * 1.5);
-    const isBig   = pos.size > 30;
+    const isBig   = pos.size > 28;
+    // Numbers get accent color, all other text gets white
+    const fill    = role === 'number' ? accent : '#ffffff';
 
     const t = new fabric.IText(elem.text.toUpperCase(), {
       left:        pos.x,
@@ -2972,26 +3010,26 @@ function buildEditableLayers(w, h) {
       originX:     'center',
       originY:     'center',
       fontSize:    pos.size,
-      fill:        '#ffffff',
+      fill:        fill,
       fontWeight:  pos.weight || 'bold',
-      fontFamily:  'Impact',
+      fontFamily:  font,
       textAlign:   'center',
       stroke:      isBig ? '#000000' : null,
-      strokeWidth: isBig ? Math.max(1, Math.round(pos.size * 0.035)) : 0,
-      shadow:      new fabric.Shadow({ color: 'rgba(0,0,0,0.9)', blur: 10, offsetX: 2, offsetY: 3 }),
+      strokeWidth: isBig ? Math.max(1, Math.round(pos.size * 0.04)) : 0,
+      shadow:      new fabric.Shadow({ color: 'rgba(0,0,0,0.85)', blur: 14, offsetX: 2, offsetY: 4 }),
       selectable:  true,
       evented:     true,
       editable:    true,
       data: { type: 'text', name: elem.text.slice(0, 22), role, detected: true }
     });
     FC.add(t);
-    FC.bringToFront(t);  // always above athletes and background
+    FC.bringToFront(t);
   });
 
   FC.renderAll();
   saveHistory();
   renderLayers();
-  toast('Click to select • Double-click text to edit', 'ok');
+  toast('Click to select • Double-click to edit text', 'ok');
 }
 
 function closeEditor() {
