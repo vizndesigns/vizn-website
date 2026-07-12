@@ -2884,61 +2884,77 @@ async function detectAndBuildLayers(w, h) {
 function parsePromptText(prompt) {
   if (!prompt) return [];
   const results = [];
-  const used = new Set();
+  const usedWords = new Set(); // track individual words so multi-word matches block singles
 
-  const add = (text, role) => {
-    const key = text.toLowerCase();
-    if (used.has(key)) return;
-    used.add(key);
-    results.push({ text, role });
+  const addResult = (text, role) => {
+    const key = text.trim().toLowerCase();
+    if (!key || usedWords.has(key)) return;
+    usedWords.add(key);
+    // also mark each individual word so single-word pass doesn't re-add them
+    key.split(/\s+/).forEach(w => usedWords.add(w));
+    results.push({ text: text.trim(), role });
   };
 
-  // Jersey numbers: #13, #00, No. 7, jersey 23, number 4
-  const numMatches = prompt.match(/#\d{1,2}|(?:jersey|number|no\.?)\s*(\d{1,2})/gi) || [];
+  // 1. Jersey numbers (#27, No. 7, jersey 23)
+  const numMatches = prompt.match(/#\d{1,2}|(?:jersey|number|no\.?)\s*\d{1,2}/gi) || [];
   numMatches.forEach(m => {
     const n = m.match(/\d+/);
-    if (n) add(n[0], 'number');
+    if (n) addResult(n[0], 'number');
   });
 
-  // "Class of YYYY" or "2024" graduation year
-  const classMatch = prompt.match(/class of (\d{4})|'?(\d{2})\s*$/i);
-  if (classMatch) add(classMatch[0].toUpperCase(), 'detail');
+  // 2. Dates (04.22.2024 / 4/22/24)
+  const dateMatch = prompt.match(/\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{2,4}/);
+  if (dateMatch) addResult(dateMatch[0], 'detail');
 
-  // GPA / stats like "4.0 GPA", "6'2"", "185 lbs"
-  const statMatches = prompt.match(/[\d.]+\s*(?:gpa|lbs?|ft\.?|'|"|\d")/gi) || [];
-  statMatches.forEach(m => add(m.toUpperCase(), 'detail'));
+  // 3. Times (1:30 PM EST)
+  const timeMatch = prompt.match(/\d{1,2}:\d{2}\s*(?:AM|PM)?(?:\s*[A-Z]{2,4})?/i);
+  if (timeMatch) addResult(timeMatch[0].trim().toUpperCase(), 'detail');
 
-  // Quoted strings are usually the most important explicit text
+  // 4. Class year
+  const classMatch = prompt.match(/class of \d{4}/i);
+  if (classMatch) addResult(classMatch[0].toUpperCase(), 'detail');
+
+  // 5. Stats (GPA, height, weight)
+  const statMatches = prompt.match(/[\d.]+\s*(?:gpa|lbs?|ft\.?)/gi) || [];
+  statMatches.forEach(m => addResult(m.toUpperCase(), 'detail'));
+
+  // 6. Quoted strings
   const quoted = prompt.match(/"([^"]{1,40})"|'([^']{1,40})'/g) || [];
   quoted.forEach(m => {
     const clean = m.replace(/['"]/g, '').trim();
-    if (clean.length > 1) add(clean, results.length === 0 ? 'headline' : 'subtitle');
+    if (clean.length > 1) addResult(clean, results.length === 0 ? 'headline' : 'subtitle');
   });
 
-  // Capitalized multi-word phrases (proper nouns — names, school names)
-  // Must be 2+ consecutive capitalized words
-  const properNouns = prompt.match(/(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/g) || [];
+  // 7. Multi-word ALL-CAPS phrases ("VIKINGS BASEBALL", "GOLDEN TIDE")
+  const multiCaps = prompt.match(/\b[A-Z]{2,}(?:\s+[A-Z]{2,})+\b/g) || [];
+  multiCaps.forEach(phrase => {
+    const words = phrase.trim().split(/\s+/);
+    const role = words.length <= 2 ? 'headline' : 'school';
+    addResult(phrase, role);
+  });
+
+  // 8. Title-case proper nouns ("Jer Preston", "Golden Tide", "Viking Stadium")
+  const properNouns = prompt.match(/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/g) || [];
   properNouns.forEach(m => {
     const words = m.trim().split(/\s+/);
     if (words.length < 2) return;
-    // Heuristic: shorter names are player names (headline), longer are school/team (school)
     const role = words.length <= 3 ? 'headline' : 'school';
-    add(m.trim(), role);
+    addResult(m.trim(), role);
   });
 
-  // Single ALL-CAPS words (team names, mottoes)
+  // 9. Single ALL-CAPS words not already consumed
+  const stopWords = new Set(['NFL','NBA','NCAA','MVP','GPA','VHS','THE','AND','FOR','WITH','THAT','FROM','THIS','WILL','HAVE']);
   const caps = prompt.match(/\b[A-Z]{3,}\b/g) || [];
   caps.forEach(m => {
-    if (/^(NFL|NBA|NCAA|MVP|GPA|VHS|THE|AND|FOR|WITH|THAT)$/.test(m)) return;
-    add(m, 'school');
+    if (stopWords.has(m)) return;
+    addResult(m, 'school');
   });
 
-  // Fallback if nothing matched
   if (results.length === 0) {
     return [
       { text: 'PLAYER NAME', role: 'headline' },
-      { text: '00',           role: 'number' },
-      { text: 'TEAM NAME',    role: 'school' }
+      { text: '00',          role: 'number'   },
+      { text: 'TEAM NAME',   role: 'school'   }
     ];
   }
 
@@ -3004,21 +3020,23 @@ function buildEditableLayers(w, h) {
     const fill    = role === 'number' ? accent : '#ffffff';
 
     const t = new fabric.IText(elem.text.toUpperCase(), {
-      left:        pos.x,
-      top:         pos.y + yOffset,
-      originX:     'center',
-      originY:     'center',
-      fontSize:    pos.size,
-      fill:        fill,
-      fontWeight:  pos.weight || 'bold',
-      fontFamily:  font,
-      textAlign:   'center',
-      stroke:      isBig ? '#000000' : null,
-      strokeWidth: isBig ? Math.max(1, Math.round(pos.size * 0.04)) : 0,
-      shadow:      new fabric.Shadow({ color: 'rgba(0,0,0,0.85)', blur: 14, offsetX: 2, offsetY: 4 }),
-      selectable:  true,
-      evented:     true,
-      editable:    true,
+      left:            pos.x,
+      top:             pos.y + yOffset,
+      originX:         'center',
+      originY:         'center',
+      fontSize:        pos.size,
+      fill:            fill,
+      fontWeight:      pos.weight || 'bold',
+      fontFamily:      font,
+      textAlign:       'center',
+      stroke:          isBig ? '#000000' : null,
+      strokeWidth:     isBig ? Math.max(1, Math.round(pos.size * 0.04)) : 0,
+      shadow:          new fabric.Shadow({ color: 'rgba(0,0,0,0.85)', blur: 14, offsetX: 2, offsetY: 4 }),
+      backgroundColor: 'rgba(0,0,0,0.7)',  // covers any baked-in text underneath
+      padding:         6,
+      selectable:      true,
+      evented:         true,
+      editable:        true,
       data: { type: 'text', name: elem.text.slice(0, 22), role, detected: true }
     });
     FC.add(t);
