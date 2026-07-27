@@ -244,17 +244,22 @@ export default async function handler(req, res) {
             form.append('quality', 'high');
             form.append('n', '1');
 
+            const editCtrl = new AbortController();
+            const editTimer = setTimeout(() => editCtrl.abort(), 55000);
             const editRes  = await fetch('https://api.openai.com/v1/images/edits', {
               method:  'POST',
               headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
+              signal:  editCtrl.signal,
               body:    form
             });
+            clearTimeout(editTimer);
             const editData = await editRes.json();
 
             if (editRes.ok) {
               const b64      = editData.data?.[0]?.b64_json;
               const url      = editData.data?.[0]?.url;
-              const imageUrl = url || (b64 ? `data:image/png;base64,${b64}` : null);
+              // Prefer b64 (permanent) over URL (expires)
+              const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
               if (imageUrl) {
                 return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1-edit' });
               }
@@ -507,34 +512,55 @@ Return ONLY a raw JSON array, no markdown, no explanation:
     }
 
     // ── Image generation — gpt-image-1 → Gemini → FLUX ───────
-    // gpt-image-1 first: follows color/style instructions most reliably
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // Primary: gpt-image-1 — best color and instruction adherence
+    // Helper: call gpt-image-1 with timeout and return base64 data URI
+    async function tryGptImage(sz) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 55000);
+      try {
+        const imgRes = await fetch('https://api.openai.com/v1/images/generations', {
+          method:  'POST',
+          headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+          signal:  ctrl.signal,
+          body:    JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size: sz, quality: 'high' })
+        });
+        clearTimeout(timer);
+        const imgData = await imgRes.json();
+        if (!imgRes.ok) {
+          const code = imgData.error?.code || imgData.error?.type || imgRes.status;
+          throw Object.assign(new Error(imgData.error?.message || 'gpt-image-1 error'), { code, status: imgRes.status });
+        }
+        const b64 = imgData.data?.[0]?.b64_json;
+        const url = imgData.data?.[0]?.url;
+        // Prefer b64 (permanent) over URL (expires in 1 hour)
+        const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
+        if (!imageUrl) throw new Error('gpt-image-1 returned no image');
+        return imageUrl;
+      } catch(e) {
+        clearTimeout(timer);
+        throw e;
+      }
+    }
+
+    // Primary: gpt-image-1 — best instruction adherence; retry once on transient errors
     if (OPENAI_KEY) {
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
-
-      try {
-        const imgRes  = await fetch('https://api.openai.com/v1/images/generations', {
-          method:  'POST',
-          headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality: 'high' })
-        });
-        const imgData = await imgRes.json();
-
-        if (imgRes.ok) {
-          const b64      = imgData.data?.[0]?.b64_json;
-          const url      = imgData.data?.[0]?.url;
-          const imageUrl = url || (b64 ? `data:image/png;base64,${b64}` : null);
-          if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1' });
-        } else {
-          console.warn('gpt-image-1 error, falling back to Gemini:', imgData.error?.message || imgRes.status);
+      let lastErr;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const imageUrl = await tryGptImage(size);
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1' });
+        } catch(e) {
+          lastErr = e;
+          const isTransient = e.status === 429 || e.status === 500 || e.status === 503 || e.name === 'AbortError';
+          if (!isTransient || attempt === 1) break;
+          await new Promise(r => setTimeout(r, 1500));
         }
-      } catch(e) {
-        console.warn('gpt-image-1 failed, falling back to Gemini:', e.message);
       }
+      console.warn('gpt-image-1 failed after retries, falling back to Gemini:', lastErr?.message);
     }
 
     // Secondary: Gemini (fallback when OpenAI unavailable)
