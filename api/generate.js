@@ -293,31 +293,38 @@ export default async function handler(req, res) {
         'mvp':          'award podium perspective, athlete elevated, trophy casting dramatic shadow, gold foil award typography',
         'championship': 'victory panorama, full-bleed team color, confetti and streamers, trophy in foreground'
       };
-      const sport = req.body.sport || 'sports';
-      const style = req.body.style || 'aggressive';
-      const type  = req.body.type  || 'recruiting';
+      const sport  = req.body.sport  || 'sports';
+      const style  = req.body.style  || 'aggressive';
+      const type   = req.body.type   || 'recruiting';
+      const width  = parseInt(req.body.width)  || 1024;
+      const height = parseInt(req.body.height) || 1536;
+      const orientation = width > height ? 'LANDSCAPE' : width < height ? 'PORTRAIT' : 'SQUARE';
 
-      const refinePrompt = `You are a professional sports graphic designer making ONE PRECISE EDIT to an existing design.
+      const refinePrompt = `You are a professional sports graphic retoucher making ONE SURGICAL EDIT to a finished design. Your job is precision — change only exactly what is asked, nothing else.
 
 ORIGINAL DESIGN CONTEXT:
 - Sport: ${sport.toUpperCase()}
 - Design type: ${type}
 - Visual style: ${style} — ${styleGuide[style] || styleGuide.aggressive}
 - Composition: ${compositionGuide[type] || compositionGuide['recruiting']}
+- Canvas orientation: ${orientation} (${width}×${height})
 
 REQUESTED CHANGE: "${req.body.prompt}"
 
-WHAT TO PRESERVE — keep ALL of these EXACTLY as they appear:
-✓ Every piece of text (player names, numbers, school/team names, dates, stats) — same wording, same position
-✓ Athlete (if present) — same position, same size, same pose, same cutout treatment
-✓ Overall layout and composition structure
-✓ Color palette — EXACT same colors UNLESS the change explicitly requests a color swap
-✓ All background elements, textures, graphic shapes not mentioned in the change request
-✓ Canvas dimensions and crop boundary
+PRESERVATION RULES — every item below must remain PIXEL-PERFECT identical to the input:
+✓ All text (player names, numbers, school/team names, dates, stats) — exact wording, exact position on canvas, exact size
+✓ Athlete/subject (if present) — exact position, exact size, exact pose, exact crop
+✓ Overall layout structure and composition — nothing moves
+✓ Color palette — exact same colors as input UNLESS the request explicitly says to change colors
+✓ All background textures, graphic shapes, geometric elements, borders NOT mentioned in the request
+✓ Canvas size, crop, and framing
 
-APPLY ONLY THE ONE CHANGE DESCRIBED. Do not improve, polish, or redesign anything else.
-Result must look identical to the original with only that one element visibly different.
-All text and graphics must remain within the canvas boundaries.`;
+DO NOT REPOSITION: Do not move, nudge, shift, or resize ANY element that is not part of the requested change.
+DO NOT REDESIGN: Do not improve, clean up, or optimize anything not mentioned in the request.
+
+SAFE ZONE RULE: Every element in the output — every letter, logo, shape — must be 100% contained within the image. Nothing may be cut off or touch any edge. If applying the change would push any element toward an edge, scale it down until it fits completely within the canvas with at least 10% padding from all edges.
+
+APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only that single element visibly different.`;
 
       // Normalize image: if a URL was passed instead of a data URI, convert it
       let imageDataUrl = req.body.imageDataUrl;
@@ -347,7 +354,7 @@ All text and graphics must remain within the canvas boundaries.`;
                     { inlineData: { mimeType: mime, data: b64 } },
                     { text: refinePrompt }
                   ]}],
-                  generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.3 }
+                  generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.15 }
                 })
               }
             );

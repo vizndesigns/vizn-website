@@ -1439,7 +1439,7 @@ const _typo = {
   retro:      'vintage block letter style (Chunk Five, Alfa Slab, or similar), worn edge texture, distressed ink treatment, halftone dot pattern overlay'
 };
 
-const _negatives = 'text or graphics outside the canvas boundary, text cut off at any edge, typography touching or crossing the image border, elements cropped at any edge, colors not in the specified palette, watermarks, stock photography feel, blurry or illegible text, amateur composition, 3D render artifacts, clip art, generic drop shadows, overused gradients, muddy low-contrast combinations, mismatched fonts, stray colors not listed in the palette.';
+const _negatives = 'any letter, word, shape, or graphic element cut off or cropped at any edge, text running off or touching any side of the frame, elements extending beyond the canvas boundary, typography clipped by the image border, content outside the safe zone, colors not in the specified palette, watermarks, stock photography feel, blurry or illegible text, amateur composition, 3D render artifacts, clip art, generic drop shadows, overused gradients, muddy low-contrast combinations, mismatched fonts, stray colors not listed in the palette.';
 
 
 const _composition = {
@@ -1528,7 +1528,7 @@ COMPOSITION: ${_composition[type] || _composition['recruiting']}
 VISUAL REFERENCE: ${_typeVocab[type] || _typeVocab['recruiting']}
 TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
-LAYOUT BOUNDARY: Position ALL text and graphic elements with generous padding — nothing closer than 8% from any edge. Every element must be 100% inside the frame. No letter, no shape, no graphic may touch or cross the image border.
+SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
 
 MANDATORY: Render EVERY text element from the brief pixel-sharp — names, numbers, schools, dates, exactly as written.
 QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Typography hierarchy: one dominant headline, one supporting size, one detail. Must pass as Nike/ESPN/Jordan Brand commissioned asset.
@@ -1568,9 +1568,9 @@ ${clearZones[type] || clearZones['recruiting']}
 TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
 
-LAYOUT BOUNDARY: All text and shapes positioned with generous padding — nothing closer than 8% from any edge. Everything 100% inside the frame. No element touches or crosses the image border.
+SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
 
-Include ALL text from brief as typographic elements — pixel-sharp, fully inside the frame.
+Include ALL text from brief as typographic elements — pixel-sharp, fully inside the safe zone.
 Large semi-transparent jersey number (40% opacity) as background texture.
 Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
 
@@ -1614,7 +1614,7 @@ DESIGN BRIEF (include every element):
 SPORT: ${sport.toUpperCase()}
 TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
-LAYOUT BOUNDARY: All text and graphic elements positioned with generous padding — nothing closer than 8% from any edge. Every element 100% inside the frame. No letter or shape may touch or cross the image border.
+SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
 
 ${poseInstruction}
 Add professional sports graphic design elements behind, beside, and around the athlete.
@@ -2062,7 +2062,9 @@ if (refApply) refApply.addEventListener('click', async () => {
         imageDataUrl,
         sport: S.sport,
         style: S.style,
-        type: S.type
+        type: S.type,
+        width: S.outputW,
+        height: S.outputH
       })
     });
     const data = await res.json();
