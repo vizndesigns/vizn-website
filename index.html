@@ -1667,20 +1667,23 @@ DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
-function buildBackgroundPrompt(raw, sport, style, type) {
+function buildBackgroundPrompt(raw, sport, style, type, playerCount = 1) {
+  const isTeam = playerCount > 1;
+  // For team composites, the entire lower 70% is reserved for real player cutouts — keep it clear
+  const teamClearZone = `CLEAR ZONE: bottom 70% of frame is COMPLETELY EMPTY — this area is reserved for ${playerCount} real athlete cutouts that will be composited on top. Only design elements in the top 30%: team name, graphic headline, logo, and accent shapes. Keep the background atmospheric and dark at the bottom to make cutouts pop.`;
   const clearZones = {
-    'commitment':      'CLEAR ZONE: center 60% of frame — empty. Text and logo elements float in top 30%, accent elements at bottom.',
-    'game-day':        'CLEAR ZONE: center 50% — empty. GAME DAY headline and team info at top 30%, game details at bottom 20%.',
+    'commitment':      isTeam ? teamClearZone : 'CLEAR ZONE: center 60% of frame — empty. Text and logo elements float in top 30%, accent elements at bottom.',
+    'game-day':        isTeam ? teamClearZone : 'CLEAR ZONE: center 50% — empty. GAME DAY headline and team info at top 30%, game details at bottom 20%.',
     'halftime-score':  'Full frame scoreboard design — no clear zone. Score numbers and team marks fill the layout in clean broadcast grid.',
     'final-score':     'Full frame score card — no clear zone. FINAL label, score numbers, and team marks fill the frame in broadcast layout.',
-    'player-of-game':  'CLEAR ZONE: 25% to 70% height — empty for athlete. PLAYER OF THE GAME header at top 20%, stats grid at bottom 25%.',
+    'player-of-game':  isTeam ? teamClearZone : 'CLEAR ZONE: 25% to 70% height — empty for athlete. PLAYER OF THE GAME header at top 20%, stats grid at bottom 25%.',
     'game-recap':      'Full frame information design — no clear zone. Score, stats, and recap content fill the layout in clean grid format.',
-    'starting-lineup': 'Full frame lineup design — no clear zone. Player list and team elements fill the layout in a clean structured grid.',
+    'starting-lineup': isTeam ? teamClearZone : 'Full frame lineup design — no clear zone. Player list and team elements fill the layout in a clean structured grid.',
     'home-schedule':   'Full frame schedule grid — no clear zone. Team mark at top, schedule rows fill the remaining frame.',
     'season-schedule': 'Full frame season schedule — no clear zone. Season year headline at top, all schedule rows fill the frame.',
-    'player-spotlight':'CLEAR ZONE: 25% to 75% height — empty for athlete portrait. Name band at bottom 25%, accent at very top.',
-    'recruit-offer':   'CLEAR ZONE: 40% to 80% height — empty. School logo and OFFER EXTENDED at top 35%, accent elements at bottom.',
-    'other':           'CLEAR ZONE: center 40% — empty negative space for athlete overlay. Design elements around the perimeter.'
+    'player-spotlight': isTeam ? teamClearZone : 'CLEAR ZONE: 25% to 75% height — empty for athlete portrait. Name band at bottom 25%, accent at very top.',
+    'recruit-offer':   isTeam ? teamClearZone : 'CLEAR ZONE: 40% to 80% height — empty. School logo and OFFER EXTENDED at top 35%, accent elements at bottom.',
+    'other':           isTeam ? teamClearZone : 'CLEAR ZONE: center 40% — empty negative space for athlete overlay. Design elements around the perimeter.'
   };
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
@@ -1824,24 +1827,33 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
         const valid = imgs.filter(Boolean);
         if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.95)); return; }
 
-        const heightFrac = valid.length === 1 ? 0.91 : valid.length <= 3 ? 0.82 : valid.length <= 6 ? 0.70 : 0.60;
-        const targetH    = canvas.height * heightFrac;
+        // Layout: 1-4 players in one row; 5+ split into 2 rows
+        const n    = valid.length;
+        const rows = n <= 4 ? 1 : 2;
+        const cols = Math.ceil(n / rows);
 
-        valid.forEach((cutout, i) => {
-          const scale = targetH / cutout.height;
-          const w     = cutout.width * scale;
-          const slot  = canvas.width / valid.length;
-          const x     = slot * i + (slot - w) / 2;
-          const y     = canvas.height - targetH;
+        function drawCutout(cutout, rowIdx, colIdx, totalInRow) {
+          const heightFrac = rows === 1
+            ? (n === 1 ? 0.91 : n <= 3 ? 0.82 : 0.70)
+            : (rowIdx === 0 ? 0.44 : 0.44); // two-row: each row ~44% height
+          const targetH = canvas.height * heightFrac;
+          const scale   = targetH / cutout.height;
+          const w       = cutout.width * scale;
+          const slot    = canvas.width / totalInRow;
+          const x       = slot * colIdx + (slot - w) / 2;
+          const y       = rows === 1
+            ? canvas.height - targetH
+            : rowIdx === 0
+              ? canvas.height - targetH * 2 - canvas.height * 0.02  // back row higher up
+              : canvas.height - targetH;                              // front row at bottom
 
-          // --- Render athlete to offscreen canvas so we can mask feet ---
           const off    = document.createElement('canvas');
           off.width    = canvas.width;
           off.height   = canvas.height;
           const offCtx = off.getContext('2d');
           offCtx.drawImage(cutout, x, y, w, targetH);
 
-          // Gradient fade at feet (professional floating effect)
+          // Gradient fade at feet
           const fadeStart = y + targetH * 0.80;
           const fadeEnd   = y + targetH;
           const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
@@ -1851,7 +1863,6 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
           offCtx.fillStyle = grad;
           offCtx.fillRect(0, fadeStart, canvas.width, fadeEnd - fadeStart);
 
-          // --- Draw masked athlete onto main canvas with drop shadow ---
           ctx.save();
           ctx.shadowColor   = 'rgba(0,0,0,0.65)';
           ctx.shadowBlur    = 35;
@@ -1859,7 +1870,17 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
           ctx.shadowOffsetY = 18;
           ctx.drawImage(off, 0, 0);
           ctx.restore();
-        });
+        }
+
+        if (rows === 1) {
+          valid.forEach((cutout, i) => drawCutout(cutout, 0, i, n));
+        } else {
+          // Back row first (drawn first so front row appears on top)
+          const backRow  = valid.slice(0, cols);
+          const frontRow = valid.slice(cols);
+          backRow.forEach((cutout, i)  => drawCutout(cutout, 0, i, backRow.length));
+          frontRow.forEach((cutout, i) => drawCutout(cutout, 1, i, frontRow.length));
+        }
 
         // Strong sharpen pass for crisp edges on the final composite
         sharpenCanvas(ctx, canvas.width, canvas.height);
@@ -2019,20 +2040,37 @@ async function generate(raw) {
     let finalUrl, finalEngine;
 
     if (hasOriginals) {
-      // VISION PATH: send actual athlete photo to AI so it sees and designs around them
-      setStatus('AI analyzing your photo\u2026');
-      const visionPrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type, S.athleteOriginals.length);
-      try {
-        const result = await callGenerateWithImage(S.athleteOriginals, visionPrompt, S.type);
-        finalUrl    = result.url;
-        finalEngine = result.engine;
-      } catch(visionErr) {
-        console.warn('Vision generation failed, falling back to composite:', visionErr.message);
-        toast('Falling back to composite mode\u2026', '');
-        const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type);
+      const isTeamUpload = S.athleteOriginals.length > 1;
+
+      if (isTeamUpload) {
+        // TEAM COMPOSITE PATH: multiple players \u2192 always use real cutouts on AI background
+        // (vision path generates fictional people \u2014 composite uses the actual uploaded faces)
+        if (!hasCutouts) {
+          toast('Photos still processing \u2014 wait for background removal to finish', 'err');
+          S.generating = false; setGenBtn(false); return;
+        }
+        setStatus('Generating team background\u2026');
+        const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, S.athleteOriginals.length);
         const bgResult = await callReplicate(bgPrompt, S.type);
-        finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts) : bgResult.url;
-        finalEngine = bgResult.engine;
+        setStatus('Compositing ' + S.athleteCutouts.length + ' players\u2026');
+        finalUrl    = await compositeLayers(bgResult.url, S.athleteCutouts);
+        finalEngine = bgResult.engine + ' + composite';
+      } else {
+        // VISION PATH: single player \u2014 send actual photo so AI wraps design around it
+        setStatus('AI analyzing your photo\u2026');
+        const visionPrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type, 1);
+        try {
+          const result = await callGenerateWithImage(S.athleteOriginals, visionPrompt, S.type);
+          finalUrl    = result.url;
+          finalEngine = result.engine;
+        } catch(visionErr) {
+          console.warn('Vision generation failed, falling back to composite:', visionErr.message);
+          toast('Falling back to composite mode\u2026', '');
+          const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, 1);
+          const bgResult = await callReplicate(bgPrompt, S.type);
+          finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts) : bgResult.url;
+          finalEngine = bgResult.engine;
+        }
       }
     } else {
       // TEXT-TO-IMAGE PATH: no photo uploaded
