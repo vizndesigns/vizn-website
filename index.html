@@ -210,7 +210,9 @@ select.fin{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .tool-row{display:flex;gap:4px}
 .tbtn{width:30px;height:30px;background:var(--dark);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--muted);transition:all 0.2s}
 .tbtn:hover{border-color:var(--lime);color:var(--lime)}
-.dim-sel{background:var(--dark);border:1px solid var(--border);color:var(--muted);font-family:var(--fm);font-size:10px;padding:6px 10px;outline:none;cursor:pointer}
+.dim-sel{background:var(--dark);border:1px solid var(--border);color:var(--muted);font-family:var(--fm);font-size:10px;padding:6px 10px;outline:none;cursor:pointer;min-width:220px}
+.dim-sel optgroup{color:#888;font-style:normal;font-size:9px;letter-spacing:0.05em}
+.dim-sel option{color:var(--white);background:var(--panel)}
 .cbar-right{display:flex;gap:6px}
 .cbar-btn{font-family:var(--fm);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;padding:7px 13px;cursor:pointer;transition:all 0.2s;background:none;border:1px solid var(--border);color:var(--muted)}
 .cbar-btn:hover{border-color:var(--lime);color:var(--lime)}
@@ -741,15 +743,50 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <div class="tbtn">⊡</div>
           </div>
           <select class="dim-sel" id="dimSelect">
-            <option value="sq"        data-ratio="1/1"  data-w="1024" data-h="1024">8" × 8" — Social Square</option>
-            <option value="story"     data-ratio="9/16" data-w="1024" data-h="1536">4" × 7" — Story / Reel (9:16)</option>
-            <option value="post12"    data-ratio="2/3"  data-w="1024" data-h="1536" selected>12" × 18" — Portrait Poster</option>
-            <option value="post18"    data-ratio="3/4"  data-w="1024" data-h="1536">18" × 24" — Tall Poster</option>
-            <option value="banner2x4" data-ratio="1/2"  data-w="832"  data-h="1664">2ft × 4ft — Vertical Banner ★</option>
-            <option value="land"      data-ratio="3/2"  data-w="1536" data-h="1024">18" × 12" — Landscape Banner</option>
-            <option value="game6x4"   data-ratio="3/2"  data-w="1536" data-h="1024">6ft × 4ft — Game Day Banner</option>
-            <option value="stadium"   data-ratio="2/1"  data-w="1536" data-h="1024">30ft × 15ft — Stadium Banner</option>
-            <option value="score"     data-ratio="16/9" data-w="1536" data-h="1024">Scoreboard HD (16:9)</option>
+            <optgroup label="── SOCIAL MEDIA ──────────────">
+              <option value="ig-port"    data-ratio="4/5"    data-w="1024" data-h="1280" selected>Instagram Portrait Post — 4" × 5"</option>
+              <option value="ig-sq"      data-ratio="1/1"    data-w="1024" data-h="1024">Instagram Square Post — 4" × 4"</option>
+              <option value="ig-story"   data-ratio="9/16"   data-w="1024" data-h="1536">Instagram Story / Reel — 4" × 7"</option>
+              <option value="fb-post"    data-ratio="16/9"   data-w="1536" data-h="864">Facebook Post — 7" × 4"</option>
+              <option value="fb-story"   data-ratio="9/16"   data-w="1024" data-h="1536">Facebook Story — 4" × 7"</option>
+              <option value="x-post"     data-ratio="16/9"   data-w="1536" data-h="864">X (Twitter) Post — 7" × 4"</option>
+              <option value="tiktok"     data-ratio="9/16"   data-w="1024" data-h="1536">TikTok Post — 4" × 7"</option>
+              <option value="yt-thumb"   data-ratio="16/9"   data-w="1536" data-h="864">YouTube Thumbnail — 7" × 4"</option>
+              <option value="pin"        data-ratio="2/3"    data-w="1024" data-h="1536">Pinterest Pin — 4" × 6"</option>
+              <option value="linkedin"   data-ratio="16/9"   data-w="1536" data-h="864">LinkedIn Post — 7" × 4"</option>
+              <option value="snap"       data-ratio="9/16"   data-w="1024" data-h="1536">Snapchat Story — 4" × 7"</option>
+              <option value="threads"    data-ratio="1/1"    data-w="1024" data-h="1024">Threads Post — 4" × 4"</option>
+            </optgroup>
+            <optgroup label="── PRINT — PHOTO &amp; POSTER ──">
+              <option value="photo4x6"   data-ratio="2/3"    data-w="1024" data-h="1536">4" × 6" Photo Print</option>
+              <option value="photo5x7"   data-ratio="5/7"    data-w="1024" data-h="1432">5" × 7" Photo Print</option>
+              <option value="print8x10"  data-ratio="4/5"    data-w="1024" data-h="1280">8" × 10" Print</option>
+              <option value="letter"     data-ratio="8.5/11" data-w="1024" data-h="1328">8.5" × 11" Letter Print</option>
+              <option value="p11x14"     data-ratio="11/14"  data-w="1024" data-h="1304">11" × 14" Print</option>
+              <option value="poster12"   data-ratio="2/3"    data-w="1024" data-h="1536">12" × 18" Poster</option>
+              <option value="poster18"   data-ratio="3/4"    data-w="1152" data-h="1536">18" × 24" Poster</option>
+              <option value="poster24"   data-ratio="2/3"    data-w="1024" data-h="1536">24" × 36" Large Poster</option>
+            </optgroup>
+            <optgroup label="── VERTICAL BANNERS ─────────">
+              <option value="vb-12x24"   data-ratio="1/2"    data-w="768"  data-h="1536">12" × 24" Tabletop Banner</option>
+              <option value="vb-24x48"   data-ratio="1/2"    data-w="768"  data-h="1536">24" × 48" — 2ft × 4ft Vertical Banner</option>
+              <option value="vb-24x60"   data-ratio="2/5"    data-w="616"  data-h="1536">24" × 60" — 2ft × 5ft Pull-Up Banner</option>
+              <option value="vb-24x72"   data-ratio="1/3"    data-w="512"  data-h="1536">24" × 72" — 2ft × 6ft Pull-Up Banner</option>
+              <option value="vb-30x72"   data-ratio="5/12"   data-w="640"  data-h="1536">30" × 72" — 2.5ft × 6ft Pull-Up Banner</option>
+              <option value="vb-33x78"   data-ratio="33/78"  data-w="648"  data-h="1536">33" × 78" Standard Pull-Up Banner</option>
+              <option value="vb-36x84"   data-ratio="3/7"    data-w="656"  data-h="1536">36" × 84" — 3ft × 7ft Vertical Banner</option>
+              <option value="vb-48x96"   data-ratio="1/2"    data-w="768"  data-h="1536">48" × 96" — 4ft × 8ft Step &amp; Repeat</option>
+            </optgroup>
+            <optgroup label="── HORIZONTAL BANNERS ───────">
+              <option value="hb-24x12"   data-ratio="2/1"    data-w="1536" data-h="768">24" × 12" — 2ft × 1ft Horizontal Banner</option>
+              <option value="hb-48x24"   data-ratio="2/1"    data-w="1536" data-h="768">48" × 24" — 4ft × 2ft Horizontal Banner</option>
+              <option value="hb-72x24"   data-ratio="3/1"    data-w="1536" data-h="512">72" × 24" — 6ft × 2ft Gym Banner</option>
+              <option value="hb-72x36"   data-ratio="2/1"    data-w="1536" data-h="768">72" × 36" — 6ft × 3ft Court Banner</option>
+              <option value="hb-96x36"   data-ratio="8/3"    data-w="1536" data-h="576">96" × 36" — 8ft × 3ft Court Banner</option>
+              <option value="hb-96x48"   data-ratio="2/1"    data-w="1536" data-h="768">96" × 48" — 8ft × 4ft Gym Banner</option>
+              <option value="hb-120x48"  data-ratio="5/2"    data-w="1536" data-h="616">120" × 48" — 10ft × 4ft Stadium Banner</option>
+              <option value="hb-144x48"  data-ratio="3/1"    data-w="1536" data-h="512">144" × 48" — 12ft × 4ft Stadium Banner</option>
+            </optgroup>
           </select>
           <div class="cbar-right">
             <button class="cbar-btn" onclick="document.getElementById('apiPanel').classList.toggle('show')" id="apiTopBtn">⚙ API Key</button>
