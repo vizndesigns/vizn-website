@@ -275,20 +275,66 @@ export default async function handler(req, res) {
     // ── Prompt expansion — lightweight Gemini text call ────────
     // ── Surgical refine — image-to-image targeted edit ───────
     if (action === 'refine' && req.body.imageDataUrl && req.body.prompt) {
-      const refinePrompt = `You are editing an existing professional sports graphic design.
+      const styleGuide = {
+        aggressive: 'ultra-bold condensed Impact/Bebas Neue, ALL CAPS, heavy 4-6px black stroke outlines, dramatic italic lean',
+        modern:     'clean geometric sans (Montserrat/Futura), tight letter-spacing, no strokes, razor-sharp letterforms',
+        collegiate: 'bold slab serif (Rockwell/Clarendon), mixed-case headline with all-caps subhead, 0-2px baseline stroke',
+        minimal:    'ultra-light sans (Helvetica Neue UltraLight), wide tracking, no stroke, precise baseline grid',
+        hype:       'bold extended display (Industry/Azonix), gradient fills from primary to secondary color, outer glow, electric energy',
+        retro:      'vintage block letters (Chunk Five/Alfa Slab), worn edge texture, distressed ink treatment, halftone dot overlay'
+      };
+      const compositionGuide = {
+        'recruiting':   "low angle worm's-eye view, athlete dominant left two-thirds, typographic lockup right third, stadium depth-of-field background blur",
+        'commitment':   'bilateral symmetry, centered athlete, school logo above head, player name as cinematic super-title',
+        'player-card':  '3/4 portrait fills upper 60%, stats grid lower 40%, diagonal foil-stripe divides zones',
+        'schedule':     'grid-based information design, modular schedule rows, team mark anchoring upper-left',
+        'team-poster':  'wide-angle establishing shot, team color fills 70%, player name runs full-width as display banner',
+        'senior-night': 'warm spotlight vignette, athlete centered in circle of light, celebratory particles',
+        'mvp':          'award podium perspective, athlete elevated, trophy casting dramatic shadow, gold foil award typography',
+        'championship': 'victory panorama, full-bleed team color, confetti and streamers, trophy in foreground'
+      };
+      const sport = req.body.sport || 'sports';
+      const style = req.body.style || 'aggressive';
+      const type  = req.body.type  || 'recruiting';
 
-APPLY ONLY THIS SPECIFIC CHANGE: "${req.body.prompt}"
+      const refinePrompt = `You are a professional sports graphic designer making ONE PRECISE EDIT to an existing design.
 
-CRITICAL RULES:
-- Change ONLY the element explicitly mentioned above
-- Preserve ALL other elements EXACTLY: same colors, same typography, same layout, same composition, same athlete position
-- Do NOT redesign, reimagine, or improve anything not mentioned
-- Result must look identical to input except for the one requested change
-- All text and graphics must remain within the canvas boundaries`;
+ORIGINAL DESIGN CONTEXT:
+- Sport: ${sport.toUpperCase()}
+- Design type: ${type}
+- Visual style: ${style} — ${styleGuide[style] || styleGuide.aggressive}
+- Composition: ${compositionGuide[type] || compositionGuide['recruiting']}
+
+REQUESTED CHANGE: "${req.body.prompt}"
+
+WHAT TO PRESERVE — keep ALL of these EXACTLY as they appear:
+✓ Every piece of text (player names, numbers, school/team names, dates, stats) — same wording, same position
+✓ Athlete (if present) — same position, same size, same pose, same cutout treatment
+✓ Overall layout and composition structure
+✓ Color palette — EXACT same colors UNLESS the change explicitly requests a color swap
+✓ All background elements, textures, graphic shapes not mentioned in the change request
+✓ Canvas dimensions and crop boundary
+
+APPLY ONLY THE ONE CHANGE DESCRIBED. Do not improve, polish, or redesign anything else.
+Result must look identical to the original with only that one element visibly different.
+All text and graphics must remain within the canvas boundaries.`;
+
+      // Normalize image: if a URL was passed instead of a data URI, convert it
+      let imageDataUrl = req.body.imageDataUrl;
+      if (imageDataUrl && !imageDataUrl.startsWith('data:')) {
+        try {
+          const fetchRes = await fetch(imageDataUrl);
+          if (fetchRes.ok) {
+            const arrayBuf = await fetchRes.arrayBuffer();
+            const mimeType = (fetchRes.headers.get('content-type') || 'image/jpeg').split(';')[0];
+            imageDataUrl = `data:${mimeType};base64,${Buffer.from(arrayBuf).toString('base64')}`;
+          }
+        } catch(e) { console.warn('Image URL fetch for refine failed:', e.message); }
+      }
 
       if (GOOGLE_KEY) {
         try {
-          const match = req.body.imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          const match = imageDataUrl && imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
             const [, mime, b64] = match;
             const gemRes = await fetch(
@@ -319,7 +365,7 @@ CRITICAL RULES:
 
       if (OPENAI_KEY) {
         try {
-          const match = req.body.imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          const match = imageDataUrl && imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
             const [, mime, b64data] = match;
             const buffer = Buffer.from(b64data, 'base64');

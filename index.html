@@ -792,7 +792,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
           Format: <span id="statFormat">&#8212;</span>
         </div>
         <div class="refine-row" id="refineRow">
-          <input type="text" id="refineInput" placeholder="Make it more aggressive, swap to navy &amp; red, add motion blur…">
+          <input type="text" id="refineInput" placeholder="Change font to Impact, swap colors to red &amp; black, add motion blur to background, make name larger…">
           <button id="refineApply">↻ Apply</button>
         </div>
 
@@ -1419,6 +1419,17 @@ const _typeVocab = {
   'championship': 'Championship ring announcement visual, SportsCenter title card, CBS Sports trophy ceremony aesthetic'
 };
 
+function extractColors(text) {
+  const colorNames = ['red','blue','green','black','white','gold','silver','purple','orange','yellow',
+    'pink','navy','maroon','teal','crimson','scarlet','gray','grey','brown','tan','cream',
+    'burgundy','forest green','lime','cyan','magenta','violet','indigo','turquoise','bronze',
+    'midnight','cobalt','emerald','coral','charcoal','royal blue'];
+  const lower = text.toLowerCase();
+  const found = colorNames.filter(c => new RegExp('\\b' + c + '\\b').test(lower));
+  const hexCodes = text.match(/#[0-9A-Fa-f]{3,6}\b/g) || [];
+  return [...new Set([...found, ...hexCodes])];
+}
+
 function buildPrompt(raw, sport, style, type) {
   const layouts = {
     'recruiting':   'PORTRAIT 4:5. Full-bleed athlete as center-frame hero from shoulders to feet. Heavy typographic lockup in lower third with name, number, school.',
@@ -1442,9 +1453,14 @@ function buildPrompt(raw, sport, style, type) {
     lacrosse:   'grass field atmosphere, helmet and stick visual language',
     wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
   };
+  const detectedColors = extractColors(raw);
+  const colorBlock = detectedColors.length > 0
+    ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. Do not add any other colors whatsoever.`
+    : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+
   return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
 
-COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
+${colorBlock}
 
 DESIGN BRIEF (follow exactly):
 "${raw}"
@@ -1475,9 +1491,14 @@ function buildBackgroundPrompt(raw, sport, style, type) {
     'mvp':          'CLEAR ZONE: 30% to 75% height — empty. MVP headline at top, award graphic accents at bottom.',
     'championship': 'CLEAR ZONE: center 40% to 70% — empty. Championship text fills upper band, celebration elements at very bottom.'
   };
+  const detectedColors = extractColors(raw);
+  const colorBlock = detectedColors.length > 0
+    ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
+    : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+
   return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
-COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
+${colorBlock}
 
 Design brief: "${raw}"
 
@@ -1507,9 +1528,14 @@ function buildVisionPrompt(raw, sport, style, type) {
     'mvp':          `Transform this athlete photo into an MVP AWARD GRAPHIC. Athlete appears triumphant. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
     'championship': `Transform this athlete photo into a CHAMPIONSHIP CELEBRATION GRAPHIC. Athlete appears victorious. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
   };
+  const detectedColors = extractColors(raw);
+  const colorBlock = detectedColors.length > 0
+    ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
+    : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+
   return `${typeDirectives[type] || typeDirectives['recruiting']}
 
-COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors not mentioned by the user.
+${colorBlock}
 
 DESIGN BRIEF (include every element):
 "${raw}"
@@ -1933,6 +1959,19 @@ if (refToggle) refToggle.addEventListener('click', () => {
   if (row) row.classList.toggle('show');
 });
 
+async function ensureBase64(url) {
+  if (!url || url.startsWith('data:')) return url;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('Could not load design image (HTTP ' + resp.status + ')');
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Image read failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 const refApply = el('refineApply');
 if (refApply) refApply.addEventListener('click', async () => {
   const inp = el('refineInput');
@@ -1940,15 +1979,16 @@ if (refApply) refApply.addEventListener('click', async () => {
   if (!r) return;
   if (!S.lastImage) { generate(S.lastPrompt + '. Refinement: ' + r); return; }
   startGenOverlay(true);
-  setStatus('Refining design…');
+  setStatus('Applying change…');
   try {
+    const imageDataUrl = await ensureBase64(S.lastImage);
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'refine',
         prompt: r,
-        imageDataUrl: S.lastImage,
+        imageDataUrl,
         sport: S.sport,
         style: S.style,
         type: S.type
@@ -1956,7 +1996,9 @@ if (refApply) refApply.addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.url) {
+      S.lastImage = data.url;
       showResult(data.url, data.engine);
+      if (inp) inp.value = '';
     } else {
       throw new Error(data.error || 'Refine failed');
     }
@@ -1964,6 +2006,11 @@ if (refApply) refApply.addEventListener('click', async () => {
     clearGenOverlay();
     setStatus('Refine failed: ' + err.message);
   }
+});
+
+const refInput = el('refineInput');
+if (refInput) refInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); refApply && refApply.click(); }
 });
 
 const dlBtn = el('downloadBtn');
