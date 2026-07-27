@@ -1365,6 +1365,7 @@ if (fileInputEl) {
     });
 
     S.bgRemoving += imgFiles.length;
+    const totalBefore = S.athleteOriginals.length;
     setStatus('Processing ' + imgFiles.length + ' photo' + (imgFiles.length > 1 ? 's' : '') + '…');
 
     (async () => {
@@ -1373,12 +1374,26 @@ if (fileInputEl) {
       const cutoutSlots = new Array(imgFiles.length).fill(null);
       let   doneCount   = 0;
 
-      // Run ALL background removals in PARALLEL — no more waiting one by one
+      // Semaphore: max 5 concurrent bg-removal calls to avoid fal.ai rate limiting
+      const LIMIT = 5;
+      let   active = 0;
+      const waitQueue = [];
+      function acquire() {
+        return new Promise(resolve => {
+          if (active < LIMIT) { active++; resolve(); }
+          else waitQueue.push(resolve);
+        });
+      }
+      function release() {
+        active--;
+        if (waitQueue.length) { active++; waitQueue.shift()(); }
+      }
+
       await Promise.all(imgFiles.map(async (f, i) => {
+        await acquire();
         try {
           const original = await compressImageAsPng(f, 900);
           origSlots[i] = original;
-          // Show the very first photo immediately as a preview
           if (startIdx === 0 && i === 0) showPhotoPreview(original);
 
           try {
@@ -1391,22 +1406,36 @@ if (fileInputEl) {
           console.error('Photo ' + (startIdx + i + 1) + ' error:', e);
           toast('Photo ' + (startIdx + i + 1) + ' error: ' + (e.message || 'unknown'), 'err');
         } finally {
+          release();
           S.bgRemoving--;
           doneCount++;
-          setStatus('Removing backgrounds… ' + doneCount + '/' + imgFiles.length + ' done');
+          const globalDone = totalBefore + doneCount;
+          const globalTotal = totalBefore + imgFiles.length;
+          setStatus('Removing backgrounds… ' + globalDone + '/' + globalTotal + ' done');
         }
       }));
 
-      // Push results in original upload order
-      origSlots.forEach(o   => { if (o) S.athleteOriginals.push(o); });
-      cutoutSlots.forEach(c => { if (c) S.athleteCutouts.push(c); });
+      // Push both arrays in sync — cutout falls back to original when removal failed
+      // This keeps S.athleteOriginals[i] and S.athleteCutouts[i] always the same player
+      let bgFailCount = 0;
+      origSlots.forEach((o, i) => {
+        if (o !== null) {
+          S.athleteOriginals.push(o);
+          if (cutoutSlots[i] !== null) {
+            S.athleteCutouts.push(cutoutSlots[i]);
+          } else {
+            S.athleteCutouts.push(o); // use original as fallback so all players appear
+            bgFailCount++;
+          }
+        }
+      });
 
       const n = S.athleteOriginals.length;
-      const c = S.athleteCutouts.length;
-      setStatus('✓ ' + n + ' player' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' — click Generate');
+      const bgOk = n - bgFailCount;
+      const bgNote = bgOk === n ? ' (bg removed)' : bgFailCount === n ? '' : ` (${bgOk}/${n} bg removed)`;
+      setStatus('✓ ' + n + ' player' + (n>1?'s':'') + ' ready' + bgNote + ' — click Generate');
       toast(n + ' player' + (n>1?'s':'') + ' ready ✓', 'ok');
       updateClearRow();
-      // Show contact-sheet grid preview for multiple players
       if (n > 1) {
         const grid = await stitchPhotosToGrid(S.athleteOriginals);
         showPhotoPreview(grid);
