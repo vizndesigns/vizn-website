@@ -725,6 +725,9 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <div class="upz-sub">PNG · JPG · SVG · PDF — up to 50MB</div>
           </div>
           <div class="file-chips" id="fChips"></div>
+          <div id="clearPhotosRow" style="display:none;margin-top:6px">
+            <button onclick="clearAllPhotos()" style="font-family:var(--fm);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);padding:4px 10px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">✕ Clear all photos</button>
+          </div>
         </div>
         <div class="api-panel" id="apiPanel">
           <div class="api-title">Replicate API Key</div>
@@ -1317,59 +1320,82 @@ function compressImage(file, maxPx = 768, quality = 0.72) {
   });
 }
 
-// ── File upload ─────────────────────────────────────────────────────────
+// ── Clear all uploaded photos ────────────────────────────────────────────
+function updateClearRow() {
+  const row = el('clearPhotosRow');
+  if (row) row.style.display = S.athleteOriginals.length > 0 ? 'block' : 'none';
+}
+
+function clearAllPhotos() {
+  S.athleteOriginals = [];
+  S.athleteCutouts   = [];
+  S.bgRemoving       = 0;
+  const chips = el('fChips');
+  if (chips) chips.innerHTML = '';
+  updateClearRow();
+  const img = el('generatedImg');
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  const def = el('prevDefault');
+  if (def) def.style.display = '';
+  const aiTxtEl = el('aiTxt');
+  if (aiTxtEl) aiTxtEl.textContent = 'Describe your design and click Generate';
+  S.lastImage = null;
+}
+
+// ── File upload — ADDITIVE: each upload appends to existing photos ────────
 const fileInputEl = el('fileInput');
 if (fileInputEl) {
   fileInputEl.addEventListener('change', function() {
     const chips = el('fChips');
     if (!chips) return;
-    chips.innerHTML = '';
-    S.athleteCutouts   = [];
-    S.athleteOriginals = [];
-    S.bgRemoving = 0;
 
     const files    = Array.from(this.files);
     const imgFiles = files.filter(f => f.type.startsWith('image/'));
     if (!imgFiles.length) return;
 
+    // Append chips starting from current total count
+    const startIdx = S.athleteOriginals.length;
     imgFiles.forEach((f, i) => {
       const ch = document.createElement('div');
       ch.className = 'fchip';
-      ch.dataset.idx = i;
+      ch.dataset.idx = startIdx + i;
       const nm = f.name.length > 18 ? f.name.slice(0,16) + '…' : f.name;
       ch.innerHTML = '📎 ' + nm + ' <span class="rm" style="cursor:pointer;color:#666;margin-left:4px">✕</span>';
       chips.appendChild(ch);
     });
 
-    S.bgRemoving = imgFiles.length;
-    setStatus('Processing photo' + (imgFiles.length > 1 ? 's' : '') + '…');
+    S.bgRemoving += imgFiles.length;
+    setStatus('Processing ' + imgFiles.length + ' photo' + (imgFiles.length > 1 ? 's' : '') + '…');
 
     (async () => {
       for (let i = 0; i < imgFiles.length; i++) {
         try {
           const original = await compressImageAsPng(imgFiles[i], 900);
           S.athleteOriginals.push(original);
-          if (i === 0) showPhotoPreview(original);
+          // Show preview of first photo only; grid preview comes after all done
+          if (S.athleteOriginals.length === 1) showPhotoPreview(original);
 
-          setStatus('Removing background from photo ' + (i + 1) + '…');
+          setStatus('Removing background from photo ' + (startIdx + i + 1) + '…');
           try {
             const cutout = await removeBg(imgFiles[i]);
             S.athleteCutouts.push(cutout);
           } catch(bgErr) {
-            console.warn('BG removal failed for photo ' + (i+1) + ':', bgErr.message);
+            console.warn('BG removal failed for photo ' + (startIdx + i + 1) + ':', bgErr.message);
+            toast('Bg removal failed for photo ' + (startIdx + i + 1) + ' — will use original', '');
           }
         } catch(e) {
           console.error('Photo processing error:', e);
-          toast('Photo ' + (i+1) + ' error: ' + (e.message || 'unknown'), 'err');
+          toast('Photo ' + (startIdx + i + 1) + ' error: ' + (e.message || 'unknown'), 'err');
         } finally {
           S.bgRemoving--;
         }
       }
       const n = S.athleteOriginals.length;
       const c = S.athleteCutouts.length;
-      setStatus('✓ ' + n + ' photo' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' — click Generate');
-      toast(n + ' photo' + (n>1?'s':'') + ' ready ✓', 'ok');
-      // Show all players as a contact-sheet grid in the preview
+      setStatus('✓ ' + n + ' player' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' — click Generate');
+      toast(n + ' player' + (n>1?'s':'') + ' ready ✓', 'ok');
+      updateClearRow();
+      // Show contact-sheet grid preview for multiple players
       if (n > 1) {
         const grid = await stitchPhotosToGrid(S.athleteOriginals);
         showPhotoPreview(grid);
@@ -1391,6 +1417,7 @@ document.getElementById('fChips')?.addEventListener('click', e => {
   S.athleteOriginals.splice(idx, 1);
   S.athleteCutouts.splice(idx, 1);
   document.querySelectorAll('#fChips .fchip').forEach((c, ni) => { c.dataset.idx = ni; });
+  updateClearRow();
   if (S.athleteOriginals.length === 0) {
     const img = el('generatedImg');
     if (img) { img.src = ''; img.style.display = 'none'; }
@@ -2043,17 +2070,23 @@ async function generate(raw) {
       const isTeamUpload = S.athleteOriginals.length > 1;
 
       if (isTeamUpload) {
-        // TEAM COMPOSITE PATH: multiple players \u2192 always use real cutouts on AI background
+        // TEAM COMPOSITE PATH: multiple players \u2192 always composite real cutouts on AI background
         // (vision path generates fictional people \u2014 composite uses the actual uploaded faces)
-        if (!hasCutouts) {
-          toast('Photos still processing \u2014 wait for background removal to finish', 'err');
-          S.generating = false; setGenBtn(false); return;
+        // If bg removal is still running, wait for it (up to 25s)
+        if (S.bgRemoving > 0) {
+          setStatus('Waiting for background removal to finish\u2026');
+          await new Promise(resolve => {
+            const check = setInterval(() => { if (S.bgRemoving <= 0) { clearInterval(check); resolve(); } }, 600);
+            setTimeout(() => { clearInterval(check); resolve(); }, 25000);
+          });
         }
+        // Use cutouts if available, otherwise fall back to originals (real photos, white bg)
+        const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
         setStatus('Generating team background\u2026');
         const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, S.athleteOriginals.length);
         const bgResult = await callReplicate(bgPrompt, S.type);
-        setStatus('Compositing ' + S.athleteCutouts.length + ' players\u2026');
-        finalUrl    = await compositeLayers(bgResult.url, S.athleteCutouts);
+        setStatus('Compositing ' + playersToComposite.length + ' players\u2026');
+        finalUrl    = await compositeLayers(bgResult.url, playersToComposite);
         finalEngine = bgResult.engine + ' + composite';
       } else {
         // VISION PATH: single player \u2014 send actual photo so AI wraps design around it
