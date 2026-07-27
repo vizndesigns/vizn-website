@@ -489,25 +489,68 @@ Return ONLY a raw JSON array, no markdown, no explanation:
     }
 
     if (action === 'expand-prompt' && prompt) {
-      if (!GOOGLE_KEY) return res.status(200).json({ expanded: prompt });
-      try {
-        const expandRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_KEY}`,
-          {
+      const systemMsg = `You are a professional sports graphic design director who creates Nike, ESPN, and Jordan Brand level graphics.
+
+Rewrite the user's design description into a rich, detailed 2–4 sentence brief that an AI image generator can execute with total precision.
+
+STRICT RULES:
+- Preserve EVERY name, jersey number, school, team, color, stat, GPA, height, weight, date EXACTLY as written — do not invent or alter facts
+- Add professional design vocabulary: dramatic lighting, composition depth, typography hierarchy, atmosphere
+- Name concrete visual elements: jersey texture, stadium lighting, color blocking, typographic treatment
+- If effects are mentioned (motion blur, glow, lens flare), describe how they should appear
+- Match the energy level of the original (aggressive wording → explosive design language)
+- Return ONLY the expanded brief. No labels, no quotes, no preamble.`;
+
+      // Primary: GPT-4o — best sports context and design vocabulary
+      if (OPENAI_KEY) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 9000);
+          const r = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+            signal: ctrl.signal,
             body: JSON.stringify({
-              contents: [{ parts: [{ text: `You are an expert sports graphic design director. Expand this short user prompt into a detailed 2–3 sentence design brief that adds professional design vocabulary, composition specifics, and visual detail. Keep all exact names, numbers, teams, schools. Return ONLY the expanded prompt text, no preamble, no quotes.\n\nUser prompt: "${prompt}"` }] }],
-              generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
+              model: 'gpt-4o',
+              messages: [{ role: 'system', content: systemMsg }, { role: 'user', content: prompt }],
+              max_tokens: 400,
+              temperature: 0.65
             })
+          });
+          clearTimeout(timer);
+          if (r.ok) {
+            const d = await r.json();
+            const expanded = d.choices?.[0]?.message?.content?.trim();
+            if (expanded) return res.status(200).json({ expanded });
           }
-        );
-        if (expandRes.ok) {
-          const expandData = await expandRes.json();
-          const expanded   = expandData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (expanded) return res.status(200).json({ expanded });
-        }
-      } catch(e) { console.warn('Prompt expansion failed:', e.message); }
+        } catch(e) { console.warn('GPT-4o expansion failed, trying Gemini:', e.message); }
+      }
+
+      // Fallback: Gemini Flash
+      if (GOOGLE_KEY) {
+        try {
+          const ctrl = new AbortController();
+          setTimeout(() => ctrl.abort(), 7000);
+          const expandRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal: ctrl.signal,
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: systemMsg + '\n\nUser brief: ' + prompt }] }],
+                generationConfig: { temperature: 0.65, maxOutputTokens: 400 }
+              })
+            }
+          );
+          if (expandRes.ok) {
+            const expandData = await expandRes.json();
+            const expanded   = expandData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (expanded) return res.status(200).json({ expanded });
+          }
+        } catch(e) { console.warn('Gemini expansion failed:', e.message); }
+      }
+
       return res.status(200).json({ expanded: prompt });
     }
 

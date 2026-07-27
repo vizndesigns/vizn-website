@@ -1472,6 +1472,78 @@ const _typeVocab = {
   'other':           'Nike/Jordan Brand campaign standard, ESPN broadcast graphic quality, professional sports media production'
 };
 
+function parsePromptElements(text) {
+  const found = {};
+
+  // Jersey numbers: #12, No. 12, number 7, jersey #23
+  const nums = [...text.matchAll(/#(\d{1,3})\b|(?:number|jersey|no\.?)\s*#?(\d{1,3})\b/gi)].map(m => m[1] || m[2]);
+  if (nums.length) found.numbers = [...new Set(nums)];
+
+  // GPA: "4.0 GPA", "GPA 3.8", "3.95 gpa"
+  const gpa = text.match(/(?:gpa\s*[:\-]?\s*)([0-4]\.\d{1,2})|([0-4]\.\d{1,2})\s*gpa/i);
+  if (gpa) found.gpa = gpa[1] || gpa[2];
+
+  // Height: 6'2", 6'2, 6-2
+  const ht = text.match(/(\d+)['']\s*(\d+)[""']?/);
+  if (ht) found.height = `${ht[1]}'${ht[2]}"`;
+
+  // Weight: 185 lbs, 210 pounds
+  const wt = text.match(/(\d{2,3})\s*(?:lbs?|pounds?)\b/i);
+  if (wt) found.weight = `${wt[1]} lbs`;
+
+  // 40-yard dash: "4.38", "40 time 4.5s", "runs a 4.4"
+  const forty = text.match(/(?:40(?:[- ]yard)?(?:[- ]dash)?\s*(?:time|of|:)?\s*)(4\.[2-9]\d?)\b/i) ||
+                text.match(/\bruns?\s+(?:a\s+)?(4\.[2-9]\d?)\b/i);
+  if (forty) found.fortyYard = forty[1] + 's';
+
+  // Specific stats — yards, TDs, points, assists, rebounds, etc.
+  const stats = [];
+  for (const m of text.matchAll(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*(yards?|receiving yards?|rushing yards?|passing yards?|TDs?|touchdowns?|points?|assists?|rebounds?|steals?|blocks?|goals?|saves?|strikeouts?|innings?|hits?|RBIs?|home runs?)/gi))
+    stats.push(`${m[1]} ${m[2]}`);
+  if (stats.length) found.stats = stats;
+
+  // Dates: March 15, April 2, 2024, Friday March 5th, 3/15/24
+  const date = text.match(/\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?\b/i) ||
+               text.match(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/);
+  if (date) found.date = date[0];
+
+  // Visual effects
+  const fx = [];
+  ['motion blur','lens flare','glow','bokeh','light rays','fire','smoke','confetti','particles',
+   'neon','holographic','chrome','metallic','foil','depth of field','vignette','color splash',
+   'grunge','distressed','halftone','duotone','double exposure'].forEach(f => {
+    if (text.toLowerCase().includes(f)) fx.push(f);
+  });
+  if (fx.length) found.effects = fx;
+
+  // Sport position
+  const positions = ['quarterback','qb','running back','wide receiver','tight end','offensive lineman',
+    'linebacker','cornerback','safety','defensive end','defensive tackle','kicker','punter',
+    'point guard','shooting guard','small forward','power forward','center','sixth man',
+    'pitcher','catcher','first base','second base','shortstop','third base','outfielder','designated hitter',
+    'goalkeeper','striker','midfielder','defender','forward','winger',
+    'setter','libero','outside hitter','middle blocker',
+    'goalie','center ice','defenseman','left wing','right wing'];
+  const pos = positions.find(p => text.toLowerCase().includes(p));
+  if (pos) found.position = pos;
+
+  return found;
+}
+
+function buildKeyElementsBlock(parsed) {
+  const lines = [];
+  if (parsed.numbers?.length)  lines.push(`JERSEY NUMBER: ${parsed.numbers.map(n => '#'+n).join(', ')}`);
+  if (parsed.position)         lines.push(`POSITION: ${parsed.position.toUpperCase()}`);
+  if (parsed.height)           lines.push(`HEIGHT: ${parsed.height}`);
+  if (parsed.weight)           lines.push(`WEIGHT: ${parsed.weight}`);
+  if (parsed.fortyYard)        lines.push(`40-YARD DASH: ${parsed.fortyYard}`);
+  if (parsed.gpa)              lines.push(`GPA: ${parsed.gpa}`);
+  if (parsed.stats?.length)    lines.push(`STATS: ${parsed.stats.join(', ')}`);
+  if (parsed.date)             lines.push(`DATE/EVENT: ${parsed.date}`);
+  if (parsed.effects?.length)  lines.push(`VISUAL EFFECTS: apply ${parsed.effects.join(', ')}`);
+  return lines.length ? `\nKEY ELEMENTS — render every item listed here exactly on the graphic:\n${lines.join('\n')}\n` : '';
+}
+
 function extractColors(text) {
   const colorNames = ['red','blue','green','black','white','gold','silver','purple','orange','yellow',
     'pink','navy','maroon','teal','crimson','scarlet','gray','grey','brown','tan','cream',
@@ -1514,6 +1586,7 @@ function buildPrompt(raw, sport, style, type) {
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. Do not add any other colors whatsoever.`
     : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+  const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
 
   return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
 
@@ -1521,7 +1594,7 @@ ${colorBlock}
 
 DESIGN BRIEF (follow exactly):
 "${raw}"
-
+${keyElements}
 FORMAT: ${layouts[type] || layouts['recruiting']}
 SPORT: ${sport.toUpperCase()} — ${sportCtx[sport] || 'athletic competition atmosphere'}
 COMPOSITION: ${_composition[type] || _composition['recruiting']}
@@ -1556,12 +1629,14 @@ function buildBackgroundPrompt(raw, sport, style, type) {
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
     : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+  const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
 
   return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
 
 ${colorBlock}
 
 Design brief: "${raw}"
+${keyElements}
 
 SPORT: ${sport.toUpperCase()}
 ${clearZones[type] || clearZones['recruiting']}
@@ -1597,6 +1672,7 @@ function buildVisionPrompt(raw, sport, style, type) {
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
     : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+  const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
 
   // Only allow pose/expression changes if the user explicitly asked for them
   const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
@@ -1610,7 +1686,7 @@ ${colorBlock}
 
 DESIGN BRIEF (include every element):
 "${raw}"
-
+${keyElements}
 SPORT: ${sport.toUpperCase()}
 TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
@@ -1842,12 +1918,34 @@ async function generate(raw) {
     const hasCutouts  = S.athleteCutouts.length > 0;
     startGenOverlay(hasOriginals);
 
+    // Auto-expand the prompt with AI to add professional design vocabulary
+    // Runs concurrently with overlay animation \u2014 adds minimal perceptible delay
+    let enriched = raw;
+    setStatus('Reading your prompt\u2026');
+    try {
+      const expCtrl = new AbortController();
+      const expTimer = setTimeout(() => expCtrl.abort(), 6000);
+      const expRes = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: expCtrl.signal,
+        body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
+      });
+      clearTimeout(expTimer);
+      if (expRes.ok) {
+        const expData = await expRes.json();
+        if (expData.expanded && expData.expanded.length > raw.length * 0.7) {
+          enriched = expData.expanded;
+        }
+      }
+    } catch(e) { /* expansion optional \u2014 use raw if it fails */ }
+
     let finalUrl, finalEngine;
 
     if (hasOriginals) {
       // VISION PATH: send actual athlete photo to AI so it sees and designs around them
       setStatus('AI analyzing your photo\u2026');
-      const visionPrompt = buildVisionPrompt(raw, S.sport, S.style, S.type);
+      const visionPrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type);
       try {
         const result = await callGenerateWithImage(S.athleteOriginals[0], visionPrompt, S.type);
         finalUrl    = result.url;
@@ -1855,14 +1953,14 @@ async function generate(raw) {
       } catch(visionErr) {
         console.warn('Vision generation failed, falling back to composite:', visionErr.message);
         toast('Falling back to composite mode\u2026', '');
-        const bgPrompt = buildBackgroundPrompt(raw, S.sport, S.style, S.type);
+        const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type);
         const bgResult = await callReplicate(bgPrompt, S.type);
         finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts) : bgResult.url;
         finalEngine = bgResult.engine;
       }
     } else {
       // TEXT-TO-IMAGE PATH: no photo uploaded
-      const prompt = buildPrompt(raw, S.sport, S.style, S.type);
+      const prompt = buildPrompt(enriched, S.sport, S.style, S.type);
       const result = await callReplicate(prompt, S.type);
       finalUrl    = result.url;
       finalEngine = result.engine;
