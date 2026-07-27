@@ -691,14 +691,18 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
         </div>
         <div class="cg"><div class="clabel">Design Type</div>
           <div class="type-list">
-            <div class="ti on" data-type="recruiting"><div class="ti-radio"></div><span class="ti-lbl">🎯 Recruiting Graphic</span></div>
-            <div class="ti" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
-            <div class="ti" data-type="player-card"><div class="ti-radio"></div><span class="ti-lbl">🃏 Player Card</span></div>
-            <div class="ti" data-type="schedule"><div class="ti-radio"></div><span class="ti-lbl">📅 Schedule Graphic</span></div>
-            <div class="ti" data-type="team-poster"><div class="ti-radio"></div><span class="ti-lbl">🖼 Team Poster</span></div>
-            <div class="ti" data-type="senior-night"><div class="ti-radio"></div><span class="ti-lbl">⭐ Senior Night Graphic</span></div>
-            <div class="ti" data-type="mvp"><div class="ti-radio"></div><span class="ti-lbl">🏅 MVP Graphic</span></div>
-            <div class="ti" data-type="championship"><div class="ti-radio"></div><span class="ti-lbl">🏆 Championship Graphic</span></div>
+            <div class="ti on" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
+            <div class="ti" data-type="game-day"><div class="ti-radio"></div><span class="ti-lbl">🏟 Game Day Graphic</span></div>
+            <div class="ti" data-type="halftime-score"><div class="ti-radio"></div><span class="ti-lbl">⏱ Halftime Score Graphic</span></div>
+            <div class="ti" data-type="final-score"><div class="ti-radio"></div><span class="ti-lbl">🏁 Final Score Graphic</span></div>
+            <div class="ti" data-type="player-of-game"><div class="ti-radio"></div><span class="ti-lbl">⭐ Player of the Game</span></div>
+            <div class="ti" data-type="game-recap"><div class="ti-radio"></div><span class="ti-lbl">📋 Game Recap Graphic</span></div>
+            <div class="ti" data-type="starting-lineup"><div class="ti-radio"></div><span class="ti-lbl">📝 Starting Lineup Graphic</span></div>
+            <div class="ti" data-type="home-schedule"><div class="ti-radio"></div><span class="ti-lbl">📅 Home Schedule Graphic</span></div>
+            <div class="ti" data-type="season-schedule"><div class="ti-radio"></div><span class="ti-lbl">🗓 Season Schedule Graphic</span></div>
+            <div class="ti" data-type="player-spotlight"><div class="ti-radio"></div><span class="ti-lbl">🎯 Player Spotlight Banner</span></div>
+            <div class="ti" data-type="recruit-offer"><div class="ti-radio"></div><span class="ti-lbl">📨 Recruit Offer Graphic</span></div>
+            <div class="ti" data-type="other"><div class="ti-radio"></div><span class="ti-lbl">✨ Other</span></div>
           </div>
         </div>
         <div class="cg"><div class="clabel">Style Preset</div>
@@ -1120,7 +1124,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 // ═══════════════════════════════════════════════════════
 
 const S = {
-  sport:'football', type:'recruiting', style:'modern',
+  sport:'football', type:'commitment', style:'modern',
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
   athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
@@ -1160,14 +1164,18 @@ qsa('.chip').forEach(c => {
 // ── Design type ───────────────────────────────────────
 function updatePreviewRatio(type) {
   const ratios = {
-    'recruiting':    '4/5',
-    'commitment':    '1/1',
-    'player-card':   '9/16',
-    'schedule':      '1/1',
-    'team-poster':   '2/3',
-    'senior-night':  '4/5',
-    'mvp':           '4/5',
-    'championship':  '4/3'
+    'commitment':      '1/1',
+    'game-day':        '3/2',
+    'halftime-score':  '3/2',
+    'final-score':     '3/2',
+    'player-of-game':  '4/5',
+    'game-recap':      '1/1',
+    'starting-lineup': '4/5',
+    'home-schedule':   '4/5',
+    'season-schedule': '2/3',
+    'player-spotlight':'9/16',
+    'recruit-offer':   '4/5',
+    'other':           '4/5'
   };
   const frame = qs('.preview-frame');
   if (frame) frame.style.aspectRatio = ratios[type] || '4/5';
@@ -1398,25 +1406,33 @@ const _negatives = 'text or graphics outside the canvas boundary, text cut off a
 
 
 const _composition = {
-  'recruiting':   "Low camera angle (worm's-eye view), athlete dominant left two-thirds, typographic lockup right third, stadium depth-of-field background blur.",
-  'commitment':   "Bilateral symmetry, athlete centered, school logo floating above head, player name as cinematic super-title, confetti or light-burst particles radiating outward.",
-  'player-card':  "3/4 portrait athlete fills upper 60%, stats grid in lower 40%, diagonal foil-stripe divides the two zones, serial number watermark in background.",
-  'schedule':     "Grid-based information design — not photographic. Modular schedule rows with alternating row treatments, team mark anchoring upper-left, strong horizontal hierarchy.",
-  'team-poster':  "Wide-angle establishing shot, team color fills 70% as solid bleed, player or team name runs full-width as a display banner, year as secondary element.",
-  'senior-night': "Warm spotlight vignette, athlete centered in circle of light, celebratory particles (gold stars, confetti, streamers), serif display headline for gravitas.",
-  'mvp':          "Award podium perspective — athlete elevated, trophy or award element casting dramatic shadow, gold foil texture on award typography, light rays radiating from award center.",
-  'championship': "Victory panorama — full-bleed team color, confetti and streamers, trophy in foreground, championship banner fills upper quarter at massive scale."
+  'commitment':      "Bilateral symmetry, athlete centered, school logo floating above head, player name as cinematic super-title, confetti or light-burst particles radiating outward.",
+  'game-day':        "Full-bleed team identity — GAME DAY headline dominates upper third, opponent info and matchup center stage, date/time/location in lower third. Electric pregame energy radiates from center.",
+  'halftime-score':  "Broadcast scoreboard layout — team logos flanking the score centered prominently, HALFTIME label above score in accent color, period indicator, clean network sports broadcast aesthetic.",
+  'final-score':     "Final score announcement — FINAL label prominent in accent color, both teams' scores in massive centered type, team logos flanking, clean postgame broadcast tone.",
+  'player-of-game':  "Player photo as centered spotlight hero with halo or key light treatment, PLAYER OF THE GAME header at top, stat callouts in lower zone, award-presentation energy.",
+  'game-recap':      "Split information design — game headline and final score in upper half, key player stats and highlights in lower half, team marks anchoring corners, clean broadcast summary.",
+  'starting-lineup': "STARTING LINEUP title dominant at top, player names and numbers in bold vertical list format, team colors and mark anchor the composition, authoritative lineup reveal.",
+  'home-schedule':   "Team mark anchors upper-left, HOME SCHEDULE title prominent, schedule rows with date/opponent/time clearly readable, home games highlighted in team primary color.",
+  'season-schedule': "Season year as full-width display headline at top, all opponents listed chronologically in clean modular grid, team identity colors the entire layout, strong horizontal hierarchy.",
+  'player-spotlight':"Tall banner format — athlete portrait fills upper two-thirds as vertical hero, name in massive horizontal type band below portrait, stats and position in lower zone, feature spotlight energy.",
+  'recruit-offer':   "School/program logo prominent in upper zone, player name in cinematic display type center-frame, OFFER EXTENDED label in bold accent treatment, prestige and excitement radiating outward.",
+  'other':           "Balanced composition with team identity elements prominent, clear typographic hierarchy, strong color blocking, professional sports broadcast quality."
 };
 
 const _typeVocab = {
-  'recruiting':   'ESPN recruiting profile aesthetic, Rivals.com visual language, 247Sports layout energy',
-  'commitment':   'Nike signing day campaign style, Under Armour commitment reveal visual, NBC Sports announcement energy',
-  'player-card':  'Panini Prizm card design, Topps Chrome holographic styling, Upper Deck Portraits aesthetic',
-  'schedule':     'NFL schedule release broadcast aesthetic, lower-third network typography, ESPN schedule graphic language',
-  'team-poster':  'Nike team campaign poster, Adidas squad poster energy, Jordan Brand team release visual',
-  'senior-night': 'High school athletics tribute design, letterman jacket appreciation aesthetic, local sports broadcast honoring',
-  'mvp':          'Sports Illustrated cover design, ESPY Award graphic aesthetic, Golden Globes typographic energy',
-  'championship': 'Championship ring announcement visual, SportsCenter title card, CBS Sports trophy ceremony aesthetic'
+  'commitment':      'Nike signing day campaign style, Under Armour commitment reveal visual, NBC Sports announcement energy',
+  'game-day':        'ESPN GameDay hype graphic, Fox Sports pregame visual, TNT tip-off broadcast energy',
+  'halftime-score':  'Network halftime scoreboard aesthetic, ESPN in-game score overlay, CBS Sports halftime show visual language',
+  'final-score':     'ESPN SportsCenter results card, Fox Sports final score graphic, CBS Sports postgame result visual',
+  'player-of-game':  'ESPN Player of the Game callout, Fox Sports MVP spotlight, TNT best performance graphic',
+  'game-recap':      'ESPN BoxScore recap card, CBS Sports game summary visual, Fox Sports game recap aesthetic',
+  'starting-lineup': 'ESPN lineup announce graphic, NBA/NFL starting lineup reveal visual, Fox Sports depth chart aesthetic',
+  'home-schedule':   'Team official home schedule graphic, ESPN schedule release visual, local sports broadcast schedule card',
+  'season-schedule': 'NFL/NBA season schedule release broadcast graphic, ESPN full-season visual, Fox Sports calendar release aesthetic',
+  'player-spotlight':'ESPN player feature banner, Sports Illustrated player profile aesthetic, Jordan Brand athlete spotlight visual',
+  'recruit-offer':   '247Sports offer announcement graphic, ESPN recruiting reveal visual, On3 Sports offer aesthetic',
+  'other':           'Nike/Jordan Brand campaign standard, ESPN broadcast graphic quality, professional sports media production'
 };
 
 function extractColors(text) {
@@ -1432,14 +1448,18 @@ function extractColors(text) {
 
 function buildPrompt(raw, sport, style, type) {
   const layouts = {
-    'recruiting':   'PORTRAIT 4:5. Full-bleed athlete as center-frame hero from shoulders to feet. Heavy typographic lockup in lower third with name, number, school.',
-    'commitment':   'SQUARE 1:1. Centered commitment announcement graphic. Player name in massive display type. School or team identity prominently featured.',
-    'player-card':  'TALL PORTRAIT 9:16. Trading card structure — athlete portrait upper 60%, stats and info grid lower 40%. Card border treatment with foil accents.',
-    'schedule':     'SQUARE 1:1. Information design — season schedule presented as a bold typographic grid. Team mark prominent, dates and opponents clearly readable.',
-    'team-poster':  'PORTRAIT 2:3. Full-bleed team or athlete poster. Giant team name anchors composition. Season year and program identity as secondary elements.',
-    'senior-night': 'PORTRAIT 4:5. Celebratory tribute graphic honoring the senior athlete. Warm, prestigious design energy with emotional resonance.',
-    'mvp':          'PORTRAIT 4:5. Award recognition graphic. MVP typography dominates upper zone. Trophy or award element featured with gold or metallic treatment.',
-    'championship': 'LANDSCAPE 3:2. Wide championship celebration banner. Bold championship text across full width. Victory energy fills every corner.'
+    'commitment':      'SQUARE 1:1. Centered commitment announcement. Player name in massive display type. School or team identity prominently featured. Confetti or light-burst accent.',
+    'game-day':        'LANDSCAPE 3:2. Bold pregame matchup graphic. GAME DAY headline dominates upper zone. Teams, date, time, location clearly featured. High-energy pregame composition.',
+    'halftime-score':  'LANDSCAPE 3:2. Broadcast scoreboard layout. Team logos flank the score in centered bold type. HALFTIME label above score. Clean network sports broadcast aesthetic.',
+    'final-score':     'LANDSCAPE 3:2. Final score announcement card. FINAL label prominent in accent color. Both team scores in large centered type. Clean postgame broadcast look.',
+    'player-of-game':  'PORTRAIT 4:5. Player of the game spotlight. Athlete portrait dominant upper zone. PLAYER OF THE GAME label at top. Stat highlights in lower third.',
+    'game-recap':      'SQUARE 1:1. Game recap summary card. Score and game headline in upper half. Key stats and highlights in lower half. Informational sports broadcast style.',
+    'starting-lineup': 'PORTRAIT 4:5. Starting lineup announcement. STARTING LINEUP title at top. Player names and numbers in bold list format. Team colors dominant.',
+    'home-schedule':   'PORTRAIT 4:5. Home schedule graphic. Team identity anchors top zone. Schedule grid with dates, opponents, times clearly listed. Home games highlighted in team color.',
+    'season-schedule': 'PORTRAIT 2:3. Full season schedule. Season year as display headline at top. All games listed chronologically in clean grid. Team mark prominent.',
+    'player-spotlight':'TALL PORTRAIT 9:16. Player spotlight banner. Athlete portrait fills upper two-thirds. Player name in massive horizontal type band. Stats and position in lower zone.',
+    'recruit-offer':   'PORTRAIT 4:5. Recruit offer announcement. School/program logo prominent upper zone. Player name in cinematic display type. OFFER EXTENDED label. Prestigious design energy.',
+    'other':           'PORTRAIT 4:5. Full creative freedom — design the best layout for the content described. Professional sports broadcast quality.'
   };
   const sportCtx = {
     football:   'stadium turf texture background, Friday night lights, helmet and jersey visual language',
@@ -1482,14 +1502,18 @@ DO NOT INCLUDE: ${_negatives}`;
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
 function buildBackgroundPrompt(raw, sport, style, type) {
   const clearZones = {
-    'recruiting':   'CLEAR ZONE: bottom 55% of frame — completely empty negative space for athlete overlay. Design elements and type occupy top 40% only.',
-    'commitment':   'CLEAR ZONE: center 60% of frame — empty. Text and logo elements float in top 30%, accent elements at bottom.',
-    'player-card':  'CLEAR ZONE: 25% to 75% height — completely empty for athlete portrait. Name header at top, stats grid at bottom.',
-    'schedule':     'Full frame information design — no clear zone. Bold geometric grid structure only, no humans or athletes anywhere.',
-    'team-poster':  'CLEAR ZONE: 50% to 90% height — empty. Type at top, abstract team color elements at bottom.',
-    'senior-night': 'CLEAR ZONE: 30% to 80% height — empty. SENIOR NIGHT headline at top 25%, accent elements at very bottom.',
-    'mvp':          'CLEAR ZONE: 30% to 75% height — empty. MVP headline at top, award graphic accents at bottom.',
-    'championship': 'CLEAR ZONE: center 40% to 70% — empty. Championship text fills upper band, celebration elements at very bottom.'
+    'commitment':      'CLEAR ZONE: center 60% of frame — empty. Text and logo elements float in top 30%, accent elements at bottom.',
+    'game-day':        'CLEAR ZONE: center 50% — empty. GAME DAY headline and team info at top 30%, game details at bottom 20%.',
+    'halftime-score':  'Full frame scoreboard design — no clear zone. Score numbers and team marks fill the layout in clean broadcast grid.',
+    'final-score':     'Full frame score card — no clear zone. FINAL label, score numbers, and team marks fill the frame in broadcast layout.',
+    'player-of-game':  'CLEAR ZONE: 25% to 70% height — empty for athlete. PLAYER OF THE GAME header at top 20%, stats grid at bottom 25%.',
+    'game-recap':      'Full frame information design — no clear zone. Score, stats, and recap content fill the layout in clean grid format.',
+    'starting-lineup': 'Full frame lineup design — no clear zone. Player list and team elements fill the layout in a clean structured grid.',
+    'home-schedule':   'Full frame schedule grid — no clear zone. Team mark at top, schedule rows fill the remaining frame.',
+    'season-schedule': 'Full frame season schedule — no clear zone. Season year headline at top, all schedule rows fill the frame.',
+    'player-spotlight':'CLEAR ZONE: 25% to 75% height — empty for athlete portrait. Name band at bottom 25%, accent at very top.',
+    'recruit-offer':   'CLEAR ZONE: 40% to 80% height — empty. School logo and OFFER EXTENDED at top 35%, accent elements at bottom.',
+    'other':           'CLEAR ZONE: center 40% — empty negative space for athlete overlay. Design elements around the perimeter.'
   };
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
@@ -1519,14 +1543,18 @@ DO NOT INCLUDE: ${_negatives}`;
 // Vision prompt — used when athlete photo is sent directly to the AI
 function buildVisionPrompt(raw, sport, style, type) {
   const typeDirectives = {
-    'recruiting':   `Design a PROFESSIONAL RECRUITING GRAPHIC around this athlete photo. The athlete is the visual hero. Surround them with ${_typeVocab['recruiting']} visual elements. ${_composition['recruiting']}`,
-    'commitment':   `Design a COMMITMENT ANNOUNCEMENT GRAPHIC around this athlete photo. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
-    'player-card':  `Design a PLAYER CARD / TRADING CARD around this athlete photo. Athlete portrait in upper portion, stats and name information in lower section. ${_typeVocab['player-card']} aesthetic.`,
-    'schedule':     `Design a SCHEDULE GRAPHIC featuring this athlete photo as the face of the season. Athlete as supporting element; schedule information grid is primary content.`,
-    'team-poster':  `Design a TEAM POSTER around this athlete photo. Bold team identity surrounds them. ${_typeVocab['team-poster']} energy.`,
-    'senior-night': `Design a SENIOR NIGHT TRIBUTE GRAPHIC around this athlete photo. Athlete honored with dignity. ${_typeVocab['senior-night']} aesthetic.`,
-    'mvp':          `Design an MVP AWARD GRAPHIC around this athlete photo. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
-    'championship': `Design a CHAMPIONSHIP CELEBRATION GRAPHIC around this athlete photo. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
+    'commitment':      `Design a COMMITMENT ANNOUNCEMENT GRAPHIC around this athlete photo. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
+    'game-day':        `Design a GAME DAY GRAPHIC around this athlete photo. Athlete is the face of the game. ${_typeVocab['game-day']} aesthetic. ${_composition['game-day']}`,
+    'halftime-score':  `Design a HALFTIME SCORE GRAPHIC featuring this athlete. Athlete is a supporting visual; score and team info are primary content. ${_typeVocab['halftime-score']} aesthetic. ${_composition['halftime-score']}`,
+    'final-score':     `Design a FINAL SCORE GRAPHIC featuring this athlete. Athlete as supporting visual; final score and FINAL label are primary content. ${_typeVocab['final-score']} aesthetic. ${_composition['final-score']}`,
+    'player-of-game':  `Design a PLAYER OF THE GAME GRAPHIC around this athlete. They are the hero of the composition. ${_typeVocab['player-of-game']} aesthetic. ${_composition['player-of-game']}`,
+    'game-recap':      `Design a GAME RECAP GRAPHIC featuring this athlete. Game score and key stats are primary content; athlete is supporting visual. ${_typeVocab['game-recap']} aesthetic. ${_composition['game-recap']}`,
+    'starting-lineup': `Design a STARTING LINEUP GRAPHIC featuring this athlete. They appear as part of the lineup announcement. ${_typeVocab['starting-lineup']} aesthetic. ${_composition['starting-lineup']}`,
+    'home-schedule':   `Design a HOME SCHEDULE GRAPHIC featuring this athlete as the face of the home season. Schedule information is primary; athlete is supporting visual. ${_typeVocab['home-schedule']} aesthetic. ${_composition['home-schedule']}`,
+    'season-schedule': `Design a SEASON SCHEDULE GRAPHIC featuring this athlete as the face of the season. Schedule grid is primary content; athlete as supporting visual. ${_typeVocab['season-schedule']} aesthetic. ${_composition['season-schedule']}`,
+    'player-spotlight':`Design a PLAYER SPOTLIGHT BANNER GRAPHIC around this athlete. They are the singular hero — full portrait treatment. ${_typeVocab['player-spotlight']} aesthetic. ${_composition['player-spotlight']}`,
+    'recruit-offer':   `Design a RECRUIT OFFER GRAPHIC around this athlete. They are prominently featured. School logo, OFFER EXTENDED label, and prestige elements surround them. ${_typeVocab['recruit-offer']} aesthetic. ${_composition['recruit-offer']}`,
+    'other':           `Design a professional sports graphic around this athlete photo. Full creative freedom — athlete is the visual hero with strong design elements surrounding them. ${_typeVocab['other']} aesthetic.`
   };
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
