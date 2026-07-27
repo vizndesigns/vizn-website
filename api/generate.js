@@ -172,6 +172,46 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'processing', jobId, soraStatus: pollData.status });
     }
 
+    // ── Fast team background — Gemini only, 30s timeout, no retries ─────
+    // Used by team composite path so it never hits gpt-image-1 (too slow)
+    if (action === 'team-bg' && prompt) {
+      if (GOOGLE_KEY) {
+        try {
+          const ctrl  = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 30000);
+          const gRes  = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
+            {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal:  ctrl.signal,
+              body:    JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.35 }
+              })
+            }
+          );
+          clearTimeout(timer);
+          if (gRes.ok) {
+            const gData   = await gRes.json();
+            const parts   = gData.candidates?.[0]?.content?.parts || [];
+            const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+            if (imgPart?.inlineData) {
+              const { mimeType, data } = imgPart.inlineData;
+              return res.status(200).json({ status: 'succeeded', imageUrl: `data:${mimeType};base64,${data}`, engine: 'gemini-team' });
+            }
+          } else {
+            const err = await gRes.json().catch(() => ({}));
+            console.warn('team-bg Gemini error:', err.error?.message || gRes.status);
+          }
+        } catch(e) {
+          console.warn('team-bg Gemini failed:', e.message);
+        }
+      }
+      // Signal frontend to use local canvas background
+      return res.status(200).json({ status: 'use-canvas' });
+    }
+
     // ── Vision-based generation — athlete photo + prompt → full graphic ──
     // Used when user uploads a photo: AI sees the athlete and designs around them
     if (action === 'generate-with-image' && athleteImage && prompt) {

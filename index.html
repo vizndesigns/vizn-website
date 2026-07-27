@@ -1501,6 +1501,99 @@ async function stitchPhotosToGrid(dataUris) {
 
   return canvas.toDataURL('image/jpeg', 0.88);
 }
+
+// ── Canvas-generated team background (instant fallback when AI times out) ───
+function generateCanvasTeamBackground(prompt, style, type) {
+  const { w: cw, h: ch } = getDims(type);
+  const canvas = document.createElement('canvas');
+  canvas.width  = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+
+  // Style palettes — base colors and accent
+  const palettes = {
+    aggressive: ['#0a0a0a', '#200000', '#FF2238'],
+    modern:     ['#050510', '#0a0a1f', '#CCFF00'],
+    collegiate: ['#050a14', '#0a1428', '#FFFFFF'],
+    minimal:    ['#050505', '#0d0d0d', '#CCFF00'],
+    hype:       ['#08000f', '#130020', '#CC00FF'],
+    retro:      ['#140a00', '#281400', '#FF8800']
+  };
+  const pal    = palettes[style] || palettes.modern;
+  const [dark, mid, accent] = pal;
+
+  // Parse any explicitly mentioned colors from the prompt and override accent
+  const mentioned = extractColors(prompt);
+  const accentHex  = mentioned[0] || accent;
+  const accent2    = mentioned[1] || dark;
+
+  // Base gradient top-to-bottom
+  let grd = ctx.createLinearGradient(0, 0, 0, ch);
+  grd.addColorStop(0, mid);
+  grd.addColorStop(1, dark);
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Diagonal stripe texture
+  ctx.save();
+  ctx.globalAlpha = 0.07;
+  ctx.strokeStyle = accentHex;
+  ctx.lineWidth   = 3;
+  for (let x = -ch; x < cw + ch; x += 55) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + ch * 0.7, ch);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Center glow — lighting from behind where players will stand
+  const glow = ctx.createRadialGradient(cw / 2, ch * 0.6, 0, cw / 2, ch * 0.5, cw * 0.75);
+  glow.addColorStop(0, accentHex + '28');
+  glow.addColorStop(0.5, accentHex + '0a');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Bottom shadow — makes players "stand" on the surface
+  const shadow = ctx.createLinearGradient(0, ch * 0.65, 0, ch);
+  shadow.addColorStop(0, 'transparent');
+  shadow.addColorStop(1, 'rgba(0,0,0,0.88)');
+  ctx.fillStyle = shadow;
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Top vignette
+  const topVig = ctx.createLinearGradient(0, 0, 0, ch * 0.3);
+  topVig.addColorStop(0, 'rgba(0,0,0,0.6)');
+  topVig.addColorStop(1, 'transparent');
+  ctx.fillStyle = topVig;
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Accent horizontal bar at top ~15%
+  ctx.fillStyle = accentHex + '33';
+  ctx.fillRect(0, ch * 0.12, cw, 3);
+
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+
+// ── Fast team background — Gemini (30s) → canvas fallback ───────────────
+async function callTeamBackground(prompt, type) {
+  const { w, h } = getDims(type);
+  try {
+    const res  = await fetch('/api/generate', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'team-bg', prompt, width: w, height: h })
+    });
+    const data = await res.json();
+    if (data.status === 'succeeded' && data.imageUrl) return data.imageUrl;
+  } catch(e) {
+    console.warn('team-bg API failed, using canvas:', e.message);
+  }
+  // Instant canvas fallback — never fails
+  return generateCanvasTeamBackground(prompt, S.style, type);
+}
+
 // ── API key ───────────────────────────────────────────
 const akf = el('apiKeyField');
 if (akf) {
@@ -2092,10 +2185,11 @@ async function generate(raw) {
         const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
         setStatus('Generating team background\u2026');
         const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, S.athleteOriginals.length);
-        const bgResult = await callReplicate(bgPrompt, S.type);
+        // Use fast Gemini-only path (30s max) \u2192 canvas fallback \u2014 never times out
+        const bgUrl = await callTeamBackground(bgPrompt, S.type);
         setStatus('Compositing ' + playersToComposite.length + ' players\u2026');
-        finalUrl    = await compositeLayers(bgResult.url, playersToComposite);
-        finalEngine = bgResult.engine + ' + composite';
+        finalUrl    = await compositeLayers(bgUrl, playersToComposite);
+        finalEngine = 'team-composite';
       } else {
         // VISION PATH: single player \u2014 send actual photo so AI wraps design around it
         setStatus('AI analyzing your photo\u2026');
