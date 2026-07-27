@@ -2040,18 +2040,13 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
           const offCtx = off.getContext('2d');
           offCtx.drawImage(cutout, x, y, w, targetH);
 
-          // Gradient fade at feet — destination-in keeps pixels where source alpha > 0
-          // Must cover the full player area or pixels above the fill rect get erased
+          // Fade feet using destination-out: erases only where drawn, leaves rest untouched
           const fadeStart = y + targetH * 0.82;
           const fadeEnd   = y + targetH;
-          offCtx.globalCompositeOperation = 'destination-in';
-          // Solid fill above fade zone keeps the player's body fully visible
-          offCtx.fillStyle = 'rgba(0,0,0,1)';
-          offCtx.fillRect(0, 0, canvas.width, fadeStart);
-          // Gradient only in the feet zone
           const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
-          grad.addColorStop(0, 'rgba(0,0,0,1)');
-          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          grad.addColorStop(0, 'rgba(0,0,0,0)');
+          grad.addColorStop(1, 'rgba(0,0,0,1)');
+          offCtx.globalCompositeOperation = 'destination-out';
           offCtx.fillStyle = grad;
           offCtx.fillRect(0, fadeStart, canvas.width, fadeEnd - fadeStart);
 
