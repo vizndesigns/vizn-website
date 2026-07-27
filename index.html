@@ -2207,17 +2207,23 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
           return group;
         });
 
-        // Front row height: 80% of canvas height (leaves room for text at bottom)
-        const frontH = ch * 0.80;
-        // Each successive back row is 20% smaller
-        const rowHeights = rowGroups.map((_, ri) => frontH * Math.pow(0.80, ri));
+        // Front row height — scales DOWN with more rows so back rows stay on-canvas.
+        // With 3 rows and frontH=0.80*ch, the back row would start at y = -0.40*ch (off screen).
+        // Math: back row y ≈ ch - frontH*(1 + pushFrac*(numRows-1)), needs to be ≥ 0.
+        const numRows = rowGroups.length;
+        const frontH  = numRows === 1 ? ch * 0.88
+                      : numRows === 2 ? ch * 0.70
+                      : numRows === 3 ? ch * 0.58
+                      : ch * 0.46;
+        // Each successive back row is 18% smaller than the row in front of it
+        const rowHeights = rowGroups.map((_, ri) => frontH * Math.pow(0.82, ri));
 
-        // Y base for each row: front row at canvas bottom, back rows pushed upward
-        // Each back row overlaps the row in front by 55% of the front row's height
+        // Y positions: front row feet at canvas bottom, each back row pushed upward
+        // Push = 38% of that row's own height → heavy overlap between rows
         const rowYBases = rowGroups.map((_, ri) => {
-          let y = ch - rowHeights[0]; // front row y (at bottom)
+          let y = ch - rowHeights[0]; // front row starts here (feet at canvas bottom)
           for (let r = 0; r < ri; r++) {
-            y -= rowHeights[r] * 0.42; // push back rows higher with overlap
+            y -= rowHeights[r] * 0.38;
           }
           return y;
         });
