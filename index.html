@@ -1519,19 +1519,25 @@ DO NOT INCLUDE: ${_negatives}`;
 // Vision prompt — used when athlete photo is sent directly to the AI
 function buildVisionPrompt(raw, sport, style, type) {
   const typeDirectives = {
-    'recruiting':   `Transform this athlete photo into a PROFESSIONAL RECRUITING GRAPHIC. The athlete is the visual hero — keep them clearly recognizable and prominent. Surround them with ${_typeVocab['recruiting']} visual elements. ${_composition['recruiting']}`,
-    'commitment':   `Transform this athlete photo into a COMMITMENT ANNOUNCEMENT GRAPHIC. The athlete appears confident and celebratory. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
-    'player-card':  `Transform this athlete photo into a PLAYER CARD / TRADING CARD. Athlete portrait in upper portion, stats and name information in lower section. ${_typeVocab['player-card']} aesthetic.`,
-    'schedule':     `Create a SCHEDULE GRAPHIC featuring this athlete as the face of the season. Athlete as supporting element; schedule information grid is primary content.`,
-    'team-poster':  `Transform this athlete photo into a TEAM POSTER. Athlete featured prominently, bold team identity surrounds them. ${_typeVocab['team-poster']} energy.`,
-    'senior-night': `Transform this athlete photo into a SENIOR NIGHT TRIBUTE GRAPHIC. Celebratory and emotional tone. Athlete honored with dignity. ${_typeVocab['senior-night']} aesthetic.`,
-    'mvp':          `Transform this athlete photo into an MVP AWARD GRAPHIC. Athlete appears triumphant. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
-    'championship': `Transform this athlete photo into a CHAMPIONSHIP CELEBRATION GRAPHIC. Athlete appears victorious. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
+    'recruiting':   `Design a PROFESSIONAL RECRUITING GRAPHIC around this athlete photo. The athlete is the visual hero. Surround them with ${_typeVocab['recruiting']} visual elements. ${_composition['recruiting']}`,
+    'commitment':   `Design a COMMITMENT ANNOUNCEMENT GRAPHIC around this athlete photo. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
+    'player-card':  `Design a PLAYER CARD / TRADING CARD around this athlete photo. Athlete portrait in upper portion, stats and name information in lower section. ${_typeVocab['player-card']} aesthetic.`,
+    'schedule':     `Design a SCHEDULE GRAPHIC featuring this athlete photo as the face of the season. Athlete as supporting element; schedule information grid is primary content.`,
+    'team-poster':  `Design a TEAM POSTER around this athlete photo. Bold team identity surrounds them. ${_typeVocab['team-poster']} energy.`,
+    'senior-night': `Design a SENIOR NIGHT TRIBUTE GRAPHIC around this athlete photo. Athlete honored with dignity. ${_typeVocab['senior-night']} aesthetic.`,
+    'mvp':          `Design an MVP AWARD GRAPHIC around this athlete photo. Gold award elements surround them. ${_typeVocab['mvp']} visual language.`,
+    'championship': `Design a CHAMPIONSHIP CELEBRATION GRAPHIC around this athlete photo. Championship visual elements fill the composition. ${_typeVocab['championship']} energy.`
   };
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
     : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+
+  // Only allow pose/expression changes if the user explicitly asked for them
+  const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
+  const poseInstruction = poseKeywords.test(raw)
+    ? 'ATHLETE: Keep the athlete clearly visible and prominent. You may adjust their pose per the brief.'
+    : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them.`;
 
   return `${typeDirectives[type] || typeDirectives['recruiting']}
 
@@ -1545,7 +1551,7 @@ TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
 LAYOUT BOUNDARY: All text and graphic elements positioned with generous padding — nothing closer than 8% from any edge. Every element 100% inside the frame. No letter or shape may touch or cross the image border.
 
-ATHLETE: The person in the photo MUST remain clearly visible, recognizable, and prominently featured.
+${poseInstruction}
 Add professional sports graphic design elements behind, beside, and around the athlete.
 Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
 Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
