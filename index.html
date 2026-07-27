@@ -1590,44 +1590,66 @@ function generateCanvasTeamBackground(prompt, style, type) {
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, cw, ch);
 
-  // Diagonal stripe texture
+  // Large diagonal color block — bottom left, adds sports poster energy
   ctx.save();
-  ctx.globalAlpha = 0.07;
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = accentColor;
+  ctx.beginPath();
+  ctx.moveTo(0, ch * 0.55);
+  ctx.lineTo(cw * 0.65, ch * 0.55);
+  ctx.lineTo(cw * 0.45, ch);
+  ctx.lineTo(0, ch);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Secondary diagonal block — top right
+  ctx.save();
+  ctx.globalAlpha = 0.14;
+  ctx.fillStyle = mid;
+  ctx.beginPath();
+  ctx.moveTo(cw, 0);
+  ctx.lineTo(cw * 0.35, 0);
+  ctx.lineTo(cw * 0.55, ch * 0.38);
+  ctx.lineTo(cw, ch * 0.38);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Fine diagonal stripe texture
+  ctx.save();
+  ctx.globalAlpha = 0.06;
   ctx.strokeStyle = accentColor;
-  ctx.lineWidth   = 3;
-  for (let x = -ch; x < cw + ch; x += 55) {
+  ctx.lineWidth   = 2;
+  for (let x = -ch; x < cw + ch; x += 48) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x + ch * 0.7, ch);
+    ctx.lineTo(x + ch * 0.65, ch);
     ctx.stroke();
   }
   ctx.restore();
 
-  // Center glow behind where players will stand
-  const glow = ctx.createRadialGradient(cw / 2, ch * 0.6, 0, cw / 2, ch * 0.5, cw * 0.75);
-  glow.addColorStop(0,   colorRgba(accentColor, 0.16));
-  glow.addColorStop(0.5, colorRgba(accentColor, 0.04));
+  // Center atmospheric glow — where players will stand
+  const glow = ctx.createRadialGradient(cw * 0.5, ch * 0.65, 0, cw * 0.5, ch * 0.5, cw * 0.85);
+  glow.addColorStop(0,   colorRgba(accentColor, 0.20));
+  glow.addColorStop(0.4, colorRgba(accentColor, 0.06));
   glow.addColorStop(1,   'rgba(0,0,0,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, cw, ch);
 
-  // Bottom shadow — players appear to stand on the surface
-  const shadow = ctx.createLinearGradient(0, ch * 0.65, 0, ch);
+  // Bottom shadow — deep ground for players to stand on
+  const shadow = ctx.createLinearGradient(0, ch * 0.60, 0, ch);
   shadow.addColorStop(0, 'rgba(0,0,0,0)');
-  shadow.addColorStop(1, 'rgba(0,0,0,0.88)');
+  shadow.addColorStop(1, 'rgba(0,0,0,0.92)');
   ctx.fillStyle = shadow;
   ctx.fillRect(0, 0, cw, ch);
 
   // Top vignette
-  const topVig = ctx.createLinearGradient(0, 0, 0, ch * 0.3);
-  topVig.addColorStop(0, 'rgba(0,0,0,0.6)');
+  const topVig = ctx.createLinearGradient(0, 0, 0, ch * 0.32);
+  topVig.addColorStop(0, 'rgba(0,0,0,0.72)');
   topVig.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = topVig;
   ctx.fillRect(0, 0, cw, ch);
-
-  // Accent line near top
-  ctx.fillStyle = colorRgba(accentColor, 0.4);
-  ctx.fillRect(0, ch * 0.12, cw, 3);
 
   return canvas.toDataURL('image/jpeg', 0.92);
 }
@@ -1659,93 +1681,125 @@ function drawSportsOverlay(ctx, canvas, opts) {
     retro:      ['#FF8800', '#FFD700']
   };
   const [a1, a2] = accentMap[style] || accentMap.aggressive;
-  const mentioned = extractColors(prompt || '');
+
+  // Filter dark/invisible colors — black, navy, midnight etc. are invisible on dark bg
+  const darkNames = new Set(['black','darkblue','darkgreen','darkred','navy','maroon',
+    'midnight','charcoal','brown','darkgray','darkgrey']);
+  const mentioned = extractColors(prompt || '').filter(c => {
+    const low = c.toLowerCase();
+    if (darkNames.has(low)) return false;
+    if (low.startsWith('#')) {
+      const r = parseInt(low.slice(1,3)||'ff',16);
+      const g = parseInt(low.slice(3,5)||'ff',16);
+      const b = parseInt(low.slice(5,7)||'ff',16);
+      return (r + g + b) > 80; // skip near-black hex codes
+    }
+    return true;
+  });
   const accent  = mentioned[0] || a1;
   const accent2 = mentioned[1] || a2;
 
-  // 1. Edge vignette — cinematic darkening of corners
-  const vign = ctx.createRadialGradient(cw * 0.5, ch * 0.45, ch * 0.12, cw * 0.5, ch * 0.45, ch * 0.9);
-  vign.addColorStop(0, 'rgba(0,0,0,0)');
-  vign.addColorStop(1, 'rgba(0,0,0,0.72)');
+  // 1. Cinematic edge vignette — darkens corners without touching center
+  const vign = ctx.createRadialGradient(cw*0.5, ch*0.45, ch*0.10, cw*0.5, ch*0.45, ch*0.95);
+  vign.addColorStop(0,   'rgba(0,0,0,0)');
+  vign.addColorStop(0.6, 'rgba(0,0,0,0.1)');
+  vign.addColorStop(1,   'rgba(0,0,0,0.78)');
   ctx.fillStyle = vign;
   ctx.fillRect(0, 0, cw, ch);
 
-  // 2. Top dark zone for team name readability
-  const topFade = ctx.createLinearGradient(0, 0, 0, ch * 0.22);
-  topFade.addColorStop(0, 'rgba(0,0,0,0.82)');
-  topFade.addColorStop(1, 'rgba(0,0,0,0)');
+  // 2. Top dark gradient — background for the team name text
+  const topFade = ctx.createLinearGradient(0, 0, 0, ch * 0.25);
+  topFade.addColorStop(0,   'rgba(0,0,0,0.88)');
+  topFade.addColorStop(0.6, 'rgba(0,0,0,0.4)');
+  topFade.addColorStop(1,   'rgba(0,0,0,0)');
   ctx.fillStyle = topFade;
-  ctx.fillRect(0, 0, cw, ch * 0.22);
+  ctx.fillRect(0, 0, cw, ch * 0.25);
 
-  // 3. Full-width accent stripe at very top
+  // 3. Bold accent stripe across the very top
+  const stripeH = Math.max(6, Math.round(ch * 0.007));
   ctx.fillStyle = colorRgba(accent, 1.0);
-  ctx.fillRect(0, 0, cw, Math.max(4, Math.round(ch * 0.005)));
+  ctx.fillRect(0, 0, cw, stripeH);
 
-  // 4. Diagonal accent block — top left
+  // 4. Diagonal accent block — top left (primary color, strong opacity)
   ctx.save();
-  ctx.globalAlpha = 0.55;
+  ctx.globalAlpha = 0.72;
   ctx.fillStyle = colorRgba(accent, 1.0);
-  const diagW = cw * 0.45, diagH = ch * 0.12;
+  const diagW = cw * 0.48, diagH = ch * 0.135;
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(diagW, 0);
-  ctx.lineTo(diagW * 0.70, diagH);
+  ctx.lineTo(diagW * 0.68, diagH);
   ctx.lineTo(0, diagH);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 
-  // 5. Smaller accent block — top right (secondary color)
+  // 5. Diagonal block — top right (secondary color)
   ctx.save();
-  ctx.globalAlpha = 0.30;
+  ctx.globalAlpha = 0.40;
   ctx.fillStyle = colorRgba(accent2, 1.0);
-  const d2W = cw * 0.20, d2H = ch * 0.06;
+  const d2W = cw * 0.22, d2H = ch * 0.07;
   ctx.beginPath();
   ctx.moveTo(cw, 0);
   ctx.lineTo(cw - d2W, 0);
-  ctx.lineTo(cw - d2W * 0.65, d2H);
+  ctx.lineTo(cw - d2W * 0.62, d2H);
   ctx.lineTo(cw, d2H);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 
-  // 6. Team name — bold display type with stroke outline
+  // 6. Team name — large bold display type, stroke outline + accent fill
   if (teamName) {
-    const fontSize = Math.round(ch * 0.082);
+    const fontSize = Math.round(ch * 0.095);
     ctx.save();
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const tx = cw * 0.042;
-    const ty = ch * 0.062;
+    const tx = cw * 0.038;
+    const ty = ch * 0.068;
     ctx.font = `900 ${fontSize}px 'Arial Black', Impact, Arial, sans-serif`;
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,0.95)';
-    ctx.lineWidth = Math.round(fontSize * 0.10);
+    // Thick black outline for legibility against any background
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+    ctx.lineWidth = Math.round(fontSize * 0.14);
     ctx.strokeText(teamName, tx, ty);
+    // White drop shadow for extra pop
+    ctx.shadowColor   = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur    = 12;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    // Accent color fill
     ctx.fillStyle = colorRgba(accent, 1.0);
     ctx.fillText(teamName, tx, ty);
     ctx.restore();
   }
 
-  // 7. Ground glow — accent light rising from where players stand
-  const gY = ch * 0.92;
-  const glow = ctx.createRadialGradient(cw * 0.5, gY, 0, cw * 0.5, gY, cw * 0.58);
-  glow.addColorStop(0,   colorRgba(accent, 0.22));
-  glow.addColorStop(0.4, colorRgba(accent, 0.06));
+  // 7. Thin separator line below the diagonal shape
+  const sepY = ch * 0.145;
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = colorRgba(accent2, 1.0);
+  ctx.fillRect(0, sepY, cw * 0.55, Math.max(2, Math.round(ch * 0.003)));
+  ctx.restore();
+
+  // 8. Ground glow — colored light rising from where players stand
+  const gY = ch * 0.94;
+  const glow = ctx.createRadialGradient(cw*0.5, gY, 0, cw*0.5, gY, cw*0.65);
+  glow.addColorStop(0,   colorRgba(accent, 0.28));
+  glow.addColorStop(0.35, colorRgba(accent, 0.08));
   glow.addColorStop(1,   'rgba(0,0,0,0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(0, ch * 0.58, cw, ch * 0.42);
+  ctx.fillRect(0, ch * 0.55, cw, ch * 0.45);
 
-  // 8. Bottom edge darkening
-  const botV = ctx.createLinearGradient(0, ch * 0.88, 0, ch);
+  // 9. Bottom vignette — deepens the ground shadow
+  const botV = ctx.createLinearGradient(0, ch * 0.85, 0, ch);
   botV.addColorStop(0, 'rgba(0,0,0,0)');
-  botV.addColorStop(1, 'rgba(0,0,0,0.65)');
+  botV.addColorStop(1, 'rgba(0,0,0,0.70)');
   ctx.fillStyle = botV;
-  ctx.fillRect(0, ch * 0.88, cw, ch * 0.12);
+  ctx.fillRect(0, ch * 0.85, cw, ch * 0.15);
 
-  // 9. Thin accent line at bottom
-  ctx.fillStyle = colorRgba(accent, 0.55);
-  ctx.fillRect(0, ch - Math.max(3, Math.round(ch * 0.004)), cw, Math.max(3, Math.round(ch * 0.004)));
+  // 10. Thin accent stripe at the very bottom
+  ctx.fillStyle = colorRgba(accent, 0.65);
+  ctx.fillRect(0, ch - Math.max(4, Math.round(ch * 0.005)), cw, Math.max(4, Math.round(ch * 0.005)));
 }
 
 // ── Fast team background — Gemini (30s) → canvas fallback ───────────────
@@ -2130,60 +2184,78 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
         const valid = imgs.filter(Boolean);
         if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.95)); return; }
 
-        // Unlimited layout: max 6 per row, as many rows as needed
-        const n       = valid.length;
-        const maxCols = Math.min(n, 6);
-        const rows    = Math.ceil(n / maxCols);
-        // Height per player scales down with more rows
-        const heightFrac = rows === 1 ? (n === 1 ? 0.90 : 0.78)
-                         : rows === 2 ? 0.42
-                         : rows === 3 ? 0.28
-                         : 0.22;
-        const targetH = canvas.height * heightFrac;
+        const n  = valid.length;
+        const cw = canvas.width, ch = canvas.height;
 
-        function drawCutout(cutout, rowIdx, colIdx, totalInRow) {
-          const scale = targetH / cutout.height;
-          const w     = cutout.width * scale;
-          const slot  = canvas.width / totalInRow;
-          const x     = slot * colIdx + (slot - w) / 2;
-          // Stack rows bottom-to-top: row (rows-1) is at canvas bottom, row 0 is highest
-          const rowFromBottom = (rows - 1) - rowIdx;
-          const y = canvas.height - targetH - rowFromBottom * (targetH * 0.85);
+        // Creative layout:
+        // ≤5 players → single row, center player 13% bigger, alternating vertical stagger
+        // 6+ players → back row (78% size, positioned higher) + front row (full, at bottom)
+        // Center player in each row gets a size boost for star-player emphasis
+        const backCount  = n > 5 ? Math.floor(n / 2) : 0;
+        const frontCount = n - backCount;
+        const frontH     = ch * (backCount > 0 ? 0.74 : 0.86);
+        const backH      = frontH * 0.78;
 
+        function drawPlayer(cutout, px, py, pw, ph) {
           const off    = document.createElement('canvas');
-          off.width    = canvas.width;
-          off.height   = canvas.height;
+          off.width    = cw;
+          off.height   = ch;
           const offCtx = off.getContext('2d');
-          offCtx.drawImage(cutout, x, y, w, targetH);
+          offCtx.drawImage(cutout, px, py, pw, ph);
 
-          // Fade feet using destination-out: erases only where drawn, leaves rest untouched
-          const fadeStart = y + targetH * 0.82;
-          const fadeEnd   = y + targetH;
-          const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
-          grad.addColorStop(0, 'rgba(0,0,0,0)');
-          grad.addColorStop(1, 'rgba(0,0,0,1)');
-          offCtx.globalCompositeOperation = 'destination-out';
-          offCtx.fillStyle = grad;
-          offCtx.fillRect(0, fadeStart, canvas.width, fadeEnd - fadeStart);
+          // Soft fade at feet — destination-out only erases inside the filled rect
+          const fadeStart = py + ph * 0.80;
+          const fadeEnd   = py + ph;
+          if (fadeEnd > fadeStart) {
+            const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
+            grad.addColorStop(0, 'rgba(0,0,0,0)');
+            grad.addColorStop(1, 'rgba(0,0,0,1)');
+            offCtx.globalCompositeOperation = 'destination-out';
+            offCtx.fillStyle = grad;
+            offCtx.fillRect(0, fadeStart, cw, fadeEnd - fadeStart);
+          }
 
           ctx.save();
-          ctx.shadowColor   = 'rgba(0,0,0,0.65)';
-          ctx.shadowBlur    = 28;
-          ctx.shadowOffsetX = 4;
-          ctx.shadowOffsetY = 14;
+          ctx.shadowColor   = 'rgba(0,0,0,0.7)';
+          ctx.shadowBlur    = 32;
+          ctx.shadowOffsetX = 5;
+          ctx.shadowOffsetY = 16;
           ctx.drawImage(off, 0, 0);
           ctx.restore();
         }
 
-        // Draw back rows first so front rows appear on top
-        for (let r = 0; r < rows; r++) {
-          const rowStart = r * maxCols;
-          const rowPlayers = valid.slice(rowStart, rowStart + maxCols);
-          rowPlayers.forEach((cutout, ci) => drawCutout(cutout, r, ci, rowPlayers.length));
+        // Back row — rendered first so front row overlaps it for depth
+        if (backCount > 0) {
+          valid.slice(0, backCount).forEach((cutout, ci) => {
+            const isCenter = backCount > 2 && ci === Math.floor(backCount / 2);
+            const h      = backH * (isCenter ? 1.07 : 1.0);
+            const scale  = h / cutout.height;
+            const w      = cutout.width * scale;
+            const slot   = cw / backCount;
+            const x      = slot * ci + (slot - w) / 2;
+            // Back row: feet land around front row's hip level, slight alternating stagger
+            const stagger = (ci % 2 === 0) ? 0 : -h * 0.04;
+            const y       = ch - h - frontH * 0.48 + stagger;
+            drawPlayer(cutout, x, y, w, h);
+          });
         }
 
+        // Front row — drawn on top, bigger, at canvas bottom
+        valid.slice(backCount).forEach((cutout, ci) => {
+          const isCenter = frontCount > 2 && ci === Math.floor(frontCount / 2);
+          const h      = frontH * (isCenter ? 1.13 : 1.0);
+          const scale  = h / cutout.height;
+          const w      = cutout.width * scale;
+          const slot   = cw / frontCount;
+          const x      = slot * ci + (slot - w) / 2;
+          // Alternating stagger makes the row feel dynamic, not like a static lineup
+          const stagger = (ci % 2 === 0) ? 0 : -h * 0.03;
+          const y       = ch - h + stagger;
+          drawPlayer(cutout, x, y, w, h);
+        });
+
         // Strong sharpen pass for crisp edges on the final composite
-        sharpenCanvas(ctx, canvas.width, canvas.height);
+        sharpenCanvas(ctx, cw, ch);
 
         // Sports graphic design overlay — typography, vignette, color effects
         if (designOpts) drawSportsOverlay(ctx, canvas, designOpts);
