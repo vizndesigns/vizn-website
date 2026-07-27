@@ -1368,28 +1368,39 @@ if (fileInputEl) {
     setStatus('Processing ' + imgFiles.length + ' photo' + (imgFiles.length > 1 ? 's' : '') + '…');
 
     (async () => {
-      for (let i = 0; i < imgFiles.length; i++) {
-        try {
-          const original = await compressImageAsPng(imgFiles[i], 900);
-          S.athleteOriginals.push(original);
-          // Show preview of first photo only; grid preview comes after all done
-          if (S.athleteOriginals.length === 1) showPhotoPreview(original);
+      // Pre-allocate slots so order is preserved regardless of which finishes first
+      const origSlots   = new Array(imgFiles.length).fill(null);
+      const cutoutSlots = new Array(imgFiles.length).fill(null);
+      let   doneCount   = 0;
 
-          setStatus('Removing background from photo ' + (startIdx + i + 1) + '…');
+      // Run ALL background removals in PARALLEL — no more waiting one by one
+      await Promise.all(imgFiles.map(async (f, i) => {
+        try {
+          const original = await compressImageAsPng(f, 900);
+          origSlots[i] = original;
+          // Show the very first photo immediately as a preview
+          if (startIdx === 0 && i === 0) showPhotoPreview(original);
+
           try {
-            const cutout = await removeBg(imgFiles[i]);
-            S.athleteCutouts.push(cutout);
+            const cutout = await removeBg(f);
+            cutoutSlots[i] = cutout;
           } catch(bgErr) {
             console.warn('BG removal failed for photo ' + (startIdx + i + 1) + ':', bgErr.message);
-            toast('Bg removal failed for photo ' + (startIdx + i + 1) + ' — will use original', '');
           }
         } catch(e) {
-          console.error('Photo processing error:', e);
+          console.error('Photo ' + (startIdx + i + 1) + ' error:', e);
           toast('Photo ' + (startIdx + i + 1) + ' error: ' + (e.message || 'unknown'), 'err');
         } finally {
           S.bgRemoving--;
+          doneCount++;
+          setStatus('Removing backgrounds… ' + doneCount + '/' + imgFiles.length + ' done');
         }
-      }
+      }));
+
+      // Push results in original upload order
+      origSlots.forEach(o   => { if (o) S.athleteOriginals.push(o); });
+      cutoutSlots.forEach(c => { if (c) S.athleteCutouts.push(c); });
+
       const n = S.athleteOriginals.length;
       const c = S.athleteCutouts.length;
       setStatus('✓ ' + n + ' player' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' — click Generate');
@@ -1854,25 +1865,25 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
         const valid = imgs.filter(Boolean);
         if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.95)); return; }
 
-        // Layout: 1-4 players in one row; 5+ split into 2 rows
-        const n    = valid.length;
-        const rows = n <= 4 ? 1 : 2;
-        const cols = Math.ceil(n / rows);
+        // Unlimited layout: max 6 per row, as many rows as needed
+        const n       = valid.length;
+        const maxCols = Math.min(n, 6);
+        const rows    = Math.ceil(n / maxCols);
+        // Height per player scales down with more rows
+        const heightFrac = rows === 1 ? (n === 1 ? 0.90 : 0.78)
+                         : rows === 2 ? 0.42
+                         : rows === 3 ? 0.28
+                         : 0.22;
+        const targetH = canvas.height * heightFrac;
 
         function drawCutout(cutout, rowIdx, colIdx, totalInRow) {
-          const heightFrac = rows === 1
-            ? (n === 1 ? 0.91 : n <= 3 ? 0.82 : 0.70)
-            : (rowIdx === 0 ? 0.44 : 0.44); // two-row: each row ~44% height
-          const targetH = canvas.height * heightFrac;
-          const scale   = targetH / cutout.height;
-          const w       = cutout.width * scale;
-          const slot    = canvas.width / totalInRow;
-          const x       = slot * colIdx + (slot - w) / 2;
-          const y       = rows === 1
-            ? canvas.height - targetH
-            : rowIdx === 0
-              ? canvas.height - targetH * 2 - canvas.height * 0.02  // back row higher up
-              : canvas.height - targetH;                              // front row at bottom
+          const scale = targetH / cutout.height;
+          const w     = cutout.width * scale;
+          const slot  = canvas.width / totalInRow;
+          const x     = slot * colIdx + (slot - w) / 2;
+          // Stack rows bottom-to-top: row (rows-1) is at canvas bottom, row 0 is highest
+          const rowFromBottom = (rows - 1) - rowIdx;
+          const y = canvas.height - targetH - rowFromBottom * (targetH * 0.85);
 
           const off    = document.createElement('canvas');
           off.width    = canvas.width;
@@ -1881,7 +1892,7 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
           offCtx.drawImage(cutout, x, y, w, targetH);
 
           // Gradient fade at feet
-          const fadeStart = y + targetH * 0.80;
+          const fadeStart = y + targetH * 0.82;
           const fadeEnd   = y + targetH;
           const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
           grad.addColorStop(0, 'rgba(0,0,0,1)');
@@ -1892,21 +1903,18 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
 
           ctx.save();
           ctx.shadowColor   = 'rgba(0,0,0,0.65)';
-          ctx.shadowBlur    = 35;
-          ctx.shadowOffsetX = 5;
-          ctx.shadowOffsetY = 18;
+          ctx.shadowBlur    = 28;
+          ctx.shadowOffsetX = 4;
+          ctx.shadowOffsetY = 14;
           ctx.drawImage(off, 0, 0);
           ctx.restore();
         }
 
-        if (rows === 1) {
-          valid.forEach((cutout, i) => drawCutout(cutout, 0, i, n));
-        } else {
-          // Back row first (drawn first so front row appears on top)
-          const backRow  = valid.slice(0, cols);
-          const frontRow = valid.slice(cols);
-          backRow.forEach((cutout, i)  => drawCutout(cutout, 0, i, backRow.length));
-          frontRow.forEach((cutout, i) => drawCutout(cutout, 1, i, frontRow.length));
+        // Draw back rows first so front rows appear on top
+        for (let r = 0; r < rows; r++) {
+          const rowStart = r * maxCols;
+          const rowPlayers = valid.slice(rowStart, rowStart + maxCols);
+          rowPlayers.forEach((cutout, ci) => drawCutout(cutout, r, ci, rowPlayers.length));
         }
 
         // Strong sharpen pass for crisp edges on the final composite
