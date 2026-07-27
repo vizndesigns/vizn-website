@@ -1369,6 +1369,13 @@ if (fileInputEl) {
       const c = S.athleteCutouts.length;
       setStatus('✓ ' + n + ' photo' + (n>1?'s':'') + ' ready' + (c>0?' (bg removed)':'') + ' — click Generate');
       toast(n + ' photo' + (n>1?'s':'') + ' ready ✓', 'ok');
+      // Show all players as a contact-sheet grid in the preview
+      if (n > 1) {
+        const grid = await stitchPhotosToGrid(S.athleteOriginals);
+        showPhotoPreview(grid);
+        const aiTxtEl = el('aiTxt');
+        if (aiTxtEl) aiTxtEl.textContent = n + ' players loaded — add description and Generate';
+      }
     })();
   });
 }
@@ -1392,6 +1399,12 @@ document.getElementById('fChips')?.addEventListener('click', e => {
     const aiTxtEl = el('aiTxt');
     if (aiTxtEl) aiTxtEl.textContent = 'Describe your design and click Generate';
     S.lastImage = null;
+  } else if (S.athleteOriginals.length > 1) {
+    stitchPhotosToGrid(S.athleteOriginals).then(grid => {
+      showPhotoPreview(grid);
+      const aiTxtEl = el('aiTxt');
+      if (aiTxtEl) aiTxtEl.textContent = S.athleteOriginals.length + ' players loaded — add description and Generate';
+    });
   } else {
     showPhotoPreview(S.athleteOriginals[0]);
   }
@@ -1405,6 +1418,50 @@ function showPhotoPreview(dataUri) {
   if (def) def.style.display = 'none';
   const aiTxtEl = el('aiTxt');
   if (aiTxtEl) aiTxtEl.textContent = 'Photo loaded — add description and Generate';
+}
+
+// Build a contact-sheet grid from multiple photo data URIs
+async function stitchPhotosToGrid(dataUris) {
+  if (!dataUris || dataUris.length <= 1) return dataUris?.[0] || null;
+
+  const imgs = await Promise.all(dataUris.map(uri => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload  = () => resolve(img);
+    img.onerror = () => reject(new Error('Photo load failed'));
+    img.src = uri;
+  })));
+
+  const n    = imgs.length;
+  const cols = n <= 3 ? n : Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const cell = cols <= 3 ? 360 : 280;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = cols * cell;
+  canvas.height = rows * cell;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  imgs.forEach((img, i) => {
+    const col   = i % cols;
+    const row   = Math.floor(i / cols);
+    const x     = col * cell;
+    const y     = row * cell;
+    const scale = Math.max(cell / img.width, cell / img.height);
+    const sw    = img.width  * scale;
+    const sh    = img.height * scale;
+    const sx    = x + (cell - sw) / 2;
+    const sy    = y + (cell - sh) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, cell, cell);
+    ctx.clip();
+    ctx.drawImage(img, sx, sy, sw, sh);
+    ctx.restore();
+  });
+
+  return canvas.toDataURL('image/jpeg', 0.88);
 }
 // ── API key ───────────────────────────────────────────
 const akf = el('apiKeyField');
@@ -1653,20 +1710,22 @@ DO NOT INCLUDE: ${_negatives}`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
-function buildVisionPrompt(raw, sport, style, type) {
+function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
+  const isTeam  = playerCount > 1;
+  const subject = isTeam ? `these ${playerCount} athletes (shown in the contact sheet provided)` : 'this athlete photo';
   const typeDirectives = {
-    'commitment':      `Design a COMMITMENT ANNOUNCEMENT GRAPHIC around this athlete photo. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
-    'game-day':        `Design a GAME DAY GRAPHIC around this athlete photo. Athlete is the face of the game. ${_typeVocab['game-day']} aesthetic. ${_composition['game-day']}`,
-    'halftime-score':  `Design a HALFTIME SCORE GRAPHIC featuring this athlete. Athlete is a supporting visual; score and team info are primary content. ${_typeVocab['halftime-score']} aesthetic. ${_composition['halftime-score']}`,
-    'final-score':     `Design a FINAL SCORE GRAPHIC featuring this athlete. Athlete as supporting visual; final score and FINAL label are primary content. ${_typeVocab['final-score']} aesthetic. ${_composition['final-score']}`,
-    'player-of-game':  `Design a PLAYER OF THE GAME GRAPHIC around this athlete. They are the hero of the composition. ${_typeVocab['player-of-game']} aesthetic. ${_composition['player-of-game']}`,
-    'game-recap':      `Design a GAME RECAP GRAPHIC featuring this athlete. Game score and key stats are primary content; athlete is supporting visual. ${_typeVocab['game-recap']} aesthetic. ${_composition['game-recap']}`,
-    'starting-lineup': `Design a STARTING LINEUP GRAPHIC featuring this athlete. They appear as part of the lineup announcement. ${_typeVocab['starting-lineup']} aesthetic. ${_composition['starting-lineup']}`,
-    'home-schedule':   `Design a HOME SCHEDULE GRAPHIC featuring this athlete as the face of the home season. Schedule information is primary; athlete is supporting visual. ${_typeVocab['home-schedule']} aesthetic. ${_composition['home-schedule']}`,
-    'season-schedule': `Design a SEASON SCHEDULE GRAPHIC featuring this athlete as the face of the season. Schedule grid is primary content; athlete as supporting visual. ${_typeVocab['season-schedule']} aesthetic. ${_composition['season-schedule']}`,
-    'player-spotlight':`Design a PLAYER SPOTLIGHT BANNER GRAPHIC around this athlete. They are the singular hero — full portrait treatment. ${_typeVocab['player-spotlight']} aesthetic. ${_composition['player-spotlight']}`,
-    'recruit-offer':   `Design a RECRUIT OFFER GRAPHIC around this athlete. They are prominently featured. School logo, OFFER EXTENDED label, and prestige elements surround them. ${_typeVocab['recruit-offer']} aesthetic. ${_composition['recruit-offer']}`,
-    'other':           `Design a professional sports graphic around this athlete photo. Full creative freedom — athlete is the visual hero with strong design elements surrounding them. ${_typeVocab['other']} aesthetic.`
+    'commitment':      `Design a COMMITMENT ANNOUNCEMENT GRAPHIC around ${subject}. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
+    'game-day':        `Design a GAME DAY GRAPHIC around ${subject}. ${isTeam ? 'All athletes are featured prominently as the faces of the game.' : 'Athlete is the face of the game.'} ${_typeVocab['game-day']} aesthetic. ${_composition['game-day']}`,
+    'halftime-score':  `Design a HALFTIME SCORE GRAPHIC featuring ${subject}. ${isTeam ? 'Athletes are supporting visuals;' : 'Athlete is a supporting visual;'} score and team info are primary content. ${_typeVocab['halftime-score']} aesthetic. ${_composition['halftime-score']}`,
+    'final-score':     `Design a FINAL SCORE GRAPHIC featuring ${subject}. ${isTeam ? 'Athletes as supporting visuals;' : 'Athlete as supporting visual;'} final score and FINAL label are primary content. ${_typeVocab['final-score']} aesthetic. ${_composition['final-score']}`,
+    'player-of-game':  `Design a PLAYER OF THE GAME GRAPHIC around ${subject}. ${isTeam ? 'The lead athlete is the hero; others frame them.' : 'They are the hero of the composition.'} ${_typeVocab['player-of-game']} aesthetic. ${_composition['player-of-game']}`,
+    'game-recap':      `Design a GAME RECAP GRAPHIC featuring ${subject}. Game score and key stats are primary content; ${isTeam ? 'athletes are' : 'athlete is'} supporting visuals. ${_typeVocab['game-recap']} aesthetic. ${_composition['game-recap']}`,
+    'starting-lineup': `Design a STARTING LINEUP GRAPHIC featuring ${subject}. ${isTeam ? `All ${playerCount} athletes appear side-by-side in the lineup formation — this IS the lineup graphic.` : 'They appear as part of the lineup announcement.'} ${_typeVocab['starting-lineup']} aesthetic. ${_composition['starting-lineup']}`,
+    'home-schedule':   `Design a HOME SCHEDULE GRAPHIC featuring ${subject} as ${isTeam ? 'the faces of the home season' : 'the face of the home season'}. Schedule information is primary; ${isTeam ? 'athletes are' : 'athlete is'} supporting visuals. ${_typeVocab['home-schedule']} aesthetic. ${_composition['home-schedule']}`,
+    'season-schedule': `Design a SEASON SCHEDULE GRAPHIC featuring ${subject} as ${isTeam ? 'the faces of the season' : 'the face of the season'}. Schedule grid is primary content; ${isTeam ? 'athletes as' : 'athlete as'} supporting visuals. ${_typeVocab['season-schedule']} aesthetic. ${_composition['season-schedule']}`,
+    'player-spotlight':`Design a PLAYER SPOTLIGHT BANNER GRAPHIC around ${subject}. ${isTeam ? `All ${playerCount} athletes are featured prominently — each given their own spotlight area.` : 'They are the singular hero — full portrait treatment.'} ${_typeVocab['player-spotlight']} aesthetic. ${_composition['player-spotlight']}`,
+    'recruit-offer':   `Design a RECRUIT OFFER GRAPHIC around ${subject}. ${isTeam ? 'All athletes are prominently featured.' : 'They are prominently featured.'} School logo, OFFER EXTENDED label, and prestige elements surround them. ${_typeVocab['recruit-offer']} aesthetic. ${_composition['recruit-offer']}`,
+    'other':           `Design a professional sports graphic around ${subject}. Full creative freedom — ${isTeam ? `all ${playerCount} athletes are visual heroes` : 'athlete is the visual hero'} with strong design elements surrounding them. ${_typeVocab['other']} aesthetic.`
   };
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
@@ -1677,11 +1736,17 @@ function buildVisionPrompt(raw, sport, style, type) {
   // Only allow pose/expression changes if the user explicitly asked for them
   const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
   const poseInstruction = poseKeywords.test(raw)
-    ? 'ATHLETE: Keep the athlete clearly visible and prominent. You may adjust their pose per the brief.'
-    : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them.`;
+    ? `${isTeam ? 'ATHLETES' : 'ATHLETE'}: Keep ${isTeam ? 'all athletes' : 'the athlete'} clearly visible and prominent. You may adjust ${isTeam ? 'their' : 'their'} pose per the brief.`
+    : isTeam
+      ? `ATHLETE PRESERVATION — CRITICAL: The contact sheet contains ${playerCount} distinct athletes. ALL ${playerCount} must appear in the final design — do NOT omit any. Each person must appear exactly as they look in their panel of the contact sheet. Do NOT change anyone's pose, expression, clothing, or appearance. Only add design elements (backgrounds, typography, graphics, overlays) around and behind them.`
+      : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them.`;
+
+  const multiPlayerBlock = isTeam
+    ? `\nTEAM COMPOSITE — ${playerCount} ATHLETES REQUIRED:\n• The contact sheet image contains ${playerCount} athletes — count the panels\n• EVERY athlete must appear in the final graphic — include all ${playerCount}, none missing\n• Each player gets equal visual weight — none is cropped or hidden\n• Arrange them in a dynamic horizontal or grid formation across the composition\n• If a Starting Lineup or Roster graphic, show them in a clean row or column arrangement\n`
+    : '';
 
   return `${typeDirectives[type] || typeDirectives['recruiting']}
-
+${multiPlayerBlock}
 ${colorBlock}
 
 DESIGN BRIEF (include every element):
@@ -1693,7 +1758,7 @@ TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
 
 ${poseInstruction}
-Add professional sports graphic design elements behind, beside, and around the athlete.
+Add professional sports graphic design elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'}.
 Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
 Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
 Single dramatic key light, deep shadows, layered spatial depth.
@@ -1741,7 +1806,7 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
       canvas.height = bg.height;
       ctx.drawImage(bg, 0, 0);
 
-      const slots = Math.min(cutoutDataUrls.length, 3);
+      const slots = cutoutDataUrls.length;
       const urls  = cutoutDataUrls.slice(0, slots);
       let loaded  = 0;
       const imgs  = Array(slots).fill(null);
@@ -1759,7 +1824,7 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
         const valid = imgs.filter(Boolean);
         if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.95)); return; }
 
-        const heightFrac = slots === 1 ? 0.91 : slots === 2 ? 0.82 : 0.74;
+        const heightFrac = valid.length === 1 ? 0.91 : valid.length <= 3 ? 0.82 : valid.length <= 6 ? 0.70 : 0.60;
         const targetH    = canvas.height * heightFrac;
 
         valid.forEach((cutout, i) => {
@@ -1810,16 +1875,27 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
 }
 
 // ── Vision-based generation: sends athlete photo + prompt to AI ──────────────
-async function callGenerateWithImage(athleteImageDataUri, prompt, type) {
+async function callGenerateWithImage(athleteImages, prompt, type) {
+  const imgsArr = Array.isArray(athleteImages) ? athleteImages : [athleteImages];
   const {w, h} = getDims(type);
-  setStatus('AI generating with your photo…');
+
+  let athleteImage;
+  if (imgsArr.length > 1) {
+    setStatus('Building team composite grid…');
+    athleteImage = await stitchPhotosToGrid(imgsArr);
+    setStatus('AI composing team graphic…');
+  } else {
+    athleteImage = imgsArr[0];
+    setStatus('AI generating with your photo…');
+  }
 
   const response = await fetch('/api/generate', {
     method:  'POST',
     headers: {'Content-Type': 'application/json'},
     body:    JSON.stringify({
       action:       'generate-with-image',
-      athleteImage: athleteImageDataUri,
+      athleteImage,
+      playerCount:  imgsArr.length,
       prompt,
       width:  w,
       height: h
@@ -1945,9 +2021,9 @@ async function generate(raw) {
     if (hasOriginals) {
       // VISION PATH: send actual athlete photo to AI so it sees and designs around them
       setStatus('AI analyzing your photo\u2026');
-      const visionPrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type);
+      const visionPrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type, S.athleteOriginals.length);
       try {
-        const result = await callGenerateWithImage(S.athleteOriginals[0], visionPrompt, S.type);
+        const result = await callGenerateWithImage(S.athleteOriginals, visionPrompt, S.type);
         finalUrl    = result.url;
         finalEngine = result.engine;
       } catch(visionErr) {
