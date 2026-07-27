@@ -1632,6 +1632,122 @@ function generateCanvasTeamBackground(prompt, style, type) {
   return canvas.toDataURL('image/jpeg', 0.92);
 }
 
+// ── Extract team name from prompt ────────────────────────────────────────
+function extractTeamName(prompt) {
+  if (!prompt) return null;
+  const quoted = prompt.match(/["']([^"']{2,25})["']/);
+  if (quoted) return quoted[1].toUpperCase();
+  const caps = prompt.match(/\b([A-Z]{3,})\b/);
+  if (caps) return caps[1];
+  const m = prompt.match(/(\b\w{3,}\b)\s+(?:baseball|football|basketball|soccer|softball|volleyball|lacrosse|hockey|team|squad|crew)\b/i)
+         || prompt.match(/\b(?:team|squad)\s+(\w{3,})\b/i);
+  if (m) return m[1].toUpperCase();
+  return null;
+}
+
+// ── Sports graphic overlay drawn on top of the composite ────────────────
+function drawSportsOverlay(ctx, canvas, opts) {
+  const { teamName, style, prompt } = opts;
+  const cw = canvas.width, ch = canvas.height;
+
+  const accentMap = {
+    aggressive: ['#FF2238', '#FF6600'],
+    modern:     ['#CCFF00', '#00FFCC'],
+    collegiate: ['#FFFFFF', '#FFD700'],
+    minimal:    ['#CCFF00', '#FFFFFF'],
+    hype:       ['#CC00FF', '#00CCFF'],
+    retro:      ['#FF8800', '#FFD700']
+  };
+  const [a1, a2] = accentMap[style] || accentMap.aggressive;
+  const mentioned = extractColors(prompt || '');
+  const accent  = mentioned[0] || a1;
+  const accent2 = mentioned[1] || a2;
+
+  // 1. Edge vignette — cinematic darkening of corners
+  const vign = ctx.createRadialGradient(cw * 0.5, ch * 0.45, ch * 0.12, cw * 0.5, ch * 0.45, ch * 0.9);
+  vign.addColorStop(0, 'rgba(0,0,0,0)');
+  vign.addColorStop(1, 'rgba(0,0,0,0.72)');
+  ctx.fillStyle = vign;
+  ctx.fillRect(0, 0, cw, ch);
+
+  // 2. Top dark zone for team name readability
+  const topFade = ctx.createLinearGradient(0, 0, 0, ch * 0.22);
+  topFade.addColorStop(0, 'rgba(0,0,0,0.82)');
+  topFade.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = topFade;
+  ctx.fillRect(0, 0, cw, ch * 0.22);
+
+  // 3. Full-width accent stripe at very top
+  ctx.fillStyle = colorRgba(accent, 1.0);
+  ctx.fillRect(0, 0, cw, Math.max(4, Math.round(ch * 0.005)));
+
+  // 4. Diagonal accent block — top left
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = colorRgba(accent, 1.0);
+  const diagW = cw * 0.45, diagH = ch * 0.12;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(diagW, 0);
+  ctx.lineTo(diagW * 0.70, diagH);
+  ctx.lineTo(0, diagH);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // 5. Smaller accent block — top right (secondary color)
+  ctx.save();
+  ctx.globalAlpha = 0.30;
+  ctx.fillStyle = colorRgba(accent2, 1.0);
+  const d2W = cw * 0.20, d2H = ch * 0.06;
+  ctx.beginPath();
+  ctx.moveTo(cw, 0);
+  ctx.lineTo(cw - d2W, 0);
+  ctx.lineTo(cw - d2W * 0.65, d2H);
+  ctx.lineTo(cw, d2H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // 6. Team name — bold display type with stroke outline
+  if (teamName) {
+    const fontSize = Math.round(ch * 0.082);
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const tx = cw * 0.042;
+    const ty = ch * 0.062;
+    ctx.font = `900 ${fontSize}px 'Arial Black', Impact, Arial, sans-serif`;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.95)';
+    ctx.lineWidth = Math.round(fontSize * 0.10);
+    ctx.strokeText(teamName, tx, ty);
+    ctx.fillStyle = colorRgba(accent, 1.0);
+    ctx.fillText(teamName, tx, ty);
+    ctx.restore();
+  }
+
+  // 7. Ground glow — accent light rising from where players stand
+  const gY = ch * 0.92;
+  const glow = ctx.createRadialGradient(cw * 0.5, gY, 0, cw * 0.5, gY, cw * 0.58);
+  glow.addColorStop(0,   colorRgba(accent, 0.22));
+  glow.addColorStop(0.4, colorRgba(accent, 0.06));
+  glow.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, ch * 0.58, cw, ch * 0.42);
+
+  // 8. Bottom edge darkening
+  const botV = ctx.createLinearGradient(0, ch * 0.88, 0, ch);
+  botV.addColorStop(0, 'rgba(0,0,0,0)');
+  botV.addColorStop(1, 'rgba(0,0,0,0.65)');
+  ctx.fillStyle = botV;
+  ctx.fillRect(0, ch * 0.88, cw, ch * 0.12);
+
+  // 9. Thin accent line at bottom
+  ctx.fillStyle = colorRgba(accent, 0.55);
+  ctx.fillRect(0, ch - Math.max(3, Math.round(ch * 0.004)), cw, Math.max(3, Math.round(ch * 0.004)));
+}
+
 // ── Fast team background — Gemini (30s) → canvas fallback ───────────────
 async function callTeamBackground(prompt, type) {
   const { w, h } = getDims(type);
@@ -1985,7 +2101,7 @@ function sharpenCanvas(ctx, w, h) {
 }
 
 // ── Composite real athlete cutouts onto AI background ────────
-function compositeLayers(bgUrl, cutoutDataUrls) {
+function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
   return new Promise(resolve => {
     const canvas = document.createElement('canvas');
     const ctx    = canvas.getContext('2d');
@@ -2068,6 +2184,9 @@ function compositeLayers(bgUrl, cutoutDataUrls) {
 
         // Strong sharpen pass for crisp edges on the final composite
         sharpenCanvas(ctx, canvas.width, canvas.height);
+
+        // Sports graphic design overlay — typography, vignette, color effects
+        if (designOpts) drawSportsOverlay(ctx, canvas, designOpts);
 
         resolve(canvas.toDataURL('image/jpeg', 0.96));
       }
@@ -2244,7 +2363,13 @@ async function generate(raw) {
         // Use fast Gemini-only path (30s max) \u2192 canvas fallback \u2014 never times out
         const bgUrl = await callTeamBackground(bgPrompt, S.type);
         setStatus('Compositing ' + playersToComposite.length + ' players\u2026');
-        finalUrl    = await compositeLayers(bgUrl, playersToComposite);
+        const designOpts = {
+          teamName: extractTeamName(enriched),
+          style:    S.style,
+          type:     S.type,
+          prompt:   enriched
+        };
+        finalUrl    = await compositeLayers(bgUrl, playersToComposite, designOpts);
         finalEngine = 'team-composite';
       } else {
         // VISION PATH: single player \u2014 send actual photo so AI wraps design around it
@@ -2259,7 +2384,8 @@ async function generate(raw) {
           toast('Falling back to composite mode\u2026', '');
           const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, 1);
           const bgResult = await callReplicate(bgPrompt, S.type);
-          finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts) : bgResult.url;
+          const soDesignOpts = { teamName: extractTeamName(enriched), style: S.style, type: S.type, prompt: enriched };
+          finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts, soDesignOpts) : bgResult.url;
           finalEngine = bgResult.engine;
         }
       }
