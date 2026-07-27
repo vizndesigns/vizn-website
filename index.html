@@ -1503,6 +1503,34 @@ async function stitchPhotosToGrid(dataUris) {
 }
 
 // ── Canvas-generated team background (instant fallback when AI times out) ───
+
+// Convert any CSS color (named or hex) + alpha (0-1) to a valid rgba() string
+function colorRgba(color, alpha) {
+  // If it's already a hex color, parse the channels
+  const hex = color.trim();
+  if (hex.startsWith('#')) {
+    const full = hex.length === 4
+      ? '#' + hex[1]+hex[1]+hex[2]+hex[2]+hex[3]+hex[3]
+      : hex;
+    const r = parseInt(full.slice(1,3), 16) || 0;
+    const g = parseInt(full.slice(3,5), 16) || 0;
+    const b = parseInt(full.slice(5,7), 16) || 0;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  // For named colors use a tiny offscreen canvas to resolve the RGB
+  try {
+    const tmp = document.createElement('canvas');
+    tmp.width = tmp.height = 1;
+    const tc = tmp.getContext('2d');
+    tc.fillStyle = hex;
+    tc.fillRect(0, 0, 1, 1);
+    const [r, g, b] = tc.getImageData(0, 0, 1, 1).data;
+    return `rgba(${r},${g},${b},${alpha})`;
+  } catch(e) {
+    return `rgba(0,0,0,${alpha})`; // safe fallback
+  }
+}
+
 function generateCanvasTeamBackground(prompt, style, type) {
   const { w: cw, h: ch } = getDims(type);
   const canvas = document.createElement('canvas');
@@ -1519,16 +1547,15 @@ function generateCanvasTeamBackground(prompt, style, type) {
     hype:       ['#08000f', '#130020', '#CC00FF'],
     retro:      ['#140a00', '#281400', '#FF8800']
   };
-  const pal    = palettes[style] || palettes.modern;
+  const pal   = palettes[style] || palettes.modern;
   const [dark, mid, accent] = pal;
 
-  // Parse any explicitly mentioned colors from the prompt and override accent
+  // Use any colors explicitly mentioned in the prompt
   const mentioned = extractColors(prompt);
-  const accentHex  = mentioned[0] || accent;
-  const accent2    = mentioned[1] || dark;
+  const accentColor = mentioned[0] || accent;
 
   // Base gradient top-to-bottom
-  let grd = ctx.createLinearGradient(0, 0, 0, ch);
+  const grd = ctx.createLinearGradient(0, 0, 0, ch);
   grd.addColorStop(0, mid);
   grd.addColorStop(1, dark);
   ctx.fillStyle = grd;
@@ -1537,7 +1564,7 @@ function generateCanvasTeamBackground(prompt, style, type) {
   // Diagonal stripe texture
   ctx.save();
   ctx.globalAlpha = 0.07;
-  ctx.strokeStyle = accentHex;
+  ctx.strokeStyle = accentColor;
   ctx.lineWidth   = 3;
   for (let x = -ch; x < cw + ch; x += 55) {
     ctx.beginPath();
@@ -1547,17 +1574,17 @@ function generateCanvasTeamBackground(prompt, style, type) {
   }
   ctx.restore();
 
-  // Center glow — lighting from behind where players will stand
+  // Center glow behind where players will stand
   const glow = ctx.createRadialGradient(cw / 2, ch * 0.6, 0, cw / 2, ch * 0.5, cw * 0.75);
-  glow.addColorStop(0, accentHex + '28');
-  glow.addColorStop(0.5, accentHex + '0a');
-  glow.addColorStop(1, 'transparent');
+  glow.addColorStop(0,   colorRgba(accentColor, 0.16));
+  glow.addColorStop(0.5, colorRgba(accentColor, 0.04));
+  glow.addColorStop(1,   'rgba(0,0,0,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, cw, ch);
 
-  // Bottom shadow — makes players "stand" on the surface
+  // Bottom shadow — players appear to stand on the surface
   const shadow = ctx.createLinearGradient(0, ch * 0.65, 0, ch);
-  shadow.addColorStop(0, 'transparent');
+  shadow.addColorStop(0, 'rgba(0,0,0,0)');
   shadow.addColorStop(1, 'rgba(0,0,0,0.88)');
   ctx.fillStyle = shadow;
   ctx.fillRect(0, 0, cw, ch);
@@ -1565,12 +1592,12 @@ function generateCanvasTeamBackground(prompt, style, type) {
   // Top vignette
   const topVig = ctx.createLinearGradient(0, 0, 0, ch * 0.3);
   topVig.addColorStop(0, 'rgba(0,0,0,0.6)');
-  topVig.addColorStop(1, 'transparent');
+  topVig.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = topVig;
   ctx.fillRect(0, 0, cw, ch);
 
-  // Accent horizontal bar at top ~15%
-  ctx.fillStyle = accentHex + '33';
+  // Accent line near top
+  ctx.fillStyle = colorRgba(accentColor, 0.4);
   ctx.fillRect(0, ch * 0.12, cw, 3);
 
   return canvas.toDataURL('image/jpeg', 0.92);
