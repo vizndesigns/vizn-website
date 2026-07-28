@@ -1747,11 +1747,91 @@ function extractTeamName(prompt) {
   if (!prompt) return null;
   const quoted = prompt.match(/["']([^"']{2,25})["']/);
   if (quoted) return quoted[1].toUpperCase();
-  const caps = prompt.match(/\b([A-Z]{3,})\b/);
-  if (caps) return caps[1];
+
+  // Exclude design vocabulary and sport/generic words — these aren't team names
+  const skip = new Set([
+    'GAME','DAY','PLAYER','SPOTLIGHT','TEAM','COMMITTED','COMMITMENT','SEASON',
+    'RECORD','FINAL','SCORE','LINEUP','SCHEDULE','OFFER','RECRUIT','HALFTIME',
+    'RECAP','FOOTBALL','BASKETBALL','BASEBALL','SOCCER','VOLLEYBALL','LACROSSE',
+    'HOCKEY','TENNIS','TRACK','WRESTLING','SOFTBALL','SPORT','SPORTS','ATHLETE',
+    'ATHLETES','DESIGN','GRAPHIC','COLLEGE','UNIVERSITY','HIGH','SCHOOL','PRO',
+    'THE','AND','FOR','WITH','FROM','ABOUT','CREATE','MAKE','BUILD','GENERATE',
+    'NATIONAL','LEAGUE','CONFERENCE','DIVISION','WEEK','PROGRAM','HOME','AWAY',
+    'STAR','ELITE','PREMIER','CHAMPION','CHAMPIONSHIP','WINNER','MVP','ALL'
+  ]);
+
+  // All-caps words not in skip list (team abbreviations: LSU, GCU, USC, etc.)
+  const capsWords = [...prompt.matchAll(/\b([A-Z]{2,})\b/g)]
+    .map(m => m[1]).filter(w => !skip.has(w));
+  if (capsWords.length) return capsWords[0];
+
+  // Word before a sport noun (e.g., "Alabama football" → "ALABAMA")
   const m = prompt.match(/(\b\w{3,}\b)\s+(?:baseball|football|basketball|soccer|softball|volleyball|lacrosse|hockey|team|squad|crew)\b/i)
          || prompt.match(/\b(?:team|squad)\s+(\w{3,})\b/i);
   if (m) return m[1].toUpperCase();
+  return null;
+}
+
+// ── Team color lookup — maps team names to [primary, secondary] hex colors ─
+function getTeamAccentColors(prompt) {
+  if (!prompt) return null;
+  const lo = prompt.toLowerCase();
+  const teams = [
+    // NCAA
+    [/\b(alabama|crimson tide)\b/,         '#9E1B32','#FFFFFF'],
+    [/\b(lsu)\b/,                          '#461D7C','#FDD023'],
+    [/\b(ohio state|buckeyes)\b/,          '#BB0000','#BBBBBB'],
+    [/\b(michigan|wolverines)\b/,          '#00274C','#FFCB05'],
+    [/\b(georgia|bulldogs)\b/,             '#BA0C2F','#000000'],
+    [/\b(clemson)\b/,                      '#F56600','#522D80'],
+    [/\b(oklahoma|sooners)\b/,             '#841617','#FDF9D8'],
+    [/\b(texas|longhorns)\b/,              '#BF5700','#FFFFFF'],
+    [/\b(notre dame|fighting irish)\b/,    '#003087','#C99700'],
+    [/\b(penn state|nittany)\b/,           '#041E42','#FFFFFF'],
+    [/\b(usc|trojans)\b/,                  '#990000','#FFC72C'],
+    [/\b(florida|gators)\b/,               '#0021A5','#FA4616'],
+    [/\b(auburn)\b/,                       '#0C2340','#E87722'],
+    [/\b(miami hurricanes|the u)\b/,       '#005030','#F47321'],
+    [/\b(rutgers|scarlet knights)\b/,      '#CC0033','#FFFFFF'],
+    [/\b(duke|blue devils)\b/,             '#003087','#FFFFFF'],
+    [/\b(kentucky|wildcats)\b/,            '#0033A0','#FFFFFF'],
+    [/\b(north carolina|tar heels)\b/,     '#4B9CD3','#FFFFFF'],
+    [/\b(kansas|jayhawks)\b/,              '#0051A5','#E8000D'],
+    [/\b(florida state|seminoles)\b/,      '#782F40','#CEB888'],
+    [/\b(tennessee|volunteers|vols)\b/,    '#FF8200','#FFFFFF'],
+    [/\b(arkansas|razorbacks)\b/,          '#9D2235','#FFFFFF'],
+    [/\b(baylor|bears)\b/,                 '#154734','#FFB81C'],
+    [/\b(texas a&m|aggies)\b/,             '#500000','#FFFFFF'],
+    [/\b(mississippi|ole miss|rebels)\b/,  '#CE1126','#00205B'],
+    [/\b(penn|quakers)\b/,                 '#011F5B','#990000'],
+    [/\b(gcu|grand canyon)\b/,             '#522498','#FFFFFF'],
+    // NBA
+    [/\b(lakers)\b/,                       '#552583','#FDB927'],
+    [/\b(celtics)\b/,                      '#007A33','#BA9653'],
+    [/\b(bulls)\b/,                        '#CE1141','#000000'],
+    [/\b(nets|brooklyn)\b/,                '#000000','#FFFFFF'],
+    [/\b(heat|miami heat)\b/,              '#98002E','#F9A01B'],
+    [/\b(warriors|golden state)\b/,        '#1D428A','#FFC72C'],
+    [/\b(knicks|new york knicks)\b/,       '#006BB6','#F58426'],
+    [/\b(spurs|san antonio)\b/,            '#C4CED4','#000000'],
+    [/\b(sixers|76ers|philadelphia)\b/,    '#006BB6','#ED174C'],
+    [/\b(bucks|milwaukee)\b/,              '#00471B','#EEE1C6'],
+    [/\b(suns|phoenix)\b/,                 '#1D1160','#E56020'],
+    // NFL
+    [/\b(patriots|new england)\b/,         '#002244','#C60C30'],
+    [/\b(cowboys|dallas)\b/,               '#003594','#869397'],
+    [/\b(chiefs|kansas city)\b/,           '#E31837','#FFB81C'],
+    [/\b(eagles|philadelphia eagles)\b/,   '#004C54','#A5ACAF'],
+    [/\b(steelers|pittsburgh)\b/,          '#101820','#FFB612'],
+    [/\b(ravens|baltimore)\b/,             '#241773','#9E7C0C'],
+    [/\b(49ers|niners|san francisco)\b/,   '#AA0000','#B3995D'],
+    [/\b(packers|green bay)\b/,            '#203731','#FFB612'],
+    [/\b(bears|chicago bears)\b/,          '#0B1623','#C83803'],
+    [/\b(giants|new york giants)\b/,       '#0B2265','#A71930'],
+  ];
+  for (const [regex, primary, secondary] of teams) {
+    if (regex.test(lo)) return [primary, secondary];
+  }
   return null;
 }
 
@@ -1772,7 +1852,9 @@ function drawTypeLayer(ctx, canvas, opts) {
     const lo = c.toLowerCase();
     return !['black','navy','maroon','midnight','charcoal','darkblue','darkred','brown'].includes(lo);
   });
-  const typeColor = mentioned[0] || accentMap[style] || '#FFFFFF';
+  // Team color lookup wins > explicit prompt colors > style defaults
+  const teamColors = opts.teamColors;
+  const typeColor = (teamColors && teamColors[0]) || mentioned[0] || accentMap[style] || '#FFFFFF';
   const words = label.split(/\s+/);
 
   function measureWord(word) {
@@ -1828,7 +1910,7 @@ function drawTypeLayer(ctx, canvas, opts) {
 
 // ── Sports graphic overlay — fully style-differentiated ─────────────────
 function drawSportsOverlay(ctx, canvas, opts) {
-  const { teamName, style, prompt, type } = opts;
+  const { teamName, style, prompt, type, teamColors } = opts;
   const cw = canvas.width, ch = canvas.height;
 
   // Per-style accent colors
@@ -1849,8 +1931,9 @@ function drawSportsOverlay(ctx, canvas, opts) {
     if (lo.startsWith('#')) { const v=parseInt(lo.replace('#',''),16)||0; return ((v>>16)+(v>>8&255)+(v&255))>100; }
     return true;
   });
-  const ac1 = mentioned[0] || a1;
-  const ac2 = mentioned[1] || a2;
+  // Team color lookup wins > explicit prompt colors > style defaults
+  const ac1 = (teamColors && teamColors[0]) || mentioned[0] || a1;
+  const ac2 = (teamColors && teamColors[1]) || mentioned[1] || a2;
 
   // ── Shared helpers ────────────────────────────────────────────────────
   function vignette(strength=0.78) {
@@ -1961,9 +2044,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
           `900 italic ${fs}px Impact, 'Arial Black', Arial`,
           '#FFFFFF', 'rgba(0,0,0,1)', Math.round(fs*.13));
         ctx.restore();
-        const ss=Math.round(ch*.028);
-        drawText(subLabel, cw*.5, ch-fs-Math.round(ch*.026),
-          `700 ${ss}px Impact, Arial`, colorRgba(ac1,1), '', 0);
       }
       accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, .9);
     },
@@ -1986,9 +2066,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
         const fs=Math.round(ch*.078);
         drawText(teamName, cw*.5, ch-Math.round(ch*.018),
           `900 ${fs}px 'Arial Black', Arial`, colorRgba(ac1,1), 'rgba(0,0,0,1)', Math.round(fs*.10));
-        const ss=Math.round(ch*.026);
-        drawText(subLabel, cw*.5, ch-fs-Math.round(ch*.026),
-          `400 ${ss}px Arial`, '#FFFFFF', '', 0);
       }
       accentLine(ch-Math.max(4,ch*.005), cw, Math.max(4,ch*.005), ac1, .8);
     },
@@ -2012,10 +2089,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
         const fs=Math.round(ch*.082);
         drawText(teamName, cw*.5, ch-Math.round(ch*.014),
           `900 ${fs}px 'Arial Black', Georgia, Arial`, '#FFFFFF', 'rgba(0,0,0,1)', Math.round(fs*.10));
-        const ss=Math.round(ch*.026);
-        // Subtitle with tracking feel — spaced out
-        drawText(subLabel.split('').join(' '), cw*.5, ch-fs-Math.round(ch*.022),
-          `700 ${ss}px Arial`, colorRgba(ac1,1), '', 0);
       }
       accentLine(ch-Math.max(4,ch*.005), cw, Math.max(4,ch*.005), ac1, .75);
     },
@@ -2032,19 +2105,12 @@ function drawSportsOverlay(ctx, canvas, opts) {
       accentLine(ch*.72, cw*.6, Math.max(1,ch*.002), ac1, 0.45);
       if (teamName) {
         const fs=Math.round(ch*.064);
-        // Light weight, wide spacing — minimal aesthetic
         ctx.save();
         ctx.font=`300 ${fs}px Arial`; ctx.textAlign='center'; ctx.textBaseline='bottom';
         ctx.fillStyle='rgba(255,255,255,0.90)';
         ctx.letterSpacing=`${Math.round(fs*.25)}px`;
         ctx.fillText(teamName, cw*.5, ch-Math.round(ch*.022));
         ctx.restore();
-        if (subLabel) {
-          const ss=Math.round(ch*.022);
-          ctx.save(); ctx.font=`300 ${ss}px Arial`; ctx.textAlign='center'; ctx.textBaseline='bottom';
-          ctx.fillStyle=colorRgba(ac1,.7); ctx.letterSpacing=`${Math.round(ss*.35)}px`;
-          ctx.fillText(subLabel, cw*.5, ch-fs-Math.round(ch*.028)); ctx.restore();
-        }
       }
       accentLine(ch-Math.max(2,ch*.003), cw*.6, Math.max(2,ch*.003), ac1, .4);
     },
@@ -2064,22 +2130,15 @@ function drawSportsOverlay(ctx, canvas, opts) {
       accentLine(ch*.70, cw, Math.max(3,ch*.005), ac1, .9);
       if (teamName) {
         const fs=Math.round(ch*.085);
-        // Glowing neon text
         ctx.save();
         ctx.font=`900 ${fs}px 'Arial Black', Impact, Arial`;
         ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.lineJoin='round';
-        // Outer glow layers
         ctx.shadowColor=ac1; ctx.shadowBlur=Math.round(fs*.4);
         ctx.fillStyle=colorRgba(ac1,1);
         ctx.fillText(teamName, cw*.5, ch-Math.round(ch*.018));
         ctx.shadowBlur=0; ctx.fillStyle='#FFFFFF';
         ctx.fillText(teamName, cw*.5, ch-Math.round(ch*.018));
         ctx.restore();
-        const ss=Math.round(ch*.028);
-        ctx.save(); ctx.font=`700 ${ss}px Arial`; ctx.textAlign='center'; ctx.textBaseline='bottom';
-        ctx.shadowColor=ac2; ctx.shadowBlur=Math.round(ss*.3);
-        ctx.fillStyle=colorRgba(ac2,1);
-        ctx.fillText(subLabel, cw*.5, ch-fs-Math.round(ch*.024)); ctx.restore();
       }
       accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, 1.0);
     },
@@ -2098,19 +2157,14 @@ function drawSportsOverlay(ctx, canvas, opts) {
       accentLine(ch*.70+Math.max(7,ch*.009), cw*.90, Math.max(2,ch*.003), ac2, .55);
       if (teamName) {
         const fs=Math.round(ch*.080);
-        // Block letter style — stroke + warm fill
         drawText(teamName, cw*.5, ch-Math.round(ch*.016),
           `900 ${fs}px 'Arial Black', Impact, Arial`,
           colorRgba(ac1,1), 'rgba(0,0,0,1)', Math.round(fs*.12));
-        // White highlight pass
         ctx.save(); ctx.font=`900 ${fs}px 'Arial Black', Impact, Arial`;
         ctx.textAlign='center'; ctx.textBaseline='bottom';
         ctx.fillStyle='rgba(255,255,255,0.15)';
         ctx.fillText(teamName, cw*.5-Math.round(fs*.02), ch-Math.round(ch*.018)-Math.round(fs*.02));
         ctx.restore();
-        const ss=Math.round(ch*.028);
-        drawText(subLabel, cw*.5, ch-fs-Math.round(ch*.024),
-          `700 ${ss}px Arial`, colorRgba(ac2,.9), '', 0);
       }
       accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, .8);
     }
@@ -2955,7 +3009,8 @@ async function generate(raw) {
         // Rutgers tile style \u2014 framed photos on solid color, no bg removal needed
         setStatus('Building collage design\u2026');
         const designOpts = {
-          teamName: extractTeamName(enriched),
+          teamName:   extractTeamName(raw) || extractTeamName(enriched),
+          teamColors: getTeamAccentColors(raw) || getTeamAccentColors(enriched),
           style: S.style, type: S.type, prompt: enriched,
           isSinglePlayer: playerCount === 1
         };
@@ -2976,11 +3031,13 @@ async function generate(raw) {
         const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, playerCount);
         const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage);
         setStatus('Compositing ' + playerCount + ' player' + (playerCount > 1 ? 's' : '') + '\u2026');
+        const resolvedTeamColors = getTeamAccentColors(raw) || getTeamAccentColors(enriched);
         const designOpts = {
-          teamName: extractTeamName(enriched),
-          style:    S.style,
-          type:     S.type,
-          prompt:   enriched,
+          teamName:   extractTeamName(raw) || extractTeamName(enriched),
+          teamColors: resolvedTeamColors,
+          style:      S.style,
+          type:       S.type,
+          prompt:     enriched,
           isSinglePlayer: playerCount === 1
         };
         finalUrl    = await compositeLayers(bgUrl, playersToComposite, designOpts);
