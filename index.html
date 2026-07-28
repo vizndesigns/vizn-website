@@ -685,18 +685,6 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <button id="clearRefBtn" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;line-height:1" onclick="clearRefImage()">&#x2715;</button>
           </div>
         </div>
-        <div class="cg"><div class="clabel">Sport</div>
-          <div class="chip-grid">
-            <div class="chip on" data-sport="football"><span class="ci">🏈</span><span class="cl">Football</span></div>
-            <div class="chip" data-sport="basketball"><span class="ci">🏀</span><span class="cl">Basketball</span></div>
-            <div class="chip" data-sport="baseball"><span class="ci">⚾</span><span class="cl">Baseball</span></div>
-            <div class="chip" data-sport="soccer"><span class="ci">⚽</span><span class="cl">Soccer</span></div>
-            <div class="chip" data-sport="hockey"><span class="ci">🏒</span><span class="cl">Hockey</span></div>
-            <div class="chip" data-sport="tennis"><span class="ci">🎾</span><span class="cl">Tennis</span></div>
-            <div class="chip" data-sport="track"><span class="ci">🏃</span><span class="cl">Track</span></div>
-            <div class="chip" data-sport="other"><span class="ci">＋</span><span class="cl">Other</span></div>
-          </div>
-        </div>
         <div class="cg"><div class="clabel">Design Type</div>
           <div class="type-list">
             <div class="ti on" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
@@ -1171,7 +1159,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 // ═══════════════════════════════════════════════════════
 
 const S = {
-  sport:'football', type:'commitment', style:'modern',
+  type:'commitment', style:'modern',
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
   athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
@@ -1199,15 +1187,23 @@ qsa('.stab').forEach(t => {
   });
 });
 
-// ── Sport chips ───────────────────────────────────────
-qsa('.chip').forEach(c => {
-  c.addEventListener('click', () => {
-    qsa('.chip').forEach(x => x.classList.remove('on'));
-    c.classList.add('on');
-    S.sport = c.dataset.sport;
-    toast('Sport: ' + c.dataset.sport, '');
-  });
-});
+// ── Sport auto-detected from prompt ──────────────────
+function detectSport(raw) {
+  if (!raw) return 'sports';
+  const lo = raw.toLowerCase();
+  if (/\b(football|quarterback|touchdown|nfl|ncaa football|wide receiver|running back|linebacker|cornerback|offensive|defensive)\b/.test(lo)) return 'football';
+  if (/\b(basketball|nba|ncaa basketball|dunk|three.pointer|point guard|shooting guard|power forward|small forward)\b/.test(lo)) return 'basketball';
+  if (/\b(baseball|mlb|pitcher|catcher|shortstop|outfield|homerun|batting|softball)\b/.test(lo)) return 'baseball';
+  if (/\b(soccer|futbol|goalkeeper|midfielder|striker|penalty kick|mls)\b/.test(lo)) return 'soccer';
+  if (/\b(hockey|nhl|puck|goalie|defenseman|winger)\b/.test(lo)) return 'hockey';
+  if (/\b(volleyball|libero|setter|spike)\b/.test(lo)) return 'volleyball';
+  if (/\b(lacrosse|lax)\b/.test(lo)) return 'lacrosse';
+  if (/\b(track|sprint|relay|hurdles|shot put|pole vault)\b/.test(lo)) return 'track';
+  if (/\b(tennis|serve|backhand|forehand|grand slam)\b/.test(lo)) return 'tennis';
+  if (/\b(swim|swimming|freestyle|butterfly|backstroke)\b/.test(lo)) return 'swimming';
+  if (/\b(wrestling|grappling)\b/.test(lo)) return 'wrestling';
+  return 'sports';
+}
 
 // ── Design type ───────────────────────────────────────
 function updatePreviewRatio(type) {
@@ -3067,26 +3063,18 @@ async function generate(raw) {
   S.lastPrompt = raw;
   setGenBtn(true);
   try {
-    if (S.bgRemoving > 0 && S.style !== 'collage') {
-      toast('Still processing photos \u2014 wait a moment', 'err');
-      S.generating = false; setGenBtn(false); return;
-    }
+    const hasPhotos = S.athleteOriginals && S.athleteOriginals.length > 0;
+    startGenOverlay(hasPhotos);
 
-    const hasOriginals = S.athleteOriginals && S.athleteOriginals.length > 0;
-    const hasCutouts  = S.athleteCutouts.length > 0;
-    startGenOverlay(hasOriginals);
+    // Auto-detect sport from the user's description — no selector needed
+    const sport = detectSport(raw);
 
-    // Auto-expand the prompt with AI to add professional design vocabulary
-    // Runs concurrently with overlay animation \u2014 adds minimal perceptible delay
     let enriched = raw;
-
-    // Reference image drives style directly via multimodal AI \u2014 no need for a complex prompt.
-    // Auto-build a minimal working prompt if the user kept it short.
     if (S.referenceImage && enriched.trim().length < 30) {
-      enriched = `${S.sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
+      enriched = `${sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
     }
 
-    setStatus('Reading your prompt\u2026');
+    setStatus('Reading your prompt…');
     try {
       const expCtrl = new AbortController();
       const expTimer = setTimeout(() => expCtrl.abort(), 6000);
@@ -3099,72 +3087,29 @@ async function generate(raw) {
       clearTimeout(expTimer);
       if (expRes.ok) {
         const expData = await expRes.json();
-        if (expData.expanded && expData.expanded.length > raw.length * 0.7) {
-          enriched = expData.expanded;
-        }
+        if (expData.expanded && expData.expanded.length > raw.length * 0.7) enriched = expData.expanded;
       }
-    } catch(e) { /* expansion optional \u2014 use raw if it fails */ }
+    } catch(e) { /* expansion optional */ }
 
     let finalUrl, finalEngine;
 
-    if (hasOriginals) {
+    if (hasPhotos || S.referenceImage) {
+      // ── DIRECT AI GENERATION (ChatGPT-style) ────────────────────────────────────────
+      // Your real photos go straight to GPT-image-1 as visual input.
+      // The AI sees exactly what you uploaded and builds the design around it.
       const playerCount = S.athleteOriginals.length;
-
-      if (S.style === 'collage') {
-        // Rutgers tile style \u2014 framed photos on solid color, no bg removal needed
-        setStatus('Building collage design\u2026');
-        const designOpts = {
-          teamName:   extractTeamName(raw) || extractTeamName(enriched),
-          teamColors: getTeamAccentColors(raw) || getTeamAccentColors(enriched),
-          style: S.style, type: S.type, prompt: enriched,
-          isSinglePlayer: playerCount === 1
-        };
-        finalUrl    = await generateCollageDesign(S.athleteOriginals, designOpts);
-        finalEngine = 'collage';
-      } else {
-        // ALL other styles \u2192 composite path: real cutout on AI background + canvas text
-        // Vision path is NEVER used for athletes \u2014 it regenerates fake AI people.
-        if (S.bgRemoving > 0) {
-          setStatus('Processing backgrounds\u2026');
-          await new Promise(resolve => {
-            const check = setInterval(() => { if (S.bgRemoving <= 0) { clearInterval(check); resolve(); } }, 600);
-            setTimeout(() => { clearInterval(check); resolve(); }, 25000);
-          });
-        }
-        const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
-        setStatus('Generating background\u2026');
-        const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, playerCount);
-        const resolvedTeamColors = getTeamAccentColors(raw) || getTeamAccentColors(enriched);
-        const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage, resolvedTeamColors);
-        setStatus('Compositing ' + playerCount + ' player' + (playerCount > 1 ? 's' : '') + '\u2026');
-        const designOpts = {
-          teamName:   extractTeamName(raw) || extractTeamName(enriched),
-          teamColors: resolvedTeamColors,
-          style:      S.style,
-          type:       S.type,
-          prompt:     enriched,
-          isSinglePlayer: playerCount === 1
-        };
-        finalUrl    = await compositeLayers(bgUrl, playersToComposite, designOpts);
-        finalEngine = 'composite';
-      }
-    } else if (S.referenceImage) {
-      // REFERENCE-ONLY PATH: no athlete photos, just style reference → generate in that style
-      setStatus('AI generating from reference style…');
-      const stylePrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type, 0);
-      try {
-        const result = await callGenerateWithImage([], stylePrompt, S.type, S.referenceImage);
-        finalUrl    = result.url;
-        finalEngine = result.engine;
-      } catch(refErr) {
-        const prompt = buildPrompt(enriched, S.sport, S.style, S.type);
-        const result = await callReplicate(prompt, S.type);
-        finalUrl    = result.url;
-        finalEngine = result.engine;
-      }
+      const prompt = buildVisionPrompt(enriched, sport, S.style, S.type, playerCount);
+      const result = await callGenerateWithImage(
+        hasPhotos ? S.athleteOriginals : [],
+        prompt,
+        S.type,
+        S.referenceImage
+      );
+      finalUrl    = result.url;
+      finalEngine = result.engine;
     } else {
-      // TEXT-TO-IMAGE PATH: no photo uploaded
-      const prompt = buildPrompt(enriched, S.sport, S.style, S.type);
+      // ── TEXT-TO-IMAGE ────────────────────────────────────────────────────
+      const prompt = buildPrompt(enriched, sport, S.style, S.type);
       const result = await callReplicate(prompt, S.type);
       finalUrl    = result.url;
       finalEngine = result.engine;
@@ -3362,7 +3307,7 @@ if (refApply) refApply.addEventListener('click', async () => {
         action: 'refine',
         prompt: r,
         imageDataUrl,
-        sport: S.sport,
+        sport: detectSport(S.lastPrompt),
         style: S.style,
         type: S.type,
         width: S.outputW,
@@ -3606,7 +3551,7 @@ async function generateVideo() {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         action: 'generate-video',
-        prompt: buildVideoPrompt(S.lastPrompt, S.sport, S.style),
+        prompt: buildVideoPrompt(S.lastPrompt, detectSport(S.lastPrompt), S.style),
         imageDataUrl: S.lastImage || null
       })
     });
