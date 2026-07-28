@@ -1992,13 +1992,16 @@ function drawSportsOverlay(ctx, canvas, opts) {
 }
 
 // ── Fast team background — Gemini (30s) → canvas fallback ───────────────
-async function callTeamBackground(prompt, type) {
+async function callTeamBackground(prompt, type, referenceImage = null) {
   const { w, h } = getDims(type);
   try {
     const res  = await fetch('/api/generate', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ action: 'team-bg', prompt, width: w, height: h })
+      body:    JSON.stringify({
+        action: 'team-bg', prompt, width: w, height: h,
+        referenceImage: referenceImage || undefined
+      })
     });
     const data = await res.json();
     if (data.status === 'succeeded' && data.imageUrl) return data.imageUrl;
@@ -2508,27 +2511,30 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
 }
 
 // ── Vision-based generation: sends athlete photo + prompt to AI ──────────────
-async function callGenerateWithImage(athleteImages, prompt, type) {
+async function callGenerateWithImage(athleteImages, prompt, type, referenceImage = null) {
   const imgsArr = Array.isArray(athleteImages) ? athleteImages : [athleteImages];
   const {w, h} = getDims(type);
 
-  let athleteImage;
+  let athleteImage = null;
   if (imgsArr.length > 1) {
     setStatus('Building team composite grid…');
     athleteImage = await stitchPhotosToGrid(imgsArr);
-    setStatus('AI composing team graphic…');
-  } else {
+    setStatus('AI composing with reference style…');
+  } else if (imgsArr.length === 1) {
     athleteImage = imgsArr[0];
-    setStatus('AI generating with your photo…');
+    setStatus(referenceImage ? 'AI generating with reference style…' : 'AI generating with your photo…');
+  } else {
+    setStatus('AI generating from reference style…');
   }
 
   const response = await fetch('/api/generate', {
     method:  'POST',
     headers: {'Content-Type': 'application/json'},
     body:    JSON.stringify({
-      action:       'generate-with-image',
-      athleteImage,
-      playerCount:  imgsArr.length,
+      action:         'generate-with-image',
+      athleteImage:   athleteImage || undefined,
+      referenceImage: referenceImage || undefined,
+      playerCount:    imgsArr.length,
       prompt,
       width:  w,
       height: h
@@ -2631,10 +2637,10 @@ async function generate(raw) {
     // Runs concurrently with overlay animation \u2014 adds minimal perceptible delay
     let enriched = raw;
 
-    // If a reference image was uploaded, analyze its style and inject into prompt
-    if (S.referenceImage) {
-      const refAnalysis = await analyzeReference(S.referenceImage);
-      if (refAnalysis) enriched += '\n\nREFERENCE STYLE (match this aesthetic closely):\n' + refAnalysis;
+    // Reference image drives style directly via multimodal AI \u2014 no need for a complex prompt.
+    // Auto-build a minimal working prompt if the user kept it short.
+    if (S.referenceImage && enriched.trim().length < 30) {
+      enriched = `${S.sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
     }
 
     setStatus('Reading your prompt\u2026');
@@ -2677,7 +2683,7 @@ async function generate(raw) {
         setStatus('Generating team background\u2026');
         const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, S.athleteOriginals.length);
         // Use fast Gemini-only path (30s max) \u2192 canvas fallback \u2014 never times out
-        const bgUrl = await callTeamBackground(bgPrompt, S.type);
+        const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage);
         setStatus('Compositing ' + playersToComposite.length + ' players\u2026');
         const designOpts = {
           teamName: extractTeamName(enriched),
@@ -2692,7 +2698,7 @@ async function generate(raw) {
         setStatus('AI analyzing your photo\u2026');
         const visionPrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type, 1);
         try {
-          const result = await callGenerateWithImage(S.athleteOriginals, visionPrompt, S.type);
+          const result = await callGenerateWithImage(S.athleteOriginals, visionPrompt, S.type, S.referenceImage);
           finalUrl    = result.url;
           finalEngine = result.engine;
         } catch(visionErr) {
@@ -2704,6 +2710,20 @@ async function generate(raw) {
           finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts, soDesignOpts) : bgResult.url;
           finalEngine = bgResult.engine;
         }
+      }
+    } else if (S.referenceImage) {
+      // REFERENCE-ONLY PATH: no athlete photos, just style reference → generate in that style
+      setStatus('AI generating from reference style…');
+      const stylePrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type, 0);
+      try {
+        const result = await callGenerateWithImage([], stylePrompt, S.type, S.referenceImage);
+        finalUrl    = result.url;
+        finalEngine = result.engine;
+      } catch(refErr) {
+        const prompt = buildPrompt(enriched, S.sport, S.style, S.type);
+        const result = await callReplicate(prompt, S.type);
+        finalUrl    = result.url;
+        finalEngine = result.engine;
       }
     } else {
       // TEXT-TO-IMAGE PATH: no photo uploaded

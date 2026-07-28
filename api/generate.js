@@ -179,6 +179,18 @@ export default async function handler(req, res) {
         try {
           const ctrl  = new AbortController();
           const timer = setTimeout(() => ctrl.abort(), 30000);
+
+          // Build parts array — prepend reference image if provided
+          const bgParts = [];
+          if (req.body.referenceImage) {
+            const refMatch = req.body.referenceImage.match(/^data:([^;]+);base64,(.+)$/);
+            if (refMatch) {
+              bgParts.push({ text: 'REFERENCE — generate a background that exactly matches the color palette, lighting, atmosphere, and visual effects of this graphic. Do NOT include people:' });
+              bgParts.push({ inline_data: { mime_type: refMatch[1], data: refMatch[2] } });
+            }
+          }
+          bgParts.push({ text: prompt });
+
           const gRes  = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
             {
@@ -186,7 +198,7 @@ export default async function handler(req, res) {
               headers: { 'Content-Type': 'application/json' },
               signal:  ctrl.signal,
               body:    JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
+                contents: [{ parts: bgParts }],
                 generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.35 }
               })
             }
@@ -214,53 +226,72 @@ export default async function handler(req, res) {
 
     // ── Vision-based generation — athlete photo + prompt → full graphic ──
     // Used when user uploads a photo: AI sees the athlete and designs around them
-    if (action === 'generate-with-image' && athleteImage && prompt) {
+    const refImage = req.body.referenceImage || null;
+    if (action === 'generate-with-image' && (athleteImage || refImage) && prompt) {
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
 
-      // Primary: Gemini multimodal (sees the photo + generates a new image)
+      // Primary: Gemini multimodal — can receive multiple images simultaneously
+      // Reference image teaches style; athlete image provides the people to feature.
       if (GOOGLE_KEY) {
         try {
-          const match = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            const [, mimeType, b64data] = match;
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 50000);
+          const geminiParts = [];
 
-            const geminiRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${GOOGLE_KEY}`,
-              {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                signal:  controller.signal,
-                body: JSON.stringify({
-                  contents: [{ parts: [
-                    { text: prompt },
-                    { inline_data: { mime_type: mimeType, data: b64data } }
-                  ]}],
-                  generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-                })
-              }
-            );
-            clearTimeout(timer);
-
-            if (geminiRes.ok) {
-              const geminiData = await geminiRes.json();
-              const parts   = geminiData.candidates?.[0]?.content?.parts || [];
-              const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-              if (imgPart?.inlineData) {
-                const { mimeType: mt, data } = imgPart.inlineData;
-                return res.status(200).json({
-                  status: 'succeeded',
-                  imageUrl: `data:${mt};base64,${data}`,
-                  engine: 'gemini-vision'
-                });
-              }
-            } else {
-              const err = await geminiRes.json().catch(() => ({}));
-              console.warn('Gemini vision error:', err.error?.message || geminiRes.status);
+          // If reference image provided, prepend it with a style instruction
+          if (refImage) {
+            const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
+            if (refMatch) {
+              geminiParts.push({ text: 'REFERENCE DESIGN — your output must visually match this style exactly (colors, typography, layout, mood, effects):' });
+              geminiParts.push({ inline_data: { mime_type: refMatch[1], data: refMatch[2] } });
             }
+          }
+
+          // Athlete image (may be null for reference-only generation)
+          if (athleteImage) {
+            const match = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              const [, mimeType, b64data] = match;
+              if (refImage) geminiParts.push({ text: 'ATHLETE(S) TO FEATURE — incorporate these exact people in the design, matching the reference style above:' });
+              geminiParts.push({ inline_data: { mime_type: mimeType, data: b64data } });
+            }
+          }
+
+          // Design instructions last
+          geminiParts.push({ text: prompt });
+
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 50000);
+
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${GOOGLE_KEY}`,
+            {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              signal:  controller.signal,
+              body: JSON.stringify({
+                contents: [{ parts: geminiParts }],
+                generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+              })
+            }
+          );
+          clearTimeout(timer);
+
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json();
+            const parts   = geminiData.candidates?.[0]?.content?.parts || [];
+            const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+            if (imgPart?.inlineData) {
+              const { mimeType: mt, data } = imgPart.inlineData;
+              return res.status(200).json({
+                status: 'succeeded',
+                imageUrl: `data:${mt};base64,${data}`,
+                engine: 'gemini-vision'
+              });
+            }
+          } else {
+            const err = await geminiRes.json().catch(() => ({}));
+            console.warn('Gemini vision error:', err.error?.message || geminiRes.status);
           }
         } catch(e) {
           console.warn('Gemini vision failed, trying OpenAI edits:', e.message);
