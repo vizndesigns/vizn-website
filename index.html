@@ -673,7 +673,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     <div class="studio-grid">
       <div class="sidebar">
         <div class="cg"><div class="clabel">Describe Your Design</div>
-          <textarea class="fin" id="promptInput" placeholder="Ryan Williams #13 Alabama Crimson Tide, bold crimson and white, 25 days until season opener — include the text exactly as written…"></textarea>
+          <textarea class="fin" id="promptInput" placeholder="Describe any sports graphic — commitment, game day, hype, championship, stats, schedule, NIL deal, transfer portal, award, portrait, action… anything. Include names, numbers, colors, text you want shown."></textarea>
           <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
             <button class="expand-btn" id="expandPromptBtn">&#10022; Auto-expand prompt</button>
             <span id="expandSpinner" style="display:none;font-size:9px;color:var(--muted)">expanding…</span>
@@ -685,20 +685,35 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <button id="clearRefBtn" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;line-height:1" onclick="clearRefImage()">&#x2715;</button>
           </div>
         </div>
-        <div class="cg"><div class="clabel">Design Type</div>
+        <div class="cg"><div class="clabel">Graphic Type</div>
           <div class="type-list">
-            <div class="ti on" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
-            <div class="ti" data-type="game-day"><div class="ti-radio"></div><span class="ti-lbl">🏟 Game Day Graphic</span></div>
-            <div class="ti" data-type="halftime-score"><div class="ti-radio"></div><span class="ti-lbl">⏱ Halftime Score Graphic</span></div>
-            <div class="ti" data-type="final-score"><div class="ti-radio"></div><span class="ti-lbl">🏁 Final Score Graphic</span></div>
-            <div class="ti" data-type="player-of-game"><div class="ti-radio"></div><span class="ti-lbl">⭐ Player of the Game</span></div>
-            <div class="ti" data-type="game-recap"><div class="ti-radio"></div><span class="ti-lbl">📋 Game Recap Graphic</span></div>
-            <div class="ti" data-type="starting-lineup"><div class="ti-radio"></div><span class="ti-lbl">📝 Starting Lineup Graphic</span></div>
-            <div class="ti" data-type="home-schedule"><div class="ti-radio"></div><span class="ti-lbl">📅 Home Schedule Graphic</span></div>
-            <div class="ti" data-type="season-schedule"><div class="ti-radio"></div><span class="ti-lbl">🗓 Season Schedule Graphic</span></div>
-            <div class="ti" data-type="player-spotlight"><div class="ti-radio"></div><span class="ti-lbl">🎯 Player Spotlight Banner</span></div>
-            <div class="ti" data-type="recruit-offer"><div class="ti-radio"></div><span class="ti-lbl">📨 Recruit Offer Graphic</span></div>
-            <div class="ti" data-type="other"><div class="ti-radio"></div><span class="ti-lbl">✨ Other</span></div>
+            <div class="ti on" data-type="other"><div class="ti-radio"></div><span class="ti-lbl">✨ Describe Anything (Default)</span></div>
+            <div class="ti" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment / Signing</span></div>
+            <div class="ti" data-type="transfer-portal"><div class="ti-radio"></div><span class="ti-lbl">🔄 Transfer Portal</span></div>
+            <div class="ti" data-type="nil-deal"><div class="ti-radio"></div><span class="ti-lbl">💰 NIL Deal / Sponsorship</span></div>
+            <div class="ti" data-type="national-signing-day"><div class="ti-radio"></div><span class="ti-lbl">📜 National Signing Day</span></div>
+            <div class="ti" data-type="recruit-offer"><div class="ti-radio"></div><span class="ti-lbl">📨 Scholarship Offer</span></div>
+            <div class="ti" data-type="game-day"><div class="ti-radio"></div><span class="ti-lbl">🏟 Game Day / Hype</span></div>
+            <div class="ti" data-type="season-opener"><div class="ti-radio"></div><span class="ti-lbl">🚀 Season Opener</span></div>
+            <div class="ti" data-type="rivalry-game"><div class="ti-radio"></div><span class="ti-lbl">🔥 Rivalry Game</span></div>
+            <div class="ti" data-type="championship"><div class="ti-radio"></div><span class="ti-lbl">🏆 Championship / Title</span></div>
+            <div class="ti" data-type="tournament-bracket"><div class="ti-radio"></div><span class="ti-lbl">🎯 Tournament / Bracket</span></div>
+            <div class="ti" data-type="final-score"><div class="ti-radio"></div><span class="ti-lbl">🏁 Final Score</span></div>
+            <div class="ti" data-type="halftime-score"><div class="ti-radio"></div><span class="ti-lbl">⏱ Halftime Score</span></div>
+            <div class="ti" data-type="game-recap"><div class="ti-radio"></div><span class="ti-lbl">📋 Game Recap</span></div>
+            <div class="ti" data-type="player-spotlight"><div class="ti-radio"></div><span class="ti-lbl">🎯 Player Spotlight</span></div>
+            <div class="ti" data-type="player-of-game"><div class="ti-radio"></div><span class="ti-lbl">⭐ Player of the Game / Week</span></div>
+            <div class="ti" data-type="athlete-of-year"><div class="ti-radio"></div><span class="ti-lbl">🥇 Athlete of the Year / Award</span></div>
+            <div class="ti" data-type="record-breaking"><div class="ti-radio"></div><span class="ti-lbl">📈 Record Breaking Moment</span></div>
+            <div class="ti" data-type="stats-graphic"><div class="ti-radio"></div><span class="ti-lbl">📊 Stats / Infographic</span></div>
+            <div class="ti" data-type="starting-lineup"><div class="ti-radio"></div><span class="ti-lbl">📝 Starting Lineup / Roster</span></div>
+            <div class="ti" data-type="home-schedule"><div class="ti-radio"></div><span class="ti-lbl">📅 Schedule Graphic</span></div>
+            <div class="ti" data-type="rankings"><div class="ti-radio"></div><span class="ti-lbl">📊 Rankings / Poll</span></div>
+            <div class="ti" data-type="jersey-reveal"><div class="ti-radio"></div><span class="ti-lbl">👕 Jersey / Uniform Reveal</span></div>
+            <div class="ti" data-type="coach-spotlight"><div class="ti-radio"></div><span class="ti-lbl">📣 Coach Spotlight</span></div>
+            <div class="ti" data-type="program-highlight"><div class="ti-radio"></div><span class="ti-lbl">🏛 Program Highlight</span></div>
+            <div class="ti" data-type="retirement"><div class="ti-radio"></div><span class="ti-lbl">🙏 Retirement / Farewell</span></div>
+            <div class="ti" data-type="fan-engagement"><div class="ti-radio"></div><span class="ti-lbl">📣 Fan / Community Post</span></div>
           </div>
         </div>
         <div class="cg"><div class="clabel">Style Preset</div>
@@ -2330,7 +2345,7 @@ const _typo = {
   collage:    'ultra-bold condensed Impact, ALL CAPS, oversized numeral or word as dominant graphic element, editorial sports magazine hierarchy'
 };
 
-const _negatives = 'any letter, word, shape, or graphic element cut off or cropped at any edge, text running off or touching any side of the frame, elements extending beyond the canvas boundary, typography clipped by the image border, content outside the safe zone, colors not in the specified palette, watermarks, stock photography feel, blurry or illegible text, amateur composition, 3D render artifacts, clip art, generic drop shadows, overused gradients, muddy low-contrast combinations, mismatched fonts, stray colors not listed in the palette.';
+const _negatives = 'text or elements clipped at any edge, blurry or illegible typography, watermarks, clip art, stock photo feel, amateur composition, muddy low-contrast colors, stray colors not requested, generic drop shadows, 3D render artifacts.';
 
 
 const _composition = {
@@ -2447,55 +2462,32 @@ function extractColors(text) {
 }
 
 function buildPrompt(raw, sport, style, type) {
-  const layouts = {
-    'commitment':      'SQUARE 1:1. Centered commitment announcement. Player name in massive display type. School or team identity prominently featured. Confetti or light-burst accent.',
-    'game-day':        'LANDSCAPE 3:2. Bold pregame matchup graphic. GAME DAY headline dominates upper zone. Teams, date, time, location clearly featured. High-energy pregame composition.',
-    'halftime-score':  'LANDSCAPE 3:2. Broadcast scoreboard layout. Team logos flank the score in centered bold type. HALFTIME label above score. Clean network sports broadcast aesthetic.',
-    'final-score':     'LANDSCAPE 3:2. Final score announcement card. FINAL label prominent in accent color. Both team scores in large centered type. Clean postgame broadcast look.',
-    'player-of-game':  'PORTRAIT 4:5. Player of the game spotlight. Athlete portrait dominant upper zone. PLAYER OF THE GAME label at top. Stat highlights in lower third.',
-    'game-recap':      'SQUARE 1:1. Game recap summary card. Score and game headline in upper half. Key stats and highlights in lower half. Informational sports broadcast style.',
-    'starting-lineup': 'PORTRAIT 4:5. Starting lineup announcement. STARTING LINEUP title at top. Player names and numbers in bold list format. Team colors dominant.',
-    'home-schedule':   'PORTRAIT 4:5. Home schedule graphic. Team identity anchors top zone. Schedule grid with dates, opponents, times clearly listed. Home games highlighted in team color.',
-    'season-schedule': 'PORTRAIT 2:3. Full season schedule. Season year as display headline at top. All games listed chronologically in clean grid. Team mark prominent.',
-    'player-spotlight':'TALL PORTRAIT 9:16. Player spotlight banner. Athlete portrait fills upper two-thirds. Player name in massive horizontal type band. Stats and position in lower zone.',
-    'recruit-offer':   'PORTRAIT 4:5. Recruit offer announcement. School/program logo prominent upper zone. Player name in cinematic display type. OFFER EXTENDED label. Prestigious design energy.',
-    'other':           'PORTRAIT 4:5. Full creative freedom — design the best layout for the content described. Professional sports broadcast quality.'
-  };
-  const sportCtx = {
-    football:   'stadium turf texture background, Friday night lights, helmet and jersey visual language',
-    basketball: 'hardwood court floor pattern, arena crowd bokeh, sneaker and jersey visual language',
-    baseball:   'diamond infield dirt texture, ballpark atmosphere, mitt and bat visual language',
-    soccer:     'grass pitch pattern background, stadium floodlight atmosphere, boot and jersey visual language',
-    hockey:     'ice rink surface texture, arena boards, helmet and stick visual language',
-    tennis:     'hard court line geometry, stadium grandstand atmosphere',
-    track:      'tartan track lane markings, finish line perspective, spikes visual language',
-    volleyball: 'court line geometry, gymnasium lighting, net visual language',
-    lacrosse:   'grass field atmosphere, helmet and stick visual language',
-    wrestling:  'mat circle geometry, gymnasium lighting, singlet visual language'
-  };
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
-    ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. Do not add any other colors whatsoever.`
-    : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+    ? `COLOR PALETTE: ${detectedColors.join(', ')} — use these colors. Do not add unrelated colors.`
+    : 'COLOR: Use only the team/brand colors described in the brief below.';
   const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
+  const styleDesc = {
+    aggressive: 'ultra-bold condensed type, diagonal slash shapes, dark dramatic background, intense energy',
+    modern:     'clean geometric sans-serif, precision lines, pitch-black background, razor-sharp layout',
+    collegiate: 'bold slab serif, horizontal bands, deep navy or team color base, classic authority',
+    minimal:    'ultra-light type, wide letter-spacing, maximum negative space, one accent line',
+    hype:       'neon energy, electric color, radiating beams, bold extended display type',
+    retro:      'vintage block letters, halftone dots, warm amber base, worn nostalgic texture',
+    collage:    'photo tiles at angles, white borders, solid color background, editorial sports magazine'
+  }[style] || 'bold, professional, high-energy sports graphic';
 
-  return `PROFESSIONAL SPORTS GRAPHIC — broadcast and print quality.
+  return `Create a professional sports graphic for social media / broadcast.
 
-${colorBlock}
-
-DESIGN BRIEF (follow exactly):
-"${raw}"
+DESIGN BRIEF: "${raw}"
 ${keyElements}
-FORMAT: ${layouts[type] || layouts['recruiting']}
-SPORT: ${sport.toUpperCase()} — ${sportCtx[sport] || 'athletic competition atmosphere'}
-COMPOSITION: ${_composition[type] || _composition['recruiting']}
-VISUAL REFERENCE: ${_typeVocab[type] || _typeVocab['recruiting']}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+STYLE: ${styleDesc}
+${colorBlock}
+${sport && sport !== 'sports' ? `SPORT CONTEXT: ${sport}` : ''}
 
-SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
-
-MANDATORY: Render EVERY text element from the brief pixel-sharp — names, numbers, schools, dates, exactly as written.
-QUALITY: Single dramatic key light, deep cast shadows, layered spatial depth. Typography hierarchy: one dominant headline, one supporting size, one detail. Must pass as Nike/ESPN/Jordan Brand commissioned asset.
+Design freely based on the brief. Use strong typography, dramatic lighting, and the exact text/numbers from the brief.
+Quality standard: ESPN / Nike / Jordan Brand level.
+All text must be pixel-sharp and fully visible — nothing cropped.
 
 DO NOT INCLUDE: ${_negatives}`;
 }
@@ -2540,58 +2532,86 @@ Context: ${sport} ${type.replace(/-/g,' ')} graphic, ${style} style aesthetic.`;
 
 // Vision prompt — used when athlete photo is sent directly to the AI
 function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
-  const isTeam  = playerCount > 1;
-  const subject = isTeam ? `these ${playerCount} athletes (shown in the contact sheet provided)` : 'this athlete photo';
-  const typeDirectives = {
-    'commitment':      `Design a COMMITMENT ANNOUNCEMENT GRAPHIC around ${subject}. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
-    'game-day':        `Design a GAME DAY GRAPHIC around ${subject}. ${isTeam ? 'All athletes are featured prominently as the faces of the game.' : 'Athlete is the face of the game.'} ${_typeVocab['game-day']} aesthetic. ${_composition['game-day']}`,
-    'halftime-score':  `Design a HALFTIME SCORE GRAPHIC featuring ${subject}. ${isTeam ? 'Athletes are supporting visuals;' : 'Athlete is a supporting visual;'} score and team info are primary content. ${_typeVocab['halftime-score']} aesthetic. ${_composition['halftime-score']}`,
-    'final-score':     `Design a FINAL SCORE GRAPHIC featuring ${subject}. ${isTeam ? 'Athletes as supporting visuals;' : 'Athlete as supporting visual;'} final score and FINAL label are primary content. ${_typeVocab['final-score']} aesthetic. ${_composition['final-score']}`,
-    'player-of-game':  `Design a PLAYER OF THE GAME GRAPHIC around ${subject}. ${isTeam ? 'The lead athlete is the hero; others frame them.' : 'They are the hero of the composition.'} ${_typeVocab['player-of-game']} aesthetic. ${_composition['player-of-game']}`,
-    'game-recap':      `Design a GAME RECAP GRAPHIC featuring ${subject}. Game score and key stats are primary content; ${isTeam ? 'athletes are' : 'athlete is'} supporting visuals. ${_typeVocab['game-recap']} aesthetic. ${_composition['game-recap']}`,
-    'starting-lineup': `Design a STARTING LINEUP GRAPHIC featuring ${subject}. ${isTeam ? `All ${playerCount} athletes appear side-by-side in the lineup formation — this IS the lineup graphic.` : 'They appear as part of the lineup announcement.'} ${_typeVocab['starting-lineup']} aesthetic. ${_composition['starting-lineup']}`,
-    'home-schedule':   `Design a HOME SCHEDULE GRAPHIC featuring ${subject} as ${isTeam ? 'the faces of the home season' : 'the face of the home season'}. Schedule information is primary; ${isTeam ? 'athletes are' : 'athlete is'} supporting visuals. ${_typeVocab['home-schedule']} aesthetic. ${_composition['home-schedule']}`,
-    'season-schedule': `Design a SEASON SCHEDULE GRAPHIC featuring ${subject} as ${isTeam ? 'the faces of the season' : 'the face of the season'}. Schedule grid is primary content; ${isTeam ? 'athletes as' : 'athlete as'} supporting visuals. ${_typeVocab['season-schedule']} aesthetic. ${_composition['season-schedule']}`,
-    'player-spotlight':`Design a PLAYER SPOTLIGHT BANNER GRAPHIC around ${subject}. ${isTeam ? `All ${playerCount} athletes are featured prominently — each given their own spotlight area.` : 'They are the singular hero — full portrait treatment.'} ${_typeVocab['player-spotlight']} aesthetic. ${_composition['player-spotlight']}`,
-    'recruit-offer':   `Design a RECRUIT OFFER GRAPHIC around ${subject}. ${isTeam ? 'All athletes are prominently featured.' : 'They are prominently featured.'} School logo, OFFER EXTENDED label, and prestige elements surround them. ${_typeVocab['recruit-offer']} aesthetic. ${_composition['recruit-offer']}`,
-    'other':           `Design a professional sports graphic around ${subject}. Full creative freedom — ${isTeam ? `all ${playerCount} athletes are visual heroes` : 'athlete is the visual hero'} with strong design elements surrounding them. ${_typeVocab['other']} aesthetic.`
-  };
+  const isTeam = playerCount > 1;
+
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
-    ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
-    : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
+    ? `COLOR PALETTE: ${detectedColors.join(', ')} — use these colors throughout.`
+    : 'COLOR: Use the team/brand colors described in the design brief.';
+
   const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
 
-  // Only allow pose/expression changes if the user explicitly asked for them
-  const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
-  const poseInstruction = poseKeywords.test(raw)
-    ? `${isTeam ? 'ATHLETES' : 'ATHLETE'}: Keep ${isTeam ? 'all athletes' : 'the athlete'} clearly visible and prominent. You may adjust ${isTeam ? 'their' : 'their'} pose per the brief.`
-    : isTeam
-      ? `ATHLETE PRESERVATION — CRITICAL: The contact sheet contains ${playerCount} distinct athletes. ALL ${playerCount} must appear in the final design — do NOT omit any. Each person must appear exactly as they look in their panel of the contact sheet. Do NOT change anyone's pose, expression, clothing, or appearance. Only add design elements (backgrounds, typography, graphics, overlays) around and behind them.`
-      : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them.`;
+  const styleDesc = {
+    aggressive: 'Ultra-bold condensed type (Impact/Bebas), diagonal slash shapes, dark near-black background, raw explosive energy',
+    modern:     'Clean geometric sans, precision accent lines, pitch-black background, sleek tech-forward composition',
+    collegiate: 'Bold slab serif, horizontal authority bands, deep team color base, traditional prestige',
+    minimal:    'Ultra-light wide-spaced type, maximum negative space, one accent element, premium restraint',
+    hype:       'Electric neon palette, radiating energy beams, bold extended display type, maximum visual intensity',
+    retro:      'Vintage block letters, halftone dot texture, warm amber base, worn distressed nostalgia',
+    collage:    'Photo tiles at angles with white borders, solid team color background, editorial sports magazine layout'
+  }[style] || 'bold, dynamic, professional sports graphic design';
 
-  const multiPlayerBlock = isTeam
-    ? `\nTEAM COMPOSITE — ${playerCount} ATHLETES REQUIRED:\n• The contact sheet image contains ${playerCount} athletes — count the panels\n• EVERY athlete must appear in the final graphic — include all ${playerCount}, none missing\n• Each player gets equal visual weight — none is cropped or hidden\n• Arrange them in a dynamic horizontal or grid formation across the composition\n• If a Starting Lineup or Roster graphic, show them in a clean row or column arrangement\n`
+  // Type label to guide the AI on what kind of graphic to make
+  const typeLabel = {
+    'commitment':         'COMMITMENT / SIGNING ANNOUNCEMENT',
+    'transfer-portal':    'TRANSFER PORTAL ANNOUNCEMENT',
+    'nil-deal':           'NIL DEAL / SPONSORSHIP ANNOUNCEMENT',
+    'national-signing-day':'NATIONAL SIGNING DAY GRAPHIC',
+    'recruit-offer':      'SCHOLARSHIP OFFER GRAPHIC',
+    'game-day':           'GAME DAY HYPE GRAPHIC',
+    'season-opener':      'SEASON OPENER HYPE GRAPHIC',
+    'rivalry-game':       'RIVALRY GAME GRAPHIC',
+    'championship':       'CHAMPIONSHIP / TITLE GRAPHIC',
+    'tournament-bracket': 'TOURNAMENT / BRACKET GRAPHIC',
+    'final-score':        'FINAL SCORE GRAPHIC',
+    'halftime-score':     'HALFTIME SCORE GRAPHIC',
+    'game-recap':         'GAME RECAP GRAPHIC',
+    'player-spotlight':   'PLAYER SPOTLIGHT BANNER',
+    'player-of-game':     'PLAYER OF THE GAME / WEEK GRAPHIC',
+    'athlete-of-year':    'ATHLETE OF THE YEAR / AWARD GRAPHIC',
+    'record-breaking':    'RECORD BREAKING MOMENT GRAPHIC',
+    'stats-graphic':      'STATS / PERFORMANCE INFOGRAPHIC',
+    'starting-lineup':    'STARTING LINEUP / ROSTER GRAPHIC',
+    'home-schedule':      'SCHEDULE GRAPHIC',
+    'season-schedule':    'FULL SEASON SCHEDULE GRAPHIC',
+    'rankings':           'RANKINGS / POLL GRAPHIC',
+    'jersey-reveal':      'JERSEY / UNIFORM REVEAL GRAPHIC',
+    'coach-spotlight':    'COACH SPOTLIGHT GRAPHIC',
+    'program-highlight':  'PROGRAM HIGHLIGHT GRAPHIC',
+    'retirement':         'RETIREMENT / FAREWELL TRIBUTE GRAPHIC',
+    'fan-engagement':     'FAN / COMMUNITY ENGAGEMENT GRAPHIC',
+    'other':              'CUSTOM SPORTS GRAPHIC'
+  }[type] || type.replace(/-/g, ' ').toUpperCase() + ' GRAPHIC';
+
+  const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
+  const athleteBlock = playerCount === 0 ? '' : poseKeywords.test(raw)
+    ? `ATHLETE: Keep ${isTeam ? 'all athletes' : 'the athlete'} clearly visible. You may interpret their pose dynamically per the brief.`
+    : isTeam
+      ? `ATHLETE PRESERVATION — CRITICAL: ${playerCount} athletes are shown in the contact sheet grid. ALL ${playerCount} must appear in the final design. Do NOT omit or combine any. Each person appears EXACTLY as they look in their panel — do not change pose, expression, clothing, or appearance. Build the design around them.`
+      : `ATHLETE PRESERVATION — CRITICAL: Use the person in the uploaded photo EXACTLY as they appear. Do NOT alter pose, body, expression, or clothing. Do NOT generate a different/new version of this person. Only add design elements (backgrounds, type, graphics) around and behind them.`;
+
+  const teamBlock = isTeam
+    ? `\nTEAM FORMAT: ${playerCount} athletes in the grid — include every one. Arrange in a dynamic formation (horizontal, pyramid, or grid). No one cropped or hidden.\n`
     : '';
 
-  return `${typeDirectives[type] || typeDirectives['recruiting']}
-${multiPlayerBlock}
-${colorBlock}
+  return `You are a professional sports graphic designer. Create a ${typeLabel} at ESPN / Nike / Jordan Brand quality.
 
-DESIGN BRIEF (include every element):
+DESIGN BRIEF (execute exactly as described):
 "${raw}"
 ${keyElements}
-SPORT: ${sport.toUpperCase()}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+GRAPHIC TYPE: ${typeLabel}
+STYLE: ${styleDesc}
+${colorBlock}
+${sport && sport !== 'sports' ? `SPORT: ${sport.toUpperCase()}` : ''}
+${teamBlock}
+${athleteBlock}
 
-SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
-
-${poseInstruction}
-Add professional sports graphic design elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'}.
-Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
-Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
-Single dramatic key light, deep shadows, layered spatial depth.
-Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
+EXECUTION RULES:
+• Render every piece of text from the brief exactly as written — names, numbers, scores, dates, labels — pixel-sharp, fully legible
+• All elements stay within the frame — nothing cropped at any edge
+• One dominant headline, clear visual hierarchy, professional composition
+• Dramatic key lighting, deep shadows, cinematic depth
+• This graphic should look like it was made by a $500/hour sports design agency
 
 DO NOT INCLUDE: ${_negatives}`;
 }

@@ -327,128 +327,162 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'use-canvas' });
     }
 
-    // ── Vision-based generation — athlete photo + prompt → full graphic ──
-    // Used when user uploads a photo: AI sees the athlete and designs around them
+    // ── Vision-based generation — athlete photo → sports graphic ──────────────
+    // Model priority: FLUX Kontext Pro → GPT-image-1 edits → Gemini multimodal
+    // FLUX Kontext is the ONLY model that truly preserves a real person's identity.
+    // GPT/Gemini treat uploaded photos as style hints and generate fake AI people.
     const refImage = req.body.referenceImage || null;
     if (action === 'generate-with-image' && (athleteImage || refImage) && prompt) {
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
 
-      // Primary: Gemini multimodal — can receive multiple images simultaneously
-      // Reference image teaches style; athlete image provides the people to feature.
-      if (GOOGLE_KEY) {
-        try {
-          const geminiParts = [];
-
-          // If reference image provided, prepend it with a style instruction
-          if (refImage) {
-            const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
-            if (refMatch) {
-              geminiParts.push({ text: 'REFERENCE DESIGN — your output must visually match this style exactly (colors, typography, layout, mood, effects):' });
-              geminiParts.push({ inline_data: { mime_type: refMatch[1], data: refMatch[2] } });
-            }
-          }
-
-          // Athlete image (may be null for reference-only generation)
-          if (athleteImage) {
-            const match = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              const [, mimeType, b64data] = match;
-              if (refImage) geminiParts.push({ text: 'ATHLETE(S) TO FEATURE — incorporate these exact people in the design, matching the reference style above:' });
-              geminiParts.push({ inline_data: { mime_type: mimeType, data: b64data } });
-            }
-          }
-
-          // Design instructions last
-          geminiParts.push({ text: prompt });
-
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 50000);
-
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
-            {
-              method:  'POST',
-              headers: { 'Content-Type': 'application/json' },
-              signal:  controller.signal,
-              body: JSON.stringify({
-                contents: [{ parts: geminiParts }],
-                generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-              })
-            }
-          );
-          clearTimeout(timer);
-
-          if (geminiRes.ok) {
-            const geminiData = await geminiRes.json();
-            const parts   = geminiData.candidates?.[0]?.content?.parts || [];
-            const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-            if (imgPart?.inlineData) {
-              const { mimeType: mt, data } = imgPart.inlineData;
-              return res.status(200).json({
-                status: 'succeeded',
-                imageUrl: `data:${mt};base64,${data}`,
-                engine: 'gemini-vision'
-              });
-            }
-          } else {
-            const err = await geminiRes.json().catch(() => ({}));
-            console.warn('Gemini vision error:', err.error?.message || geminiRes.status);
-          }
-        } catch(e) {
-          console.warn('Gemini vision failed, trying OpenAI edits:', e.message);
-        }
+      // ── Upload helper — push base64 to fal.ai CDN, get a public URL back ──
+      async function uploadToFal(base64DataUrl, filename = 'image.jpg') {
+        const m = base64DataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) return null;
+        const [, mime, b64] = m;
+        const buf = Buffer.from(b64, 'base64');
+        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+        const initR = await fetch('https://rest.fal.ai/storage/upload/initiate', {
+          method: 'POST',
+          headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content_type: mime, file_name: filename.replace(/\.[^.]+$/, `.${ext}`) })
+        });
+        if (!initR.ok) return null;
+        const { file_url, upload_url } = await initR.json();
+        const putR = await fetch(upload_url, { method: 'PUT', headers: { 'Content-Type': mime }, body: buf });
+        return putR.ok ? file_url : null;
       }
 
-      // Fallback: GPT-image-1 edits endpoint (image in → sports graphic out)
-      if (OPENAI_KEY) {
+      // ── PRIMARY: FLUX Kontext Pro — the only model that preserves real identity ──
+      // Designed specifically for image editing: keeps the real person's face/body exact,
+      // adds new background, typography, graphic elements around them per the prompt.
+      if (FAL_KEY && athleteImage) {
+        try {
+          const falImageUrl = await uploadToFal(athleteImage, 'athlete.jpg');
+          if (falImageUrl) {
+            // Build a Kontext-optimized prompt: describe what to CHANGE/ADD, not who the person is
+            const kontextPrompt = `Transform this athlete photo into a professional sports graphic.
+Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.
+Around them, add: professional sports graphic design with dramatic dark background, bold typography, team color accents, cinematic studio lighting.
+${prompt}
+The final result must look like a $500/hour sports design agency produced it — ESPN, Nike, Jordan Brand quality.
+All text must be pixel-sharp and fully legible. Nothing cropped at any edge.`;
+
+            const kCtrl = new AbortController();
+            const kTimer = setTimeout(() => kCtrl.abort(), 90000);
+            const kRes = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
+              method: 'POST',
+              headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+              signal: kCtrl.signal,
+              body: JSON.stringify({
+                image_url: falImageUrl,
+                prompt: kontextPrompt,
+                num_inference_steps: 28,
+                guidance_scale: 2.5,
+                output_format: 'jpeg',
+                output_quality: 95,
+                num_images: 1
+              })
+            });
+            clearTimeout(kTimer);
+
+            if (kRes.ok) {
+              const kData = await kRes.json();
+              const imgUrl = kData.images?.[0]?.url;
+              if (imgUrl) {
+                const imgBuf = await (await fetch(imgUrl)).arrayBuffer();
+                const b64 = 'data:image/jpeg;base64,' + Buffer.from(imgBuf).toString('base64');
+                return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-kontext' });
+              }
+            } else {
+              const kerr = await kRes.json().catch(() => ({}));
+              console.warn('FLUX Kontext error:', kerr.detail || kerr.message || kRes.status);
+            }
+          }
+        } catch(e) { console.warn('FLUX Kontext failed:', e.message); }
+      }
+
+      // ── SECONDARY: GPT-image-1 edits — strong text rendering, may alter identity ──
+      if (OPENAI_KEY && athleteImage) {
         try {
           const match = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
             const [, mimeType, b64data] = match;
             const buffer = Buffer.from(b64data, 'base64');
             const ext    = mimeType.includes('png') ? 'png' : 'jpg';
-
-            const form = new FormData();
+            const form   = new FormData();
             form.append('image', new File([buffer], `athlete.${ext}`, { type: mimeType }));
             form.append('prompt', prompt);
             form.append('model', 'gpt-image-1');
             form.append('size', size);
             form.append('quality', 'high');
             form.append('n', '1');
-
-            const editCtrl = new AbortController();
+            const editCtrl  = new AbortController();
             const editTimer = setTimeout(() => editCtrl.abort(), 55000);
-            const editRes  = await fetch('https://api.openai.com/v1/images/edits', {
-              method:  'POST',
-              headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
-              signal:  editCtrl.signal,
-              body:    form
+            const editRes   = await fetch('https://api.openai.com/v1/images/edits', {
+              method: 'POST', headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
+              signal: editCtrl.signal, body: form
             });
             clearTimeout(editTimer);
-            const editData = await editRes.json();
-
             if (editRes.ok) {
-              const b64      = editData.data?.[0]?.b64_json;
-              const url      = editData.data?.[0]?.url;
-              // Prefer b64 (permanent) over URL (expires)
+              const editData = await editRes.json();
+              const b64  = editData.data?.[0]?.b64_json;
+              const url  = editData.data?.[0]?.url;
               const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
-              if (imageUrl) {
-                return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1-edit' });
-              }
+              if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1-edit' });
             } else {
-              console.warn('GPT-image-1 edits error:', editData.error?.message);
+              const editErr = await editRes.json().catch(() => ({}));
+              console.warn('GPT-image-1 edits error:', editErr.error?.message);
             }
           }
-        } catch(e) {
-          console.warn('GPT-image-1 edits failed:', e.message);
-        }
+        } catch(e) { console.warn('GPT-image-1 edits failed:', e.message); }
       }
 
-      // If both vision paths failed, fall through to text generation below
-      // (frontend will composite the athlete cutout onto the result)
-      console.warn('Vision generation failed — falling back to text generation');
+      // ── TERTIARY: Gemini multimodal — reference-style only / no-photo fallback ──
+      if (GOOGLE_KEY) {
+        try {
+          const geminiParts = [];
+          if (refImage) {
+            const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
+            if (refMatch) {
+              geminiParts.push({ text: 'REFERENCE STYLE — match this visual style exactly:' });
+              geminiParts.push({ inline_data: { mime_type: refMatch[1], data: refMatch[2] } });
+            }
+          }
+          if (athleteImage) {
+            const m = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
+            if (m) {
+              geminiParts.push({ text: 'ATHLETE — use this exact person in the design:' });
+              geminiParts.push({ inline_data: { mime_type: m[1], data: m[2] } });
+            }
+          }
+          geminiParts.push({ text: prompt });
+          const gCtrl  = new AbortController();
+          const gTimer = setTimeout(() => gCtrl.abort(), 55000);
+          const gRes   = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: gCtrl.signal,
+              body: JSON.stringify({ contents: [{ parts: geminiParts }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } }) }
+          );
+          clearTimeout(gTimer);
+          if (gRes.ok) {
+            const gData   = await gRes.json();
+            const parts   = gData.candidates?.[0]?.content?.parts || [];
+            const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+            if (imgPart?.inlineData) {
+              const { mimeType: mt, data } = imgPart.inlineData;
+              return res.status(200).json({ status: 'succeeded', imageUrl: `data:${mt};base64,${data}`, engine: 'gemini-vision' });
+            }
+          } else {
+            const gerr = await gRes.json().catch(() => ({}));
+            console.warn('Gemini vision error:', gerr.error?.message || gRes.status);
+          }
+        } catch(e) { console.warn('Gemini vision failed:', e.message); }
+      }
+
+      console.warn('All vision paths failed — falling back to text generation');
     }
 
     // ── Prompt expansion — lightweight Gemini text call ────────
