@@ -594,6 +594,52 @@ STRICT RULES:
       return res.status(200).json({ expanded: prompt });
     }
 
+    // ── Analyze reference image for style extraction ───────────
+    if (action === 'analyze-reference' && req.body.referenceImage) {
+      if (!GOOGLE_KEY) return res.status(500).json({ error: 'GOOGLE_KEY not configured' });
+
+      const match = req.body.referenceImage.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return res.status(400).json({ error: 'Invalid image format' });
+      const [, mimeType, b64Data] = match;
+
+      const ctrl  = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_KEY}`,
+          {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal:  ctrl.signal,
+            body:    JSON.stringify({
+              contents: [{
+                parts: [
+                  { inlineData: { mimeType, data: b64Data } },
+                  { text: `You are a sports graphic design analyst. Analyze this sports graphic and describe its visual style in exactly 5 bullet points:
+• COLOR PALETTE: List the exact colors (hex values if visible, or precise descriptive names)
+• TYPOGRAPHY: Font style (bold/condensed/light), weight, size hierarchy, effects (glow/stroke/italic/shadow)
+• LAYOUT & COMPOSITION: How subjects are arranged, framing, negative space, focal hierarchy
+• VISUAL EFFECTS: Gradients, glows, overlays, textures, vignettes, light rays, grain
+• MOOD & ENERGY: Overall tone, intensity level, aesthetic direction (aggressive/clean/vintage/electric)
+
+Be specific. This analysis will guide generation of a new sports graphic with a similar aesthetic.` }
+                ]
+              }],
+              generationConfig: { temperature: 0.2, maxOutputTokens: 400 }
+            })
+          }
+        );
+        clearTimeout(timer);
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          const analysis   = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (analysis) return res.status(200).json({ analysis });
+        }
+      } catch(e) { clearTimeout(timer); console.warn('Reference analysis failed:', e.message); }
+
+      return res.status(200).json({ analysis: '' });
+    }
+
     // ── Image generation — gpt-image-1 → Gemini → FLUX ───────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
