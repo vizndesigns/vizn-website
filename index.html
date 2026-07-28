@@ -1808,6 +1808,64 @@ function drawSportsOverlay(ctx, canvas, opts) {
     ctx.fillStyle=g; ctx.fillRect(0,ch*.55,cw,ch*.45);
   }
   const subLabel = type ? type.toUpperCase().replace(/-/g,' ') : '';
+  const isSingle = opts.isSinglePlayer === true;
+
+  // ── Prominent type headline (GAME DAY / COMMITTED / etc.) ────────────
+  // Draws LARGE centered text in the mid-section of the canvas — this is the
+  // dominant design element in professional sports graphics. Sits on top of
+  // the player, player head visible above, feet below.
+  function drawProminentType(color='#FFFFFF', strokeColor='rgba(0,0,0,0.92)', italic=true) {
+    if (!subLabel || subLabel.trim() === 'OTHER') return;
+    const typeWords = subLabel.trim().split(/\s+/);
+    // Max 2 lines; try to split evenly
+    let lines;
+    if (typeWords.length === 1) lines = [typeWords[0]];
+    else if (typeWords.length === 2) lines = typeWords;
+    else {
+      const mid = Math.ceil(typeWords.length / 2);
+      lines = [typeWords.slice(0, mid).join(' '), typeWords.slice(mid).join(' ')];
+    }
+
+    const maxLineH = ch * 0.24;
+    // Auto-size: scale font so widest line fills 90% of canvas width
+    const longestLine = lines.reduce((a, b) => a.length > b.length ? a : b, '');
+    let fontSize = Math.round(maxLineH * 0.88);
+    ctx.save();
+    ctx.font = `900 ${italic ? 'italic ' : ''}${fontSize}px Impact, 'Arial Black', Arial`;
+    const measured = ctx.measureText(longestLine).width;
+    const fitScale = Math.min(1.0, (cw * 0.90) / measured);
+    fontSize = Math.round(fontSize * fitScale);
+    ctx.restore();
+
+    const lineStep = fontSize * 1.05;
+    // Center the block in the 32%-72% zone (where the player torso is)
+    const blockH = lines.length * lineStep;
+    const zoneTop = ch * 0.32, zoneH = ch * 0.40;
+    const startY = zoneTop + (zoneH - blockH) / 2 + fontSize;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
+    ctx.font = `900 ${italic ? 'italic ' : ''}${fontSize}px Impact, 'Arial Black', Arial`;
+
+    lines.forEach((line, i) => {
+      const y = startY + i * lineStep;
+      // Drop shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = Math.round(fontSize * 0.10);
+      ctx.shadowOffsetY = Math.round(fontSize * 0.04);
+      // Stroke
+      ctx.lineWidth = Math.round(fontSize * 0.055);
+      ctx.strokeStyle = strokeColor;
+      ctx.strokeText(line, cw * 0.5, y);
+      // Fill
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.fillStyle = color;
+      ctx.fillText(line, cw * 0.5, y);
+    });
+    ctx.restore();
+  }
 
   // ── Per-style rendering ───────────────────────────────────────────────
   const styles = {
@@ -1823,6 +1881,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.beginPath(); ctx.moveTo(0,ch*.14); ctx.lineTo(cw*.28,ch*.14); ctx.lineTo(cw*.18,ch*.20); ctx.lineTo(0,ch*.20); ctx.fill();
       ctx.restore();
       ground(ac1, 0.30);
+      drawProminentType('#FFFFFF', 'rgba(0,0,0,0.95)', true);
       botBand(0.94);
       accentLine(ch*.71, cw, Math.max(4,ch*.006), ac1, 1.0);
       if (teamName) {
@@ -1852,6 +1911,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.fillRect(cw*.5,0,Math.max(2,cw*.003),ch*.35);
       ctx.restore();
       ground(ac1, 0.22);
+      drawProminentType(colorRgba(ac1,1), 'rgba(0,0,0,0.90)', false);
       botBand(0.90);
       accentLine(ch*.70, cw*.84, Math.max(2,ch*.003), ac1, 0.9);
       if (teamName) {
@@ -1877,6 +1937,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac1,1);
       ctx.fillRect(0,ch*.18,cw,ch*.04); ctx.restore();
       ground(ac1, 0.20);
+      drawProminentType('#FFFFFF', colorRgba(ac1,0.95), false);
       botBand(0.92);
       // Full-width separator
       accentLine(ch*.72, cw*.86, Math.max(3,ch*.004), ac1, 0.9);
@@ -1900,6 +1961,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
       // Top horizontal rule (full width, very thin)
       accentLine(ch*.08, cw*.76, Math.max(1,ch*.0015), ac1, 0.5);
       ground(ac1, 0.14);
+      drawProminentType('rgba(255,255,255,0.92)', 'rgba(0,0,0,0.85)', false);
       botBand(0.85);
       accentLine(ch*.72, cw*.6, Math.max(1,ch*.002), ac1, 0.45);
       if (teamName) {
@@ -1932,6 +1994,32 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.beginPath(); ctx.moveTo(cw,0); ctx.lineTo(cw*.55,0); ctx.lineTo(cw*.68,ch*.07); ctx.lineTo(cw,ch*.07); ctx.fill();
       ctx.restore();
       ground(ac1, 0.32);
+      // Hype headline: neon glow effect
+      (() => {
+        if (!subLabel || subLabel.trim() === 'OTHER') return;
+        const typeWords = subLabel.trim().split(/\s+/);
+        let lines = typeWords.length <= 2 ? typeWords : [typeWords.slice(0,Math.ceil(typeWords.length/2)).join(' '), typeWords.slice(Math.ceil(typeWords.length/2)).join(' ')];
+        const longestLine = lines.reduce((a,b) => a.length>b.length?a:b,'');
+        let fontSize = Math.round(ch*0.22);
+        ctx.save(); ctx.font=`900 italic ${fontSize}px Impact,'Arial Black',Arial`;
+        const mw = ctx.measureText(longestLine).width;
+        fontSize = Math.round(fontSize * Math.min(1,(cw*0.90)/mw));
+        ctx.restore();
+        const lineStep=fontSize*1.05;
+        const blockH=lines.length*lineStep;
+        const startY=ch*0.32+(ch*0.40-blockH)/2+fontSize;
+        ctx.save();
+        ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
+        ctx.font=`900 italic ${fontSize}px Impact,'Arial Black',Arial`;
+        lines.forEach((line,i)=>{
+          const y=startY+i*lineStep;
+          ctx.shadowColor=ac1; ctx.shadowBlur=Math.round(fontSize*.25);
+          ctx.lineWidth=Math.round(fontSize*.055); ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.strokeText(line,cw*.5,y);
+          ctx.shadowBlur=0; ctx.fillStyle=colorRgba(ac1,1); ctx.fillText(line,cw*.5,y);
+          ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.fillText(line,cw*.5,y);
+        });
+        ctx.restore();
+      })();
       botBand(0.93);
       accentLine(ch*.70, cw, Math.max(3,ch*.005), ac1, .9);
       if (teamName) {
@@ -1964,6 +2052,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac2,1);
       ctx.fillRect(0,ch*.08,cw,ch*.03); ctx.restore();
       ground(ac1, 0.22);
+      drawProminentType(colorRgba(ac1,1), 'rgba(0,0,0,0.95)', false);
       botBand(0.90);
       // Double-line border treatment
       accentLine(ch*.70, cw*.90, Math.max(4,ch*.006), ac1, .85);
@@ -2435,30 +2524,33 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
           return y;
         });
 
-        function drawPlayer(cutout, px, py, pw, ph) {
+        function drawPlayer(cutout, px, py, pw, ph, noFade=false) {
           const off    = document.createElement('canvas');
           off.width    = cw;
           off.height   = ch;
           const offCtx = off.getContext('2d');
           offCtx.drawImage(cutout, px, py, pw, ph);
 
-          // Fade at feet using destination-out (only erases pixels inside the rect)
-          const fadeStart = py + ph * 0.78;
-          const fadeEnd   = py + ph;
-          if (fadeEnd > fadeStart) {
-            const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
-            grad.addColorStop(0, 'rgba(0,0,0,0)');
-            grad.addColorStop(1, 'rgba(0,0,0,1)');
-            offCtx.globalCompositeOperation = 'destination-out';
-            offCtx.fillStyle = grad;
-            offCtx.fillRect(0, fadeStart, cw, fadeEnd - fadeStart);
+          // For multi-player composites, fade at feet to blend into scene.
+          // For single player, keep full body visible.
+          if (!noFade) {
+            const fadeStart = py + ph * 0.80;
+            const fadeEnd   = py + ph;
+            if (fadeEnd > fadeStart) {
+              const grad = offCtx.createLinearGradient(0, fadeStart, 0, fadeEnd);
+              grad.addColorStop(0, 'rgba(0,0,0,0)');
+              grad.addColorStop(1, 'rgba(0,0,0,1)');
+              offCtx.globalCompositeOperation = 'destination-out';
+              offCtx.fillStyle = grad;
+              offCtx.fillRect(0, fadeStart, cw, fadeEnd - fadeStart);
+            }
           }
 
           ctx.save();
-          ctx.shadowColor   = 'rgba(0,0,0,0.75)';
-          ctx.shadowBlur    = 36;
-          ctx.shadowOffsetX = 4;
-          ctx.shadowOffsetY = 18;
+          ctx.shadowColor   = 'rgba(0,0,0,0.80)';
+          ctx.shadowBlur    = n === 1 ? 48 : 36;
+          ctx.shadowOffsetX = n === 1 ? 0 : 4;
+          ctx.shadowOffsetY = n === 1 ? 20 : 18;
           ctx.drawImage(off, 0, 0);
           ctx.restore();
         }
@@ -2494,7 +2586,7 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
             // Wave stagger in front row: odd players drop slightly for cascading energy
             const stagger = isFront && count > 2 && ci % 2 !== 0 ? -avgFh * 0.06 : 0;
             const y       = baseY + (h - fh) + stagger;
-            drawPlayer(cutout, x, y, fw, fh);
+            drawPlayer(cutout, x, y, fw, fh, n === 1);
           });
         }
 
@@ -2665,52 +2757,31 @@ async function generate(raw) {
     let finalUrl, finalEngine;
 
     if (hasOriginals) {
-      const isTeamUpload = S.athleteOriginals.length > 1;
-
-      if (isTeamUpload) {
-        // TEAM COMPOSITE PATH: multiple players \u2192 always composite real cutouts on AI background
-        // (vision path generates fictional people \u2014 composite uses the actual uploaded faces)
-        // If bg removal is still running, wait for it (up to 25s)
-        if (S.bgRemoving > 0) {
-          setStatus('Waiting for background removal to finish\u2026');
-          await new Promise(resolve => {
-            const check = setInterval(() => { if (S.bgRemoving <= 0) { clearInterval(check); resolve(); } }, 600);
-            setTimeout(() => { clearInterval(check); resolve(); }, 25000);
-          });
-        }
-        // Use cutouts if available, otherwise fall back to originals (real photos, white bg)
-        const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
-        setStatus('Generating team background\u2026');
-        const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, S.athleteOriginals.length);
-        // Use fast Gemini-only path (30s max) \u2192 canvas fallback \u2014 never times out
-        const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage);
-        setStatus('Compositing ' + playersToComposite.length + ' players\u2026');
-        const designOpts = {
-          teamName: extractTeamName(enriched),
-          style:    S.style,
-          type:     S.type,
-          prompt:   enriched
-        };
-        finalUrl    = await compositeLayers(bgUrl, playersToComposite, designOpts);
-        finalEngine = 'team-composite';
-      } else {
-        // VISION PATH: single player \u2014 send actual photo so AI wraps design around it
-        setStatus('AI analyzing your photo\u2026');
-        const visionPrompt = buildVisionPrompt(enriched, S.sport, S.style, S.type, 1);
-        try {
-          const result = await callGenerateWithImage(S.athleteOriginals, visionPrompt, S.type, S.referenceImage);
-          finalUrl    = result.url;
-          finalEngine = result.engine;
-        } catch(visionErr) {
-          console.warn('Vision generation failed, falling back to composite:', visionErr.message);
-          toast('Falling back to composite mode\u2026', '');
-          const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, 1);
-          const bgResult = await callReplicate(bgPrompt, S.type);
-          const soDesignOpts = { teamName: extractTeamName(enriched), style: S.style, type: S.type, prompt: enriched };
-          finalUrl    = hasCutouts ? await compositeLayers(bgResult.url, S.athleteCutouts, soDesignOpts) : bgResult.url;
-          finalEngine = bgResult.engine;
-        }
+      // ALL athlete uploads \u2192 composite path: real cutout on AI background + canvas text
+      // Vision path is NEVER used for athletes \u2014 it regenerates fake AI people.
+      // Wait for background removal (up to 25s)
+      if (S.bgRemoving > 0) {
+        setStatus('Processing backgrounds\u2026');
+        await new Promise(resolve => {
+          const check = setInterval(() => { if (S.bgRemoving <= 0) { clearInterval(check); resolve(); } }, 600);
+          setTimeout(() => { clearInterval(check); resolve(); }, 25000);
+        });
       }
+      const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
+      const playerCount = S.athleteOriginals.length;
+      setStatus('Generating background\u2026');
+      const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, playerCount);
+      const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage);
+      setStatus('Compositing ' + playerCount + ' player' + (playerCount > 1 ? 's' : '') + '\u2026');
+      const designOpts = {
+        teamName: extractTeamName(enriched),
+        style:    S.style,
+        type:     S.type,
+        prompt:   enriched,
+        isSinglePlayer: playerCount === 1
+      };
+      finalUrl    = await compositeLayers(bgUrl, playersToComposite, designOpts);
+      finalEngine = 'composite';
     } else if (S.referenceImage) {
       // REFERENCE-ONLY PATH: no athlete photos, just style reference → generate in that style
       setStatus('AI generating from reference style…');
