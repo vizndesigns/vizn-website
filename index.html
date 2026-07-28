@@ -721,6 +721,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <div class="sty" data-style="minimal">Minimal</div>
             <div class="sty" data-style="hype">Hype</div>
             <div class="sty" data-style="retro">Retro</div>
+            <div class="sty" data-style="collage">Collage</div>
           </div>
         </div>
         <div class="cg"><div class="clabel">Upload Assets</div>
@@ -1754,6 +1755,77 @@ function extractTeamName(prompt) {
   return null;
 }
 
+// ── Type-as-background layer — GCU/ESPN style: huge type BEHIND athletes ──
+// Called from compositeLayers BEFORE players are composited, so athletes
+// appear in front of the large words (they "burst through" the typography).
+function drawTypeLayer(ctx, canvas, opts) {
+  const { type, style, prompt } = opts;
+  const cw = canvas.width, ch = canvas.height;
+  const label = type ? type.toUpperCase().replace(/-/g, ' ').trim() : '';
+  if (!label || label === 'OTHER') return;
+
+  const accentMap = {
+    aggressive: '#FF2238', modern: '#CCFF00', collegiate: '#CFB53B',
+    minimal: '#FFFFFF', hype: '#CC00FF', retro: '#FF8800'
+  };
+  const mentioned = extractColors(prompt || '').filter(c => {
+    const lo = c.toLowerCase();
+    return !['black','navy','maroon','midnight','charcoal','darkblue','darkred','brown'].includes(lo);
+  });
+  const typeColor = mentioned[0] || accentMap[style] || '#FFFFFF';
+  const words = label.split(/\s+/);
+
+  function measureWord(word) {
+    let sz = Math.round(ch * 0.28);
+    ctx.save();
+    ctx.font = `900 italic ${sz}px Impact,'Arial Black',Arial`;
+    const m = ctx.measureText(word).width;
+    if (m > 0) sz = Math.round(sz * (cw * 0.93) / m);
+    ctx.restore();
+    return Math.max(sz, 40);
+  }
+
+  function drawWord(word, centerY, alpha, sz) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.font = `900 italic ${sz}px Impact,'Arial Black',Arial`;
+    ctx.lineWidth = Math.max(2, Math.round(sz * 0.015));
+    ctx.strokeStyle = 'rgba(0,0,0,0.20)';
+    ctx.strokeText(word, cw / 2, centerY);
+    ctx.fillStyle = typeColor;
+    ctx.fillText(word, cw / 2, centerY);
+    ctx.restore();
+  }
+
+  if (words.length === 1) {
+    drawWord(words[0], ch * 0.46, 0.82, measureWord(words[0]));
+  } else if (words.length === 2) {
+    // GCU/ESPN: top word at 22%, bottom at 76% — athlete fills the gap
+    drawWord(words[0], ch * 0.21, 0.80, measureWord(words[0]));
+    drawWord(words[1], ch * 0.77, 0.80, measureWord(words[1]));
+  } else if (words.length === 3) {
+    // BIG / small / BIG — "PLAYER OF WEEK" treatment
+    drawWord(words[0], ch * 0.20, 0.80, measureWord(words[0]));
+    const midSz = Math.round(ch * 0.055);
+    ctx.save();
+    ctx.globalAlpha = 0.58;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${midSz}px Impact,'Arial Black',Arial`;
+    ctx.fillStyle = typeColor;
+    ctx.fillText(words[1], cw * 0.07, ch * 0.50);
+    ctx.restore();
+    drawWord(words[2], ch * 0.78, 0.80, measureWord(words[2]));
+  } else {
+    const mid = Math.ceil(words.length / 2);
+    drawWord(words.slice(0, mid).join(' '), ch * 0.21, 0.78, measureWord(words.slice(0, mid).join(' ')));
+    drawWord(words.slice(mid).join(' '), ch * 0.77, 0.78, measureWord(words.slice(mid).join(' ')));
+  }
+}
+
 // ── Sports graphic overlay — fully style-differentiated ─────────────────
 function drawSportsOverlay(ctx, canvas, opts) {
   const { teamName, style, prompt, type } = opts;
@@ -1879,7 +1951,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.beginPath(); ctx.moveTo(0,ch*.14); ctx.lineTo(cw*.28,ch*.14); ctx.lineTo(cw*.18,ch*.20); ctx.lineTo(0,ch*.20); ctx.fill();
       ctx.restore();
       ground(ac1, 0.30);
-      drawProminentType('#FFFFFF', 'rgba(0,0,0,0.95)', true);
       botBand(0.94);
       accentLine(ch*.71, cw, Math.max(4,ch*.006), ac1, 1.0);
       if (teamName) {
@@ -1909,7 +1980,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.fillRect(cw*.5,0,Math.max(2,cw*.003),ch*.35);
       ctx.restore();
       ground(ac1, 0.22);
-      drawProminentType(colorRgba(ac1,1), 'rgba(0,0,0,0.90)', false);
       botBand(0.90);
       accentLine(ch*.70, cw*.84, Math.max(2,ch*.003), ac1, 0.9);
       if (teamName) {
@@ -1935,7 +2005,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac1,1);
       ctx.fillRect(0,ch*.18,cw,ch*.04); ctx.restore();
       ground(ac1, 0.20);
-      drawProminentType('#FFFFFF', colorRgba(ac1,0.95), false);
       botBand(0.92);
       // Full-width separator
       accentLine(ch*.72, cw*.86, Math.max(3,ch*.004), ac1, 0.9);
@@ -1959,7 +2028,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
       // Top horizontal rule (full width, very thin)
       accentLine(ch*.08, cw*.76, Math.max(1,ch*.0015), ac1, 0.5);
       ground(ac1, 0.14);
-      drawProminentType('rgba(255,255,255,0.92)', 'rgba(0,0,0,0.85)', false);
       botBand(0.85);
       accentLine(ch*.72, cw*.6, Math.max(1,ch*.002), ac1, 0.45);
       if (teamName) {
@@ -1992,32 +2060,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.beginPath(); ctx.moveTo(cw,0); ctx.lineTo(cw*.55,0); ctx.lineTo(cw*.68,ch*.07); ctx.lineTo(cw,ch*.07); ctx.fill();
       ctx.restore();
       ground(ac1, 0.32);
-      // Hype headline: neon glow treatment
-      (() => {
-        if (!subLabel || subLabel.trim() === 'OTHER') return;
-        const words = subLabel.trim().split(/\s+/);
-        let lines = words.length<=2 ? words : [words.slice(0,Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')];
-        const longest = lines.reduce((a,b)=>a.length>b.length?a:b,'');
-        let fontSize = Math.round(ch*0.22);
-        ctx.save(); ctx.font=`900 italic ${fontSize}px Impact,'Arial Black',Arial`;
-        const mw = ctx.measureText(longest).width;
-        if (mw > 0) fontSize = Math.round(Math.min(fontSize, fontSize*(cw*0.75)/mw));
-        ctx.restore();
-        const lineStep=fontSize*1.02, blockH=lines.length*lineStep;
-        const startY=ch*0.50-blockH/2+fontSize;
-        ctx.save();
-        ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
-        ctx.font=`900 italic ${fontSize}px Impact,'Arial Black',Arial`;
-        lines.forEach((line,i)=>{
-          const y=startY+i*lineStep;
-          ctx.shadowColor=ac1; ctx.shadowBlur=Math.round(fontSize*.30);
-          ctx.lineWidth=Math.round(fontSize*.06); ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.strokeText(line,cw*.5,y);
-          ctx.shadowBlur=0; ctx.fillStyle=colorRgba(ac1,1); ctx.fillText(line,cw*.5,y);
-          ctx.globalAlpha=0.5; ctx.fillStyle='#FFFFFF'; ctx.fillText(line,cw*.5,y);
-          ctx.globalAlpha=1;
-        });
-        ctx.restore();
-      })();
       botBand(0.93);
       accentLine(ch*.70, cw, Math.max(3,ch*.005), ac1, .9);
       if (teamName) {
@@ -2050,7 +2092,6 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac2,1);
       ctx.fillRect(0,ch*.08,cw,ch*.03); ctx.restore();
       ground(ac1, 0.22);
-      drawProminentType(colorRgba(ac1,1), 'rgba(0,0,0,0.95)', false);
       botBand(0.90);
       // Double-line border treatment
       accentLine(ch*.70, cw*.90, Math.max(4,ch*.006), ac1, .85);
@@ -2121,7 +2162,8 @@ const _colors = {
   collegiate: 'maroon (#6D2339) and gold (#F0C040), cream and charcoal accents',
   minimal:    'jet black (#111111) and white, single electric lime (#CCFF00) accent line',
   hype:       'electric purple (#7B2FFF) and neon cyan (#00E5FF), hot pink highlights',
-  retro:      'burnt orange (#CC5500) and cream (#F5F0E8), worn sepia texture'
+  retro:      'burnt orange (#CC5500) and cream (#F5F0E8), worn sepia texture',
+  collage:    'bold saturated primary team color background, white photo borders and white text, high contrast editorial palette'
 };
 const _typo = {
   aggressive: 'ultra-bold condensed typeface (Impact, Bebas Neue, or Anton), ALL CAPS, heavy 4–6px black stroke outline, dramatic 8–12° italic lean forward',
@@ -2129,7 +2171,8 @@ const _typo = {
   collegiate: 'bold slab serif (Rockwell, Clarendon, or similar), 0–2px baseline stroke, mixed-case headline with all-caps subhead',
   minimal:    'ultra-light sans (Helvetica Neue UltraLight or similar), wide +10–20 letter-spacing, no stroke, precise baseline grid alignment',
   hype:       'bold extended display (Industry, Azonix, or similar), gradient fill from primary to secondary color, outer glow effect, electric energy',
-  retro:      'vintage block letter style (Chunk Five, Alfa Slab, or similar), worn edge texture, distressed ink treatment, halftone dot pattern overlay'
+  retro:      'vintage block letter style (Chunk Five, Alfa Slab, or similar), worn edge texture, distressed ink treatment, halftone dot pattern overlay',
+  collage:    'ultra-bold condensed Impact, ALL CAPS, oversized numeral or word as dominant graphic element, editorial sports magazine hierarchy'
 };
 
 const _negatives = 'any letter, word, shape, or graphic element cut off or cropped at any edge, text running off or touching any side of the frame, elements extending beyond the canvas boundary, typography clipped by the image border, content outside the safe zone, colors not in the specified palette, watermarks, stock photography feel, blurry or illegible text, amateur composition, 3D render artifacts, clip art, generic drop shadows, overused gradients, muddy low-contrast combinations, mismatched fonts, stray colors not listed in the palette.';
@@ -2323,7 +2366,7 @@ function buildBackgroundPrompt(raw, sport, style, type, playerCount = 1) {
     ? `COLORS: The primary accent color(s) to use are: ${detectedColors.join(', ')}. Apply these as the accent/highlight colors in the design elements above.`
     : '';
 
-  return `BACKGROUND PLATE for a ${sport.toUpperCase()} sports graphic.
+  return `BACKGROUND PLATE for a ${sport.toUpperCase()} sports graphic. Ultra-high-definition 4K/8K cinematic quality — this must match Nike campaign / ESPN broadcast / Jordan Brand launch production standards.
 
 VISUAL STYLE: ${styleAtmosphere[style] || styleAtmosphere.aggressive}
 ${colorLine}
@@ -2332,9 +2375,10 @@ ABSOLUTE RULES — violating any of these makes the image unusable:
 1. ZERO humans, athletes, faces, body silhouettes, or shadows of people — none, anywhere
 2. ZERO text, letters, words, numbers, or readable characters of any kind
 3. ZERO logos, team marks, shields, crests, or emblems
-4. The bottom 55% of the image must be very dark (near-black) — this area will have athlete photos composited over it and needs to be dark so athletes are visible
+4. The bottom 55% of the image must be very dark (near-black) — this area will have athlete photos composited over it
 5. Graphic design elements (shapes, light effects, color blocks) belong in the top 45%
-6. The overall image must look like a premium Nike or ESPN broadcast background plate
+6. Cinematic studio lighting quality: volumetric light rays, precise directional shadows, photorealistic atmosphere
+7. Output must look like a premium broadcast background plate worth $10,000 in professional design fees
 
 Context: ${sport} ${type.replace(/-/g,' ')} graphic, ${style} style aesthetic.`;
 }
@@ -2544,6 +2588,10 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
           ctx.restore();
         }
 
+        // GCU/ESPN style: massive type text renders as background element
+        // Athletes will composite on top — they appear to "burst through" the words
+        if (designOpts) drawTypeLayer(ctx, canvas, designOpts);
+
         // Draw from back to front so front rows paint over back rows (z-depth)
         for (let ri = rowGroups.length - 1; ri >= 0; ri--) {
           const players  = rowGroups[ri];
@@ -2588,6 +2636,161 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
     bg.crossOrigin = 'anonymous';
     bg.onerror = () => resolve(bgUrl);
     bg.src = bgUrl;
+  });
+}
+
+// ── Collage design — Rutgers-style tile layout on solid color background ─────
+// Photos appear as white-bordered rectangular frames at angles on a bold BG.
+// No background removal needed — originals used directly in framed tiles.
+function generateCollageDesign(originalDataUrls, designOpts) {
+  return new Promise(resolve => {
+    const { w: cw, h: ch } = getDims(designOpts.type);
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+
+    // Background: solid team color, or a bold red default
+    const mentioned = extractColors(designOpts.prompt || '').filter(c => {
+      const lo = c.toLowerCase();
+      return !['white','cream','ivory','beige','silver','grey','gray'].includes(lo);
+    });
+    const bgHex = mentioned[0] || '#B22222';
+
+    // Fill solid BG
+    ctx.fillStyle = bgHex;
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Subtle atmospheric gradient overlay — darkens corners, brightens center
+    const atm = ctx.createRadialGradient(cw * 0.5, ch * 0.4, 0, cw * 0.5, ch * 0.5, cw * 0.85);
+    atm.addColorStop(0, 'rgba(255,255,255,0.10)');
+    atm.addColorStop(0.6, 'rgba(0,0,0,0)');
+    atm.addColorStop(1, 'rgba(0,0,0,0.32)');
+    ctx.fillStyle = atm;
+    ctx.fillRect(0, 0, cw, ch);
+
+    const border = Math.round(cw * 0.018);
+
+    function drawTile(img, x, y, w, h, angleDeg) {
+      ctx.save();
+      ctx.translate(x + w / 2, y + h / 2);
+      ctx.rotate(angleDeg * Math.PI / 180);
+      // Drop shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.55)';
+      ctx.shadowBlur = Math.round(cw * 0.022);
+      ctx.shadowOffsetX = Math.round(cw * 0.007);
+      ctx.shadowOffsetY = Math.round(ch * 0.007);
+      // White frame
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(-w / 2 - border, -h / 2 - border, w + border * 2, h + border * 2);
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+      // Photo
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
+
+    const urls = originalDataUrls.slice();
+    const imgs = Array(urls.length).fill(null);
+    let loaded = 0;
+
+    urls.forEach((url, i) => {
+      const img = new Image();
+      img.onload  = () => { imgs[i] = img; advance(); };
+      img.onerror = () => {               advance(); };
+      img.src = url;
+    });
+
+    function advance() {
+      loaded++;
+      if (loaded < urls.length) return;
+      const valid = imgs.filter(Boolean);
+
+      if (!valid.length) { resolve(canvas.toDataURL('image/jpeg', 0.95)); return; }
+
+      const n = valid.length;
+
+      if (n === 1) {
+        const tw = cw * 0.72, th = Math.min(tw * (valid[0].height / valid[0].width), ch * 0.80);
+        const fw = th * (valid[0].width / valid[0].height);
+        drawTile(valid[0], (cw - fw) / 2, ch * 0.09, fw, th, -1.5);
+
+      } else if (n === 2) {
+        const tw = cw * 0.56, th = Math.min(tw * 1.28, ch * 0.78);
+        drawTile(valid[0], cw * 0.04, ch * 0.07, tw, th, -2.5);
+        const tw2 = cw * 0.40, th2 = Math.min(tw2 * 1.15, ch * 0.55);
+        drawTile(valid[1], cw * 0.53, ch * 0.17, tw2, th2, 2.0);
+
+      } else if (n === 3) {
+        // Rutgers layout: large center-left, tall right, small bottom-left
+        const mainW = cw * 0.58, mainH = Math.min(mainW * 1.30, ch * 0.68);
+        drawTile(valid[0], cw * 0.04, ch * 0.06, mainW, mainH, -2.0);
+        const rW = cw * 0.34, rH = Math.min(rW * 1.50, ch * 0.42);
+        drawTile(valid[1], cw * 0.62, ch * 0.07, rW, rH, 1.8);
+        const blW = cw * 0.34, blH = Math.min(blW * 0.75, ch * 0.28);
+        drawTile(valid[2], cw * 0.05, ch * 0.66, blW, blH, -1.0);
+
+      } else {
+        // 4+ photos: overlapping cascade grid
+        const cols = n <= 4 ? 2 : 3;
+        const tileW = (cw * 0.86) / cols;
+        const tileH = Math.min(tileW * 1.25, ch * 0.42);
+        const rows = Math.ceil(n / cols);
+        const totalH = tileH * rows + ch * 0.04 * (rows - 1);
+        const startY = Math.max(ch * 0.08, (ch - totalH) * 0.45);
+        valid.slice(0, cols * 3).forEach((img, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const tx = cw * 0.07 + col * (tileW + cw * 0.015) + (row % 2 === 1 ? cw * 0.02 : 0);
+          const ty = startY + row * (tileH + ch * 0.035);
+          drawTile(img, tx, ty, tileW, tileH, ((i % 3) - 1) * 1.8);
+        });
+      }
+
+      // Corner type text — bold, right-aligned, lower-right (Rutgers "79" style)
+      const label = (designOpts.type || '').toUpperCase().replace(/-/g, ' ').trim();
+      if (label && label !== 'OTHER') {
+        const words = label.split(/\s+/);
+        const mainWord = words[0];
+        let bigSz = Math.round(ch * 0.20);
+        ctx.save();
+        ctx.font = `900 ${bigSz}px Impact,'Arial Black',Arial`;
+        const maxW = cw * 0.40;
+        const mw = ctx.measureText(mainWord).width;
+        if (mw > maxW) bigSz = Math.round(bigSz * maxW / mw);
+        ctx.restore();
+        ctx.save();
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.font = `900 ${bigSz}px Impact,'Arial Black',Arial`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = 'rgba(0,0,0,0.50)';
+        ctx.shadowBlur = Math.round(bigSz * 0.06);
+        ctx.fillText(mainWord, cw * 0.93, ch * 0.83);
+        if (words.length > 1) {
+          const subText = words.slice(1).join(' ');
+          const subSz = Math.round(ch * 0.036);
+          ctx.font = `700 ${subSz}px Arial,'Arial Black'`;
+          ctx.shadowBlur = 0;
+          ctx.fillText(subText, cw * 0.93, ch * 0.83 + Math.round(subSz * 1.3));
+        }
+        ctx.restore();
+      }
+
+      // Team name at top center
+      if (designOpts.teamName) {
+        const tnSz = Math.round(ch * 0.040);
+        ctx.save();
+        ctx.font = `700 ${tnSz}px 'Arial Black',Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = 'rgba(0,0,0,0.45)';
+        ctx.shadowBlur = Math.round(tnSz * 0.28);
+        ctx.fillText(designOpts.teamName, cw * 0.5, ch * 0.025);
+        ctx.restore();
+      }
+
+      resolve(canvas.toDataURL('image/jpeg', 0.96));
+    }
   });
 }
 
@@ -2705,7 +2908,7 @@ async function generate(raw) {
   S.lastPrompt = raw;
   setGenBtn(true);
   try {
-    if (S.bgRemoving > 0) {
+    if (S.bgRemoving > 0 && S.style !== 'collage') {
       toast('Still processing photos \u2014 wait a moment', 'err');
       S.generating = false; setGenBtn(false); return;
     }
@@ -2746,31 +2949,43 @@ async function generate(raw) {
     let finalUrl, finalEngine;
 
     if (hasOriginals) {
-      // ALL athlete uploads \u2192 composite path: real cutout on AI background + canvas text
-      // Vision path is NEVER used for athletes \u2014 it regenerates fake AI people.
-      // Wait for background removal (up to 25s)
-      if (S.bgRemoving > 0) {
-        setStatus('Processing backgrounds\u2026');
-        await new Promise(resolve => {
-          const check = setInterval(() => { if (S.bgRemoving <= 0) { clearInterval(check); resolve(); } }, 600);
-          setTimeout(() => { clearInterval(check); resolve(); }, 25000);
-        });
-      }
-      const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
       const playerCount = S.athleteOriginals.length;
-      setStatus('Generating background\u2026');
-      const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, playerCount);
-      const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage);
-      setStatus('Compositing ' + playerCount + ' player' + (playerCount > 1 ? 's' : '') + '\u2026');
-      const designOpts = {
-        teamName: extractTeamName(enriched),
-        style:    S.style,
-        type:     S.type,
-        prompt:   enriched,
-        isSinglePlayer: playerCount === 1
-      };
-      finalUrl    = await compositeLayers(bgUrl, playersToComposite, designOpts);
-      finalEngine = 'composite';
+
+      if (S.style === 'collage') {
+        // Rutgers tile style \u2014 framed photos on solid color, no bg removal needed
+        setStatus('Building collage design\u2026');
+        const designOpts = {
+          teamName: extractTeamName(enriched),
+          style: S.style, type: S.type, prompt: enriched,
+          isSinglePlayer: playerCount === 1
+        };
+        finalUrl    = await generateCollageDesign(S.athleteOriginals, designOpts);
+        finalEngine = 'collage';
+      } else {
+        // ALL other styles \u2192 composite path: real cutout on AI background + canvas text
+        // Vision path is NEVER used for athletes \u2014 it regenerates fake AI people.
+        if (S.bgRemoving > 0) {
+          setStatus('Processing backgrounds\u2026');
+          await new Promise(resolve => {
+            const check = setInterval(() => { if (S.bgRemoving <= 0) { clearInterval(check); resolve(); } }, 600);
+            setTimeout(() => { clearInterval(check); resolve(); }, 25000);
+          });
+        }
+        const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
+        setStatus('Generating background\u2026');
+        const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, playerCount);
+        const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage);
+        setStatus('Compositing ' + playerCount + ' player' + (playerCount > 1 ? 's' : '') + '\u2026');
+        const designOpts = {
+          teamName: extractTeamName(enriched),
+          style:    S.style,
+          type:     S.type,
+          prompt:   enriched,
+          isSinglePlayer: playerCount === 1
+        };
+        finalUrl    = await compositeLayers(bgUrl, playersToComposite, designOpts);
+        finalEngine = 'composite';
+      }
     } else if (S.referenceImage) {
       // REFERENCE-ONLY PATH: no athlete photos, just style reference → generate in that style
       setStatus('AI generating from reference style…');
