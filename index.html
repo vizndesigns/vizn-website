@@ -1568,7 +1568,7 @@ function colorRgba(color, alpha) {
   }
 }
 
-function generateCanvasTeamBackground(prompt, style, type) {
+function generateCanvasTeamBackground(prompt, style, type, teamColors = null) {
   const { w: cw, h: ch } = getDims(type);
   const cv = document.createElement('canvas');
   cv.width = cw; cv.height = ch;
@@ -1582,164 +1582,269 @@ function generateCanvasTeamBackground(prompt, style, type) {
     return true;
   });
 
+  // Team colors from lookup table win over prompt text extraction
+  const mc = teamColors || mentioned;
+
+  // Cinematic light ray burst from upper-center — adds premium broadcast energy to any style
+  function drawLightRays(ctx, cw, ch, color, alpha=0.06) {
+    ctx.save(); ctx.globalAlpha = alpha;
+    const ox = cw * 0.5, oy = ch * 0.12;
+    for (let a = -70; a <= 70; a += 7) {
+      const rad = (a - 90) * Math.PI / 180;
+      const grd = ctx.createLinearGradient(ox, oy, ox + Math.cos(rad) * cw * 2, oy + Math.sin(rad) * ch * 2);
+      grd.addColorStop(0, color); grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd;
+      const spread = 0.22;
+      const r1 = (a - spread - 90) * Math.PI / 180;
+      const r2 = (a + spread - 90) * Math.PI / 180;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + Math.cos(r1) * cw * 2.5, oy + Math.sin(r1) * ch * 2.5);
+      ctx.lineTo(ox + Math.cos(r2) * cw * 2.5, oy + Math.sin(r2) * ch * 2.5);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Hexagonal mesh overlay — premium arena screen / LED board aesthetic
+  function drawHexMesh(ctx, cw, ch, color, alpha=0.04) {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, cw * 0.002);
+    const r = cw * 0.055;
+    const row = r * 1.732, col = r * 1.5;
+    for (let qy = -r; qy < ch + r; qy += row) {
+      for (let qx = -r, ri = 0; qx < cw + r; qx += col, ri++) {
+        const cy = qy + (ri % 2 === 0 ? 0 : row / 2);
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const ang = (i * 60 - 30) * Math.PI / 180;
+          i === 0 ? ctx.moveTo(qx + r * Math.cos(ang), cy + r * Math.sin(ang))
+                  : ctx.lineTo(qx + r * Math.cos(ang), cy + r * Math.sin(ang));
+        }
+        ctx.closePath(); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   const draws = {
-    // ── AGGRESSIVE: charcoal base, slashing red diagonal blades, brutal energy ──
+    // ── AGGRESSIVE: charcoal base, slashing diagonal blades, brutal energy ──
     aggressive(ctx, cw, ch, mc) {
       const acc = mc[0] || '#FF2238';
-      // Base: near-black with slight warm center
-      const bg = ctx.createRadialGradient(cw*.5,ch*.4,0,cw*.5,ch*.4,cw);
-      bg.addColorStop(0,'#1a0505'); bg.addColorStop(1,'#080808');
-      ctx.fillStyle=bg; ctx.fillRect(0,0,cw,ch);
-      // 3 slashing diagonal blades
-      ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle=acc;
-      [[.08,.18],[.38,.48],[.68,.78]].forEach(([s,e])=>{
+      const acc2 = mc[1] || '#880010';
+      // Multi-stop radial base — dark warm center with black edges
+      const bg = ctx.createRadialGradient(cw*.5, ch*.38, 0, cw*.5, ch*.38, cw*1.2);
+      bg.addColorStop(0, '#1c0606'); bg.addColorStop(0.45, '#0f0303'); bg.addColorStop(1, '#050101');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, cw, ch);
+      // Angled color wash left side — team primary
+      const sweep = ctx.createLinearGradient(0, 0, cw*.7, ch);
+      sweep.addColorStop(0, colorRgba(acc, 0.22)); sweep.addColorStop(0.5, colorRgba(acc2, 0.08)); sweep.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sweep; ctx.fillRect(0, 0, cw, ch);
+      // 4 slashing diagonal blades
+      ctx.save(); ctx.globalAlpha = 0.18; ctx.fillStyle = acc;
+      [[.04,.16],[.30,.42],[.56,.68],[.80,.92]].forEach(([s,e]) => {
         ctx.beginPath();
-        ctx.moveTo(cw*s,0); ctx.lineTo(cw*e,0);
-        ctx.lineTo(cw*(e-.12),ch); ctx.lineTo(cw*(s-.12),ch);
+        ctx.moveTo(cw*s, 0); ctx.lineTo(cw*e, 0);
+        ctx.lineTo(cw*(e-.14), ch); ctx.lineTo(cw*(s-.14), ch);
         ctx.fill();
-      });
-      ctx.restore();
-      // Large diagonal X shape
-      ctx.save(); ctx.globalAlpha=0.10; ctx.strokeStyle=acc; ctx.lineWidth=cw*.18;
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(cw,ch); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cw,0); ctx.lineTo(0,ch); ctx.stroke();
-      ctx.restore();
-      // Hot center glow
-      const g=ctx.createRadialGradient(cw*.5,ch*.5,0,cw*.5,ch*.5,cw*.7);
-      g.addColorStop(0,colorRgba(acc,.18)); g.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=g; ctx.fillRect(0,0,cw,ch);
+      }); ctx.restore();
+      // Bold X crossing
+      ctx.save(); ctx.globalAlpha = 0.07; ctx.strokeStyle = acc; ctx.lineWidth = cw * .22;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(cw, ch); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cw, 0); ctx.lineTo(0, ch); ctx.stroke(); ctx.restore();
+      drawLightRays(ctx, cw, ch, acc, 0.09);
+      // Hot core glow
+      const g = ctx.createRadialGradient(cw*.5, ch*.42, 0, cw*.5, ch*.42, cw*.65);
+      g.addColorStop(0, colorRgba(acc, 0.28)); g.addColorStop(0.5, colorRgba(acc, 0.06)); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch);
+      // Bright accent edges
+      ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = acc;
+      ctx.fillRect(0, 0, Math.max(4, cw*.005), ch);
+      ctx.fillRect(cw - Math.max(2, cw*.003), 0, Math.max(2, cw*.003), ch); ctx.restore();
     },
 
-    // ── MODERN: pitch-black, clean geometric grid, razor lime lines ──
+    // ── MODERN: pitch-black, geometric grid, precision lines, tech energy ──
     modern(ctx, cw, ch, mc) {
       const acc = mc[0] || '#CCFF00';
-      ctx.fillStyle='#04040c'; ctx.fillRect(0,0,cw,ch);
-      // Subtle grid
-      ctx.save(); ctx.globalAlpha=.035; ctx.strokeStyle=acc; ctx.lineWidth=1;
-      for(let y=0;y<ch;y+=ch*.06){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cw,y);ctx.stroke();}
-      for(let x=0;x<cw;x+=cw*.12){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ch);ctx.stroke();}
-      ctx.restore();
+      const acc2 = mc[1] || '#00FF88';
+      ctx.fillStyle = '#04040c'; ctx.fillRect(0, 0, cw, ch);
+      // Diagonal gradient wash
+      const diag = ctx.createLinearGradient(0, 0, cw, ch);
+      diag.addColorStop(0, colorRgba(acc, 0.06)); diag.addColorStop(0.5, 'rgba(0,0,0,0)'); diag.addColorStop(1, colorRgba(acc2, 0.04));
+      ctx.fillStyle = diag; ctx.fillRect(0, 0, cw, ch);
+      drawHexMesh(ctx, cw, ch, acc, 0.05);
       // Bold solid rectangle right-side block
-      ctx.save(); ctx.globalAlpha=.09; ctx.fillStyle=acc;
-      ctx.fillRect(cw*.55,0,cw*.45,ch*.5); ctx.restore();
-      // Thin bright lines
-      ctx.save(); ctx.globalAlpha=.8; ctx.fillStyle=acc;
-      ctx.fillRect(0,ch*.36,cw,Math.max(2,ch*.003));
-      ctx.fillRect(cw*.55,0,Math.max(2,cw*.003),ch*.36);
-      ctx.restore();
-      // Lime corner mark
-      ctx.save(); ctx.globalAlpha=.6; ctx.fillStyle=acc;
-      ctx.fillRect(cw*.55,ch*.36,cw*.08,Math.max(4,ch*.005));
-      ctx.restore();
+      ctx.save(); ctx.globalAlpha = .08; ctx.fillStyle = acc;
+      ctx.fillRect(cw*.54, 0, cw*.46, ch*.52); ctx.restore();
+      // Precision lines
+      ctx.save(); ctx.globalAlpha = .85; ctx.fillStyle = acc;
+      ctx.fillRect(0, ch*.36, cw, Math.max(2, ch*.0025));
+      ctx.fillRect(cw*.54, 0, Math.max(2, cw*.0025), ch*.36); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .35; ctx.fillStyle = acc;
+      ctx.fillRect(0, ch*.362+Math.max(3,ch*.004), cw*.54, Math.max(1, ch*.0012)); ctx.restore();
+      drawLightRays(ctx, cw, ch, acc, 0.05);
+      // Corner dot
+      ctx.save(); ctx.globalAlpha = .9; ctx.fillStyle = acc;
+      ctx.beginPath(); ctx.arc(cw*.54, ch*.36, Math.max(3, cw*.007), 0, Math.PI*2); ctx.fill(); ctx.restore();
     },
 
-    // ── COLLEGIATE: deep navy, horizontal bands, gold/white academic authority ──
+    // ── COLLEGIATE: deep navy, horizontal authority bands, gold academic power ──
     collegiate(ctx, cw, ch, mc) {
       const acc = mc[0] || '#CFB53B';
-      const bg=ctx.createLinearGradient(0,0,0,ch);
-      bg.addColorStop(0,'#060d1a'); bg.addColorStop(.6,'#0a1428'); bg.addColorStop(1,'#040810');
-      ctx.fillStyle=bg; ctx.fillRect(0,0,cw,ch);
-      // Horizontal color band at ~25%
-      ctx.save(); ctx.globalAlpha=.18; ctx.fillStyle=acc;
-      ctx.fillRect(0,ch*.22,cw,ch*.06); ctx.restore();
-      // Second thinner band
-      ctx.save(); ctx.globalAlpha=.10; ctx.fillStyle=acc;
-      ctx.fillRect(0,ch*.30,cw,ch*.02); ctx.restore();
-      // Left edge accent bar
-      ctx.save(); ctx.globalAlpha=.65; ctx.fillStyle=acc;
-      ctx.fillRect(0,0,Math.max(6,cw*.008),ch); ctx.restore();
-      // Right edge bar (thinner)
-      ctx.save(); ctx.globalAlpha=.4; ctx.fillStyle=acc;
-      ctx.fillRect(cw-Math.max(3,cw*.004),0,Math.max(3,cw*.004),ch); ctx.restore();
-      // Subtle center texture — vertical light stripe
-      const vg=ctx.createLinearGradient(cw*.35,0,cw*.65,0);
-      vg.addColorStop(0,'rgba(255,255,255,0)'); vg.addColorStop(.5,colorRgba(acc,.06)); vg.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle=vg; ctx.fillRect(cw*.35,0,cw*.3,ch);
+      const acc2 = mc[1] || '#FFFFFF';
+      // Multi-stop dark navy base
+      const bg = ctx.createLinearGradient(0, 0, 0, ch);
+      bg.addColorStop(0, '#050b18'); bg.addColorStop(0.4, '#091222'); bg.addColorStop(0.75, '#060e1a'); bg.addColorStop(1, '#020608');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, cw, ch);
+      // Diagonal sweep — give it spatial depth
+      const sweep = ctx.createLinearGradient(0, 0, cw, ch);
+      sweep.addColorStop(0, colorRgba(acc, 0.10)); sweep.addColorStop(0.6, 'rgba(0,0,0,0)'); sweep.addColorStop(1, colorRgba(acc, 0.04));
+      ctx.fillStyle = sweep; ctx.fillRect(0, 0, cw, ch);
+      drawLightRays(ctx, cw, ch, acc, 0.07);
+      // Primary wide band
+      ctx.save(); ctx.globalAlpha = .22; ctx.fillStyle = acc;
+      ctx.fillRect(0, ch*.21, cw, ch*.065); ctx.restore();
+      // Secondary thinner band
+      ctx.save(); ctx.globalAlpha = .12; ctx.fillStyle = acc;
+      ctx.fillRect(0, ch*.29, cw, ch*.022); ctx.restore();
+      // White accent band below
+      ctx.save(); ctx.globalAlpha = .06; ctx.fillStyle = acc2;
+      ctx.fillRect(0, ch*.31, cw, ch*.010); ctx.restore();
+      // Bold left bar
+      ctx.save(); ctx.globalAlpha = .80; ctx.fillStyle = acc;
+      ctx.fillRect(0, 0, Math.max(7, cw*.009), ch); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .35; ctx.fillStyle = acc2;
+      ctx.fillRect(Math.max(7, cw*.009), 0, Math.max(2, cw*.003), ch); ctx.restore();
+      // Right bar
+      ctx.save(); ctx.globalAlpha = .45; ctx.fillStyle = acc;
+      ctx.fillRect(cw - Math.max(4, cw*.005), 0, Math.max(4, cw*.005), ch); ctx.restore();
+      // Center vertical light column
+      const vg = ctx.createLinearGradient(cw*.3, 0, cw*.7, 0);
+      vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(0.5, colorRgba(acc, 0.07)); vg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = vg; ctx.fillRect(cw*.3, 0, cw*.4, ch);
     },
 
-    // ── MINIMAL: pure black, one single accent bar, negative space is the design ──
+    // ── MINIMAL: pure black, surgical precision lines, one powerful accent mark ──
     minimal(ctx, cw, ch, mc) {
-      const acc = mc[0] || '#CCFF00';
-      ctx.fillStyle='#050505'; ctx.fillRect(0,0,cw,ch);
-      // Single vertical accent stripe
-      ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle=acc;
-      ctx.fillRect(cw*.48,0,Math.max(3,cw*.004),ch*.4); ctx.restore();
-      // Top horizontal rule
-      ctx.save(); ctx.globalAlpha=.45; ctx.fillStyle=acc;
-      ctx.fillRect(cw*.12,ch*.08,cw*.76,Math.max(1,ch*.002)); ctx.restore();
-      // Bottom horizontal rule
-      ctx.save(); ctx.globalAlpha=.45; ctx.fillStyle=acc;
-      ctx.fillRect(cw*.12,ch*.92,cw*.76,Math.max(1,ch*.002)); ctx.restore();
+      const acc = mc[0] || '#FFFFFF';
+      const acc2 = mc[1] || '#888888';
+      ctx.fillStyle = '#030303'; ctx.fillRect(0, 0, cw, ch);
+      // Barely-there radial depth
+      const bg = ctx.createRadialGradient(cw*.5, ch*.4, 0, cw*.5, ch*.4, cw*.9);
+      bg.addColorStop(0, colorRgba(acc, 0.04)); bg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, cw, ch);
+      // Vertical center mark
+      ctx.save(); ctx.globalAlpha = .6; ctx.fillStyle = acc;
+      ctx.fillRect(cw*.485, ch*.08, Math.max(3, cw*.004), ch*.32); ctx.restore();
+      // Horizontal rule top
+      ctx.save(); ctx.globalAlpha = .5; ctx.fillStyle = acc;
+      ctx.fillRect(cw*.10, ch*.08, cw*.80, Math.max(1, ch*.0018)); ctx.restore();
+      // Horizontal rule bottom
+      ctx.save(); ctx.globalAlpha = .5; ctx.fillStyle = acc;
+      ctx.fillRect(cw*.10, ch*.92, cw*.80, Math.max(1, ch*.0018)); ctx.restore();
+      // Left accent bar
+      ctx.save(); ctx.globalAlpha = .7; ctx.fillStyle = acc;
+      ctx.fillRect(cw*.10, ch*.08, Math.max(2, cw*.003), ch*.84); ctx.restore();
+      // Secondary color dot
+      ctx.save(); ctx.globalAlpha = .6; ctx.fillStyle = acc2;
+      ctx.beginPath(); ctx.arc(cw*.485, ch*.08, Math.max(4, cw*.009), 0, Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .6; ctx.fillStyle = acc2;
+      ctx.beginPath(); ctx.arc(cw*.485, ch*.08 + ch*.32, Math.max(4, cw*.009), 0, Math.PI*2); ctx.fill(); ctx.restore();
     },
 
-    // ── HYPE: deep purple-black, radiating neon energy beams, electric pulse ──
+    // ── HYPE: deep purple-black, electric neon energy burst, broadcast hype ──
     hype(ctx, cw, ch, mc) {
       const acc  = mc[0] || '#CC00FF';
       const acc2 = mc[1] || '#00CCFF';
-      const bg=ctx.createRadialGradient(cw*.5,ch*.5,0,cw*.5,ch*.5,cw);
-      bg.addColorStop(0,'#0d0020'); bg.addColorStop(1,'#040008');
-      ctx.fillStyle=bg; ctx.fillRect(0,0,cw,ch);
-      // Radiating energy beams from center
-      ctx.save(); ctx.globalAlpha=.12;
-      for(let a=0;a<360;a+=22){
-        const rad=a*Math.PI/180;
-        const grd=ctx.createLinearGradient(cw*.5,ch*.5,cw*.5+Math.cos(rad)*cw,ch*.5+Math.sin(rad)*cw);
-        grd.addColorStop(0,a%2===0?acc:acc2); grd.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=grd;
-        ctx.beginPath(); ctx.moveTo(cw*.5,ch*.5);
-        ctx.arc(cw*.5,ch*.5,cw,rad-0.2,rad+0.2); ctx.fill();
+      // Deep cosmic base
+      const bg = ctx.createRadialGradient(cw*.5, ch*.45, 0, cw*.5, ch*.45, cw*1.1);
+      bg.addColorStop(0, '#14003a'); bg.addColorStop(0.5, '#08001c'); bg.addColorStop(1, '#020008');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, cw, ch);
+      // Radiating energy beams
+      ctx.save(); ctx.globalAlpha = .10;
+      for (let a = 0; a < 360; a += 18) {
+        const rad = a * Math.PI / 180;
+        const grd = ctx.createLinearGradient(cw*.5, ch*.45, cw*.5 + Math.cos(rad)*cw, ch*.45 + Math.sin(rad)*cw);
+        grd.addColorStop(0, a % 2 === 0 ? acc : acc2); grd.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.moveTo(cw*.5, ch*.45);
+        ctx.arc(cw*.5, ch*.45, cw, rad - 0.18, rad + 0.18); ctx.fill();
       }
       ctx.restore();
-      // Center neon glow
-      const g1=ctx.createRadialGradient(cw*.5,ch*.5,0,cw*.5,ch*.5,cw*.5);
-      g1.addColorStop(0,colorRgba(acc,.25)); g1.addColorStop(.5,colorRgba(acc2,.08)); g1.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=g1; ctx.fillRect(0,0,cw,ch);
-      // Diagonal neon slashes
-      ctx.save(); ctx.globalAlpha=.3; ctx.strokeStyle=acc; ctx.lineWidth=Math.max(2,cw*.006);
-      ctx.beginPath(); ctx.moveTo(0,ch*.2); ctx.lineTo(cw*.8,ch*.0); ctx.stroke();
-      ctx.strokeStyle=acc2;
-      ctx.beginPath(); ctx.moveTo(cw,ch*.8); ctx.lineTo(cw*.2,ch); ctx.stroke();
+      // Dual glow rings
+      const g1 = ctx.createRadialGradient(cw*.5, ch*.45, 0, cw*.5, ch*.45, cw*.55);
+      g1.addColorStop(0, colorRgba(acc, 0.35)); g1.addColorStop(0.4, colorRgba(acc, 0.10)); g1.addColorStop(0.75, colorRgba(acc2, 0.06)); g1.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g1; ctx.fillRect(0, 0, cw, ch);
+      drawHexMesh(ctx, cw, ch, acc, 0.06);
+      // Bold diagonal neon slashes
+      ctx.save(); ctx.globalAlpha = .35; ctx.strokeStyle = acc; ctx.lineWidth = Math.max(3, cw*.008);
+      ctx.shadowColor = acc; ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.moveTo(0, ch*.18); ctx.lineTo(cw*.82, 0); ctx.stroke();
+      ctx.strokeStyle = acc2;
+      ctx.beginPath(); ctx.moveTo(cw, ch*.82); ctx.lineTo(cw*.18, ch); ctx.stroke();
       ctx.restore();
+      // Electric floor glow
+      const fg = ctx.createLinearGradient(0, ch*.8, 0, ch);
+      fg.addColorStop(0, 'rgba(0,0,0,0)'); fg.addColorStop(1, colorRgba(acc2, 0.25));
+      ctx.fillStyle = fg; ctx.fillRect(0, 0, cw, ch);
     },
 
-    // ── RETRO: warm dark amber, halftone dots, vintage color blocks ──
+    // ── RETRO: warm amber-dark, halftone dots, vintage color block, film grain ──
     retro(ctx, cw, ch, mc) {
-      const acc = mc[0] || '#FF8800';
-      const bg=ctx.createLinearGradient(0,0,0,ch);
-      bg.addColorStop(0,'#180a00'); bg.addColorStop(1,'#0c0600');
-      ctx.fillStyle=bg; ctx.fillRect(0,0,cw,ch);
+      const acc  = mc[0] || '#FF8800';
+      const acc2 = mc[1] || '#FFD060';
+      // Warm dark base
+      const bg = ctx.createLinearGradient(0, 0, 0, ch);
+      bg.addColorStop(0, '#1c0d00'); bg.addColorStop(0.5, '#110700'); bg.addColorStop(1, '#080300');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, cw, ch);
+      // Diagonal warm sweep
+      const sweep = ctx.createLinearGradient(0, 0, cw*.7, ch*.5);
+      sweep.addColorStop(0, colorRgba(acc, 0.15)); sweep.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sweep; ctx.fillRect(0, 0, cw, ch);
       // Halftone dot grid
-      ctx.save(); ctx.globalAlpha=.07; ctx.fillStyle=acc;
-      for(let y=0;y<ch;y+=ch*.04) for(let x=0;x<cw;x+=cw*.055){
-        ctx.beginPath(); ctx.arc(x,y,cw*.012,0,Math.PI*2); ctx.fill();
-      }
-      ctx.restore();
-      // Vintage color block top-left
-      ctx.save(); ctx.globalAlpha=.22; ctx.fillStyle=acc;
-      ctx.fillRect(0,0,cw*.45,ch*.3); ctx.restore();
-      // Thick horizontal border lines
-      ctx.save(); ctx.globalAlpha=.5; ctx.fillStyle=acc;
-      ctx.fillRect(0,ch*.3,cw,Math.max(4,ch*.006));
-      ctx.fillRect(0,ch*.32,cw,Math.max(2,ch*.003));
-      ctx.restore();
-      // Warm inner glow
-      const g=ctx.createRadialGradient(cw*.5,ch*.5,0,cw*.5,ch*.5,cw*.8);
-      g.addColorStop(0,colorRgba(acc,.12)); g.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=g; ctx.fillRect(0,0,cw,ch);
+      ctx.save(); ctx.globalAlpha = .06; ctx.fillStyle = acc;
+      for (let y = 0; y < ch; y += ch*.038) {
+        for (let x = 0; x < cw; x += cw*.048) {
+          ctx.beginPath(); ctx.arc(x, y, cw*.009, 0, Math.PI*2); ctx.fill();
+        }
+      } ctx.restore();
+      // Vintage color block — bold top-left panel
+      ctx.save(); ctx.globalAlpha = .25; ctx.fillStyle = acc;
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(cw*.52, 0); ctx.lineTo(cw*.38, ch*.35); ctx.lineTo(0, ch*.35);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+      // Double horizontal band
+      ctx.save(); ctx.globalAlpha = .55; ctx.fillStyle = acc;
+      ctx.fillRect(0, ch*.33, cw, Math.max(5, ch*.007));
+      ctx.fillRect(0, ch*.34, cw, Math.max(2, ch*.003)); ctx.restore();
+      ctx.save(); ctx.globalAlpha = .30; ctx.fillStyle = acc2;
+      ctx.fillRect(0, ch*.33 - Math.max(2, ch*.003), cw, Math.max(2, ch*.003)); ctx.restore();
+      // Warm center glow
+      const g = ctx.createRadialGradient(cw*.5, ch*.5, 0, cw*.5, ch*.5, cw*.9);
+      g.addColorStop(0, colorRgba(acc, 0.16)); g.addColorStop(0.6, colorRgba(acc, 0.04)); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch);
+      drawLightRays(ctx, cw, ch, acc, 0.05);
     }
   };
 
-  (draws[style] || draws.modern)(ctx, cw, ch, mentioned);
+  (draws[style] || draws.modern)(ctx, cw, ch, mc);
 
-  // Universal: deep ground shadow + top vignette (every style needs these for player compositing)
-  const shadow=ctx.createLinearGradient(0,ch*.55,0,ch);
-  shadow.addColorStop(0,'rgba(0,0,0,0)'); shadow.addColorStop(1,'rgba(0,0,0,0.90)');
-  ctx.fillStyle=shadow; ctx.fillRect(0,0,cw,ch);
-  const topV=ctx.createLinearGradient(0,0,0,ch*.28);
-  topV.addColorStop(0,'rgba(0,0,0,0.65)'); topV.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle=topV; ctx.fillRect(0,0,cw,ch);
+  // Cinematic vignette edges — essential for pro look
+  const edgeV = ctx.createRadialGradient(cw*.5, ch*.5, cw*.25, cw*.5, ch*.5, cw*.9);
+  edgeV.addColorStop(0, 'rgba(0,0,0,0)'); edgeV.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = edgeV; ctx.fillRect(0, 0, cw, ch);
 
-  return cv.toDataURL('image/jpeg', 0.92);
+  // Deep ground shadow — players need to stand "in" the scene, not float on top
+  const shadow = ctx.createLinearGradient(0, ch*.5, 0, ch);
+  shadow.addColorStop(0, 'rgba(0,0,0,0)'); shadow.addColorStop(0.6, 'rgba(0,0,0,0.55)'); shadow.addColorStop(1, 'rgba(0,0,0,0.95)');
+  ctx.fillStyle = shadow; ctx.fillRect(0, 0, cw, ch);
+
+  // Top vignette — darkens the sky, focuses on players
+  const topV = ctx.createLinearGradient(0, 0, 0, ch*.32);
+  topV.addColorStop(0, 'rgba(0,0,0,0.70)'); topV.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = topV; ctx.fillRect(0, 0, cw, ch);
+
+  return cv.toDataURL('image/jpeg', 0.95);
 }
 
 // ── Extract team name from prompt ────────────────────────────────────────
@@ -2173,8 +2278,8 @@ function drawSportsOverlay(ctx, canvas, opts) {
   (styles[style] || styles.aggressive)();
 }
 
-// ── Fast team background — Gemini (30s) → canvas fallback ───────────────
-async function callTeamBackground(prompt, type, referenceImage = null) {
+// ── Fast team background — FLUX → GPT-image-1 → Gemini → canvas fallback ──
+async function callTeamBackground(prompt, type, referenceImage = null, teamColors = null) {
   const { w, h } = getDims(type);
   try {
     const res  = await fetch('/api/generate', {
@@ -2190,8 +2295,8 @@ async function callTeamBackground(prompt, type, referenceImage = null) {
   } catch(e) {
     console.warn('team-bg API failed, using canvas:', e.message);
   }
-  // Instant canvas fallback — never fails
-  return generateCanvasTeamBackground(prompt, S.style, type);
+  // Instant canvas fallback — uses team colors lookup so Alabama gets crimson, not lime green
+  return generateCanvasTeamBackground(prompt, S.style, type, teamColors);
 }
 
 // ── API key ───────────────────────────────────────────
@@ -3029,9 +3134,9 @@ async function generate(raw) {
         const playersToComposite = S.athleteCutouts.length > 0 ? S.athleteCutouts : S.athleteOriginals;
         setStatus('Generating background\u2026');
         const bgPrompt = buildBackgroundPrompt(enriched, S.sport, S.style, S.type, playerCount);
-        const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage);
-        setStatus('Compositing ' + playerCount + ' player' + (playerCount > 1 ? 's' : '') + '\u2026');
         const resolvedTeamColors = getTeamAccentColors(raw) || getTeamAccentColors(enriched);
+        const bgUrl = await callTeamBackground(bgPrompt, S.type, S.referenceImage, resolvedTeamColors);
+        setStatus('Compositing ' + playerCount + ' player' + (playerCount > 1 ? 's' : '') + '\u2026');
         const designOpts = {
           teamName:   extractTeamName(raw) || extractTeamName(enriched),
           teamColors: resolvedTeamColors,

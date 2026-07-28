@@ -172,19 +172,70 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'processing', jobId, soraStatus: pollData.status });
     }
 
-    // ── Fast team background — Gemini only, 30s timeout, no retries ─────
-    // Used by team composite path so it never hits gpt-image-1 (too slow)
+    // ── Fast team background — FLUX → GPT-image-1 → Gemini → canvas ────
+    // FLUX 1.1 Pro is primary: fastest + best atmospheric quality for sports BGs.
+    // GPT-image-1 / Gemini as fallbacks. Canvas as last resort.
     if (action === 'team-bg' && prompt) {
       const bgWidth  = req.body.width  || 1024;
       const bgHeight = req.body.height || 1280;
       const bgSize   = bgHeight > bgWidth ? '1024x1536' : bgWidth > bgHeight ? '1536x1024' : '1024x1024';
       const refImage = req.body.referenceImage || null;
 
-      // Build reference-aware prompt prefix
       const refPrefix = refImage ? 'Match the color palette, lighting style, and visual atmosphere of the reference image provided. Generate a NEW background — do not copy the reference exactly. ' : '';
       const fullBgPrompt = refPrefix + prompt;
 
-      // ── Primary: GPT-image-1 — highest quality backgrounds ──────────
+      // ── Primary: FLUX 1.1 Pro — fastest + cinematic atmospheric quality ─
+      if (REPLICATE_KEY) {
+        try {
+          const fluxCtrl  = new AbortController();
+          const fluxTimer = setTimeout(() => fluxCtrl.abort(), 55000);
+
+          const fluxW = Math.min(parseInt(bgWidth)  || 1024, 1440);
+          const fluxH = Math.min(parseInt(bgHeight) || 1280, 1440);
+
+          const fluxRes = await fetch(
+            'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
+            {
+              method:  'POST',
+              headers: {
+                'Authorization': `Bearer ${REPLICATE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'wait=50'
+              },
+              signal: fluxCtrl.signal,
+              body: JSON.stringify({
+                input: {
+                  prompt:           fullBgPrompt,
+                  width:            fluxW,
+                  height:           fluxH,
+                  output_format:    'jpeg',
+                  output_quality:   95,
+                  safety_tolerance: 6,
+                  prompt_upsampling: true
+                }
+              })
+            }
+          );
+          clearTimeout(fluxTimer);
+
+          if (fluxRes.ok) {
+            const fluxData = await fluxRes.json();
+            const imgUrl   = typeof fluxData.output === 'string' ? fluxData.output
+                           : Array.isArray(fluxData.output)      ? fluxData.output[0]
+                           : null;
+            if (imgUrl && imgUrl.startsWith('http')) {
+              const imgBuf = await (await fetch(imgUrl)).arrayBuffer();
+              const b64    = 'data:image/jpeg;base64,' + Buffer.from(imgBuf).toString('base64');
+              return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-bg' });
+            }
+          } else {
+            const fe = await fluxRes.json().catch(() => ({}));
+            console.warn('FLUX team-bg failed:', fe.detail || fluxRes.status);
+          }
+        } catch(e) { console.warn('FLUX team-bg error:', e.message); }
+      }
+
+      // ── Secondary: GPT-image-1 ───────────────────────────────────────
       if (OPENAI_KEY) {
         try {
           const bgCtrl  = new AbortController();
@@ -316,7 +367,7 @@ export default async function handler(req, res) {
           const timer = setTimeout(() => controller.abort(), 50000);
 
           const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${GOOGLE_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
             {
               method:  'POST',
               headers: { 'Content-Type': 'application/json' },
