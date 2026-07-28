@@ -1811,57 +1811,52 @@ function drawSportsOverlay(ctx, canvas, opts) {
   const isSingle = opts.isSinglePlayer === true;
 
   // ── Prominent type headline (GAME DAY / COMMITTED / etc.) ────────────
-  // Draws LARGE centered text in the mid-section of the canvas — this is the
-  // dominant design element in professional sports graphics. Sits on top of
-  // the player, player head visible above, feet below.
-  function drawProminentType(color='#FFFFFF', strokeColor='rgba(0,0,0,0.92)', italic=true) {
+  // Draws large Impact text over the player's torso — the dominant design
+  // element in professional sports graphics. Auto-sizes to fill canvas width.
+  function drawProminentType(color, strokeColor, italic) {
     if (!subLabel || subLabel.trim() === 'OTHER') return;
-    const typeWords = subLabel.trim().split(/\s+/);
-    // Max 2 lines; try to split evenly
-    let lines;
-    if (typeWords.length === 1) lines = [typeWords[0]];
-    else if (typeWords.length === 2) lines = typeWords;
-    else {
-      const mid = Math.ceil(typeWords.length / 2);
-      lines = [typeWords.slice(0, mid).join(' '), typeWords.slice(mid).join(' ')];
-    }
+    color = color || '#FFFFFF';
+    strokeColor = strokeColor || 'rgba(0,0,0,0.92)';
+    italic = italic !== false;
 
-    const maxLineH = ch * 0.24;
-    // Auto-size: scale font so widest line fills 90% of canvas width
-    const longestLine = lines.reduce((a, b) => a.length > b.length ? a : b, '');
-    let fontSize = Math.round(maxLineH * 0.88);
+    const words = subLabel.trim().split(/\s+/);
+    let lines;
+    if (words.length === 1) lines = [words[0]];
+    else if (words.length === 2) lines = [words[0], words[1]];
+    else { const m = Math.ceil(words.length/2); lines = [words.slice(0,m).join(' '), words.slice(m).join(' ')]; }
+
+    const longest = lines.reduce((a,b) => a.length>b.length?a:b,'');
+    // Start at a large size, then scale down to fit canvas width
+    let fontSize = Math.round(ch * 0.22);
+    const fontStr = (sz) => `900 ${italic?'italic ':''}${sz}px Impact,'Arial Black',Arial`;
     ctx.save();
-    ctx.font = `900 ${italic ? 'italic ' : ''}${fontSize}px Impact, 'Arial Black', Arial`;
-    const measured = ctx.measureText(longestLine).width;
-    const fitScale = Math.min(1.0, (cw * 0.90) / measured);
-    fontSize = Math.round(fontSize * fitScale);
+    ctx.font = fontStr(fontSize);
+    const measured = ctx.measureText(longest).width;
+    if (measured > cw * 0.90) fontSize = Math.round(fontSize * (cw * 0.90) / measured);
     ctx.restore();
 
-    const lineStep = fontSize * 1.05;
-    // Center the block in the 32%-72% zone (where the player torso is)
-    const blockH = lines.length * lineStep;
-    const zoneTop = ch * 0.32, zoneH = ch * 0.40;
-    const startY = zoneTop + (zoneH - blockH) / 2 + fontSize;
+    const lineStep = fontSize * 1.02;
+    const blockH   = lines.length * lineStep;
+    // Position: center of canvas vertically, pulled up slightly so head shows above
+    const centerY = ch * 0.50;
+    const startY  = centerY - blockH / 2 + fontSize;
 
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
     ctx.lineJoin = 'round';
-    ctx.font = `900 ${italic ? 'italic ' : ''}${fontSize}px Impact, 'Arial Black', Arial`;
+    ctx.font = fontStr(fontSize);
 
     lines.forEach((line, i) => {
       const y = startY + i * lineStep;
-      // Drop shadow
-      ctx.shadowColor = 'rgba(0,0,0,0.85)';
-      ctx.shadowBlur = Math.round(fontSize * 0.10);
-      ctx.shadowOffsetY = Math.round(fontSize * 0.04);
-      // Stroke
-      ctx.lineWidth = Math.round(fontSize * 0.055);
+      ctx.shadowColor = 'rgba(0,0,0,0.90)';
+      ctx.shadowBlur  = Math.round(fontSize * 0.12);
+      ctx.shadowOffsetY = Math.round(fontSize * 0.05);
+      ctx.lineWidth   = Math.round(fontSize * 0.060);
       ctx.strokeStyle = strokeColor;
       ctx.strokeText(line, cw * 0.5, y);
-      // Fill
       ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-      ctx.fillStyle = color;
+      ctx.fillStyle  = color;
       ctx.fillText(line, cw * 0.5, y);
     });
     ctx.restore();
@@ -1994,29 +1989,29 @@ function drawSportsOverlay(ctx, canvas, opts) {
       ctx.beginPath(); ctx.moveTo(cw,0); ctx.lineTo(cw*.55,0); ctx.lineTo(cw*.68,ch*.07); ctx.lineTo(cw,ch*.07); ctx.fill();
       ctx.restore();
       ground(ac1, 0.32);
-      // Hype headline: neon glow effect
+      // Hype headline: neon glow treatment
       (() => {
         if (!subLabel || subLabel.trim() === 'OTHER') return;
-        const typeWords = subLabel.trim().split(/\s+/);
-        let lines = typeWords.length <= 2 ? typeWords : [typeWords.slice(0,Math.ceil(typeWords.length/2)).join(' '), typeWords.slice(Math.ceil(typeWords.length/2)).join(' ')];
-        const longestLine = lines.reduce((a,b) => a.length>b.length?a:b,'');
+        const words = subLabel.trim().split(/\s+/);
+        let lines = words.length<=2 ? words : [words.slice(0,Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')];
+        const longest = lines.reduce((a,b)=>a.length>b.length?a:b,'');
         let fontSize = Math.round(ch*0.22);
         ctx.save(); ctx.font=`900 italic ${fontSize}px Impact,'Arial Black',Arial`;
-        const mw = ctx.measureText(longestLine).width;
-        fontSize = Math.round(fontSize * Math.min(1,(cw*0.90)/mw));
+        const mw = ctx.measureText(longest).width;
+        if (mw > cw*0.90) fontSize = Math.round(fontSize*(cw*0.90)/mw);
         ctx.restore();
-        const lineStep=fontSize*1.05;
-        const blockH=lines.length*lineStep;
-        const startY=ch*0.32+(ch*0.40-blockH)/2+fontSize;
+        const lineStep=fontSize*1.02, blockH=lines.length*lineStep;
+        const startY=ch*0.50-blockH/2+fontSize;
         ctx.save();
         ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
         ctx.font=`900 italic ${fontSize}px Impact,'Arial Black',Arial`;
         lines.forEach((line,i)=>{
           const y=startY+i*lineStep;
-          ctx.shadowColor=ac1; ctx.shadowBlur=Math.round(fontSize*.25);
-          ctx.lineWidth=Math.round(fontSize*.055); ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.strokeText(line,cw*.5,y);
+          ctx.shadowColor=ac1; ctx.shadowBlur=Math.round(fontSize*.30);
+          ctx.lineWidth=Math.round(fontSize*.06); ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.strokeText(line,cw*.5,y);
           ctx.shadowBlur=0; ctx.fillStyle=colorRgba(ac1,1); ctx.fillText(line,cw*.5,y);
-          ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.fillText(line,cw*.5,y);
+          ctx.globalAlpha=0.5; ctx.fillStyle='#FFFFFF'; ctx.fillText(line,cw*.5,y);
+          ctx.globalAlpha=1;
         });
         ctx.restore();
       })();
@@ -2306,48 +2301,39 @@ DO NOT INCLUDE: ${_negatives}`;
 
 // Background-only prompt — used when photo is uploaded for composite (fallback path)
 function buildBackgroundPrompt(raw, sport, style, type, playerCount = 1) {
-  const isTeam = playerCount > 1;
-  // For team composites, the entire lower 70% is reserved for real player cutouts — keep it clear
-  const teamClearZone = `CLEAR ZONE: bottom 70% of frame is COMPLETELY EMPTY — this area is reserved for ${playerCount} real athlete cutouts that will be composited on top. Only design elements in the top 30%: team name, graphic headline, logo, and accent shapes. Keep the background atmospheric and dark at the bottom to make cutouts pop.`;
-  const clearZones = {
-    'commitment':      isTeam ? teamClearZone : 'CLEAR ZONE: center 60% of frame — empty. Text and logo elements float in top 30%, accent elements at bottom.',
-    'game-day':        isTeam ? teamClearZone : 'CLEAR ZONE: center 50% — empty. GAME DAY headline and team info at top 30%, game details at bottom 20%.',
-    'halftime-score':  'Full frame scoreboard design — no clear zone. Score numbers and team marks fill the layout in clean broadcast grid.',
-    'final-score':     'Full frame score card — no clear zone. FINAL label, score numbers, and team marks fill the frame in broadcast layout.',
-    'player-of-game':  isTeam ? teamClearZone : 'CLEAR ZONE: 25% to 70% height — empty for athlete. PLAYER OF THE GAME header at top 20%, stats grid at bottom 25%.',
-    'game-recap':      'Full frame information design — no clear zone. Score, stats, and recap content fill the layout in clean grid format.',
-    'starting-lineup': isTeam ? teamClearZone : 'Full frame lineup design — no clear zone. Player list and team elements fill the layout in a clean structured grid.',
-    'home-schedule':   'Full frame schedule grid — no clear zone. Team mark at top, schedule rows fill the remaining frame.',
-    'season-schedule': 'Full frame season schedule — no clear zone. Season year headline at top, all schedule rows fill the frame.',
-    'player-spotlight': isTeam ? teamClearZone : 'CLEAR ZONE: 25% to 75% height — empty for athlete portrait. Name band at bottom 25%, accent at very top.',
-    'recruit-offer':   isTeam ? teamClearZone : 'CLEAR ZONE: 40% to 80% height — empty. School logo and OFFER EXTENDED at top 35%, accent elements at bottom.',
-    'other':           isTeam ? teamClearZone : 'CLEAR ZONE: center 40% — empty negative space for athlete overlay. Design elements around the perimeter.'
+  // Style-specific atmosphere — what the background looks and feels like
+  const styleAtmosphere = {
+    aggressive: 'Ultra-dark near-black base. Bold diagonal slash shapes in accent color cutting across the upper frame. Hard directional lighting from above creating a dramatic halo zone at the top center. Deep red or primary color glow radiating from center-top. Aggressive energy.',
+    modern:     'Pitch-black studio background. Razor-thin geometric accent lines — one horizontal, one vertical forming a grid block in the upper-right quadrant. Subtle low-opacity geometric fill. Clean, precision-designed minimal backdrop.',
+    collegiate: 'Deep navy blue atmospheric background. Bold horizontal gold or primary color bands spanning the upper portion. Strong left-edge and right-edge vertical bars. Classic collegiate authority and tradition.',
+    minimal:    'Pure solid black background. One thin vertical accent stripe centered at the top. Ultra-minimal — maximum negative space. Breathing, elegant, premium.',
+    hype:       'Deep purple-black void. Multiple neon energy beams (cyan and magenta) radiating outward from a center point like an explosion. Electric particle trails and light streaks. Intense electric atmosphere.',
+    retro:      'Warm amber-dark background. Vintage halftone dot grid pattern overlaid at low opacity. Bold color block stripe across the very top. Worn, nostalgic, classic sports card texture.'
   };
-  const detectedColors = extractColors(raw);
-  const colorBlock = detectedColors.length > 0
-    ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
-    : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
-  const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
 
-  return `BACKGROUND PLATE — ABSOLUTELY ZERO humans, faces, silhouettes, body parts, or shadows of people.
+  // Extract colors mentioned in the prompt to use as accent guidance
+  const detectedColors = extractColors(raw).filter(c => {
+    const lo = c.toLowerCase();
+    return !['black','navy','maroon','midnight','charcoal','darkblue','darkred','brown'].includes(lo);
+  });
+  const colorLine = detectedColors.length > 0
+    ? `COLORS: The primary accent color(s) to use are: ${detectedColors.join(', ')}. Apply these as the accent/highlight colors in the design elements above.`
+    : '';
 
-${colorBlock}
+  return `BACKGROUND PLATE for a ${sport.toUpperCase()} sports graphic.
 
-Design brief: "${raw}"
-${keyElements}
+VISUAL STYLE: ${styleAtmosphere[style] || styleAtmosphere.aggressive}
+${colorLine}
 
-SPORT: ${sport.toUpperCase()}
-${clearZones[type] || clearZones['recruiting']}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
-COMPOSITION: ${_composition[type] || _composition['recruiting']}
+ABSOLUTE RULES — violating any of these makes the image unusable:
+1. ZERO humans, athletes, faces, body silhouettes, or shadows of people — none, anywhere
+2. ZERO text, letters, words, numbers, or readable characters of any kind
+3. ZERO logos, team marks, shields, crests, or emblems
+4. The bottom 55% of the image must be very dark (near-black) — this area will have athlete photos composited over it and needs to be dark so athletes are visible
+5. Graphic design elements (shapes, light effects, color blocks) belong in the top 45%
+6. The overall image must look like a premium Nike or ESPN broadcast background plate
 
-SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
-
-Include ALL text from brief as typographic elements — pixel-sharp, fully inside the safe zone.
-Large semi-transparent jersey number (40% opacity) as background texture.
-Bold diagonal color blocks, sharp geometric shapes, professional broadcast sports design.
-
-DO NOT INCLUDE: ${_negatives}`;
+Context: ${sport} ${type.replace(/-/g,' ')} graphic, ${style} style aesthetic.`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI

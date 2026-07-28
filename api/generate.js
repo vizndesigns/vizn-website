@@ -175,29 +175,82 @@ export default async function handler(req, res) {
     // ── Fast team background — Gemini only, 30s timeout, no retries ─────
     // Used by team composite path so it never hits gpt-image-1 (too slow)
     if (action === 'team-bg' && prompt) {
+      const bgWidth  = req.body.width  || 1024;
+      const bgHeight = req.body.height || 1280;
+      const bgSize   = bgHeight > bgWidth ? '1024x1536' : bgWidth > bgHeight ? '1536x1024' : '1024x1024';
+      const refImage = req.body.referenceImage || null;
+
+      // Build reference-aware prompt prefix
+      const refPrefix = refImage ? 'Match the color palette, lighting style, and visual atmosphere of the reference image provided. Generate a NEW background — do not copy the reference exactly. ' : '';
+      const fullBgPrompt = refPrefix + prompt;
+
+      // ── Primary: GPT-image-1 — highest quality backgrounds ──────────
+      if (OPENAI_KEY) {
+        try {
+          const bgCtrl  = new AbortController();
+          const bgTimer = setTimeout(() => bgCtrl.abort(), 55000);
+
+          let bgRes, bgData;
+          if (refImage) {
+            // Use edits endpoint so Gemini reference is sent as style guide
+            const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
+            if (refMatch) {
+              const refBuffer = Buffer.from(refMatch[2], 'base64');
+              const form = new FormData();
+              form.append('image', new File([refBuffer], 'reference.jpg', { type: refMatch[1] }));
+              form.append('prompt', fullBgPrompt);
+              form.append('model', 'gpt-image-1');
+              form.append('size', bgSize);
+              form.append('quality', 'high');
+              form.append('n', '1');
+              bgRes  = await fetch('https://api.openai.com/v1/images/edits', {
+                method: 'POST', headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
+                signal: bgCtrl.signal, body: form
+              });
+            }
+          }
+          if (!bgRes) {
+            bgRes = await fetch('https://api.openai.com/v1/images/generations', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+              signal: bgCtrl.signal,
+              body: JSON.stringify({ model: 'gpt-image-1', prompt: fullBgPrompt, n: 1, size: bgSize, quality: 'high' })
+            });
+          }
+          clearTimeout(bgTimer);
+          bgData = await bgRes.json();
+          if (bgRes.ok) {
+            const b64 = bgData.data?.[0]?.b64_json;
+            const url = bgData.data?.[0]?.url;
+            const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
+            if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-bg' });
+          } else {
+            console.warn('GPT team-bg failed:', bgData.error?.message || bgRes.status);
+          }
+        } catch(e) { console.warn('GPT team-bg error:', e.message); }
+      }
+
+      // ── Secondary: Gemini — free fallback ───────────────────────────
       if (GOOGLE_KEY) {
         try {
           const ctrl  = new AbortController();
           const timer = setTimeout(() => ctrl.abort(), 30000);
 
-          // Build parts array — prepend reference image if provided
           const bgParts = [];
-          if (req.body.referenceImage) {
-            const refMatch = req.body.referenceImage.match(/^data:([^;]+);base64,(.+)$/);
+          if (refImage) {
+            const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
             if (refMatch) {
-              bgParts.push({ text: 'REFERENCE — generate a background that exactly matches the color palette, lighting, atmosphere, and visual effects of this graphic. Do NOT include people:' });
+              bgParts.push({ text: 'REFERENCE STYLE — match the color palette and atmosphere of this image:' });
               bgParts.push({ inline_data: { mime_type: refMatch[1], data: refMatch[2] } });
             }
           }
           bgParts.push({ text: prompt });
 
-          const gRes  = await fetch(
+          const gRes = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
             {
-              method:  'POST',
-              headers: { 'Content-Type': 'application/json' },
-              signal:  ctrl.signal,
-              body:    JSON.stringify({
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+              body: JSON.stringify({
                 contents: [{ parts: bgParts }],
                 generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.35 }
               })
@@ -210,16 +263,15 @@ export default async function handler(req, res) {
             const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
             if (imgPart?.inlineData) {
               const { mimeType, data } = imgPart.inlineData;
-              return res.status(200).json({ status: 'succeeded', imageUrl: `data:${mimeType};base64,${data}`, engine: 'gemini-team' });
+              return res.status(200).json({ status: 'succeeded', imageUrl: `data:${mimeType};base64,${data}`, engine: 'gemini-bg' });
             }
           } else {
             const err = await gRes.json().catch(() => ({}));
             console.warn('team-bg Gemini error:', err.error?.message || gRes.status);
           }
-        } catch(e) {
-          console.warn('team-bg Gemini failed:', e.message);
-        }
+        } catch(e) { console.warn('team-bg Gemini failed:', e.message); }
       }
+
       // Signal frontend to use local canvas background
       return res.status(200).json({ status: 'use-canvas' });
     }
