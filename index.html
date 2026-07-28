@@ -1826,13 +1826,16 @@ function drawSportsOverlay(ctx, canvas, opts) {
     else { const m = Math.ceil(words.length/2); lines = [words.slice(0,m).join(' '), words.slice(m).join(' ')]; }
 
     const longest = lines.reduce((a,b) => a.length>b.length?a:b,'');
-    // Start at a large size, then scale down to fit canvas width
-    let fontSize = Math.round(ch * 0.22);
+    // Start at a large size, then scale down to fit canvas width.
+    // Use 80% of canvas width as the target (italic glyphs overhang the metric).
+    let fontSize = Math.round(ch * 0.20);
     const fontStr = (sz) => `900 ${italic?'italic ':''}${sz}px Impact,'Arial Black',Arial`;
     ctx.save();
     ctx.font = fontStr(fontSize);
     const measured = ctx.measureText(longest).width;
-    if (measured > cw * 0.90) fontSize = Math.round(fontSize * (cw * 0.90) / measured);
+    // 75% target + italic overhang buffer keeps long words fully inside canvas
+    if (measured > 0) fontSize = Math.round(Math.min(fontSize, fontSize * (cw * 0.75) / measured));
+    fontSize = Math.max(fontSize, 28); // never smaller than 28px
     ctx.restore();
 
     const lineStep = fontSize * 1.02;
@@ -1998,7 +2001,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
         let fontSize = Math.round(ch*0.22);
         ctx.save(); ctx.font=`900 italic ${fontSize}px Impact,'Arial Black',Arial`;
         const mw = ctx.measureText(longest).width;
-        if (mw > cw*0.90) fontSize = Math.round(fontSize*(cw*0.90)/mw);
+        if (mw > 0) fontSize = Math.round(Math.min(fontSize, fontSize*(cw*0.75)/mw));
         ctx.restore();
         const lineStep=fontSize*1.02, blockH=lines.length*lineStep;
         const startY=ch*0.50-blockH/2+fontSize;
