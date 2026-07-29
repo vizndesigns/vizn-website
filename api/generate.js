@@ -1,7 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Images:      GPT-5.5 + image_generation tool (OpenAI, ChatGPT's own pipeline)
-//               → FLUX Kontext Pro / FLUX 1.1 Pro fallback
+//  Images:      gpt-image-2 (OpenAI) → FLUX Kontext Pro / FLUX 1.1 Pro fallback
 //  BG removal:  fal.ai imageutils/rembg  (fast, reliable)
 //  Video:       fal.ai Kling Video 1.6   (hype clips)
 // ─────────────────────────────────────────────────────────────
@@ -19,37 +18,51 @@ export default async function handler(req, res) {
   const FAL_KEY       = process.env.FAL_KEY;
   const GOOGLE_KEY    = process.env.GOOGLE_API_KEY;
 
-  // ── GPT-5.5 + hosted image_generation tool — the same pipeline ChatGPT's
-  // image feature runs on: a reasoning model auto-revises the prompt, then
-  // delegates to gpt-image-2 under the hood. Handles both text-to-image and
-  // photo edits (input images go in the same `input` content array).
-  async function callGptImageResponses({ promptText, images = [], size = 'auto', quality = 'high', timeoutMs = 60000 }) {
-    const content = [{ type: 'input_text', text: promptText }];
-    for (const img of images) {
-      if (img) content.push({ type: 'input_image', image_url: img, detail: 'high' });
-    }
+  // ── gpt-image-2 direct — Images API (generations for text-only, edits for photos) ──
+  // Tried the GPT-5.5 + Responses API "image_generation" tool (same pipeline ChatGPT's
+  // UI runs on) but in practice it regularly took 90s+ to finish, longer than the
+  // budget any fallback chain here can afford — it was making generations slower and
+  // *more* likely to fall through to weaker engines, not less. Back to the direct API.
+  async function callGptImage({ promptText, images = [], size = 'auto', quality = 'high', timeoutMs = 45000 }) {
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await fetch('https://api.openai.com/v1/responses', {
-        method:  'POST',
-        headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-        signal:  ctrl.signal,
-        body:    JSON.stringify({
-          model: 'gpt-5.5',
-          input: [{ role: 'user', content }],
-          tools: [{ type: 'image_generation', size, quality }]
-        })
-      });
+      let res;
+      if (images.length > 0) {
+        const match = images[0].match(/^data:([^;]+);base64,(.+)$/);
+        if (!match) throw new Error('Invalid image format');
+        const [, mimeType, b64data] = match;
+        const buffer = Buffer.from(b64data, 'base64');
+        const ext    = mimeType.includes('png') ? 'png' : 'jpg';
+        const form   = new FormData();
+        form.append('image', new File([buffer], `image.${ext}`, { type: mimeType }));
+        form.append('prompt', promptText);
+        form.append('model', 'gpt-image-2');
+        form.append('size', size);
+        form.append('quality', quality);
+        form.append('n', '1');
+        res = await fetch('https://api.openai.com/v1/images/edits', {
+          method: 'POST', headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
+          signal: ctrl.signal, body: form
+        });
+      } else {
+        res = await fetch('https://api.openai.com/v1/images/generations', {
+          method:  'POST',
+          headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+          signal:  ctrl.signal,
+          body:    JSON.stringify({ model: 'gpt-image-2', prompt: promptText, n: 1, size, quality })
+        });
+      }
       clearTimeout(timer);
       const data = await res.json();
       if (!res.ok) {
-        throw Object.assign(new Error(data.error?.message || 'gpt-5.5 image_generation error'), { status: res.status, code: data.error?.code });
+        throw Object.assign(new Error(data.error?.message || 'gpt-image-2 error'), { status: res.status, code: data.error?.code });
       }
-      const call = (data.output || []).find(o => o.type === 'image_generation_call');
-      const b64  = call?.result;
-      if (!b64) throw new Error('gpt-5.5 image_generation returned no image');
-      return `data:image/png;base64,${b64}`;
+      const b64 = data.data?.[0]?.b64_json;
+      const url = data.data?.[0]?.url;
+      const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
+      if (!imageUrl) throw new Error('gpt-image-2 returned no image');
+      return imageUrl;
     } catch(e) {
       clearTimeout(timer);
       throw e;
@@ -273,15 +286,15 @@ export default async function handler(req, res) {
         } catch(e) { console.warn('FLUX team-bg error:', e.message); }
       }
 
-      // ── Secondary: GPT-5.5 + image_generation tool ───────────────────
+      // ── Secondary: gpt-image-2 ───────────────────────────────────────
       if (OPENAI_KEY) {
         try {
-          const imageUrl = await callGptImageResponses({
+          const imageUrl = await callGptImage({
             promptText: fullBgPrompt,
             images: refImage ? [refImage] : [],
             size: bgSize,
             quality: 'high',
-            timeoutMs: 60000
+            timeoutMs: 45000
           });
           return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-bg' });
         } catch(e) { console.warn('GPT team-bg error:', e.message); }
@@ -334,8 +347,7 @@ export default async function handler(req, res) {
     }
 
     // ── Vision-based generation — athlete photo → sports graphic ──────────────
-    // Model priority: GPT-5.5 + image_generation tool → FLUX Kontext Pro → Gemini multimodal
-    // GPT-5.5 auto-revises the prompt before delegating to gpt-image-2 — same pipeline ChatGPT uses.
+    // Model priority: gpt-image-2 edits → FLUX Kontext Pro → Gemini multimodal
     const refImage = req.body.referenceImage || null;
     if (action === 'generate-with-image' && (athleteImage || refImage) && prompt) {
       const size = (width === height) ? '1024x1024'
@@ -360,18 +372,17 @@ export default async function handler(req, res) {
         return putR.ok ? file_url : null;
       }
 
-      // ── PRIMARY: GPT-5.5 + image_generation tool — ChatGPT's own pipeline ──
-      // Reasoning model auto-revises the prompt, then edits via gpt-image-2 under the hood.
+      // ── PRIMARY: gpt-image-2 edits — best-in-class identity preservation + text rendering ──
       if (OPENAI_KEY && athleteImage) {
         try {
-          const imageUrl = await callGptImageResponses({
+          const imageUrl = await callGptImage({
             promptText: prompt,
             images: [athleteImage],
             size,
             quality: 'high',
-            timeoutMs: 90000
+            timeoutMs: 45000
           });
-          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-5.5-image' });
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
         } catch(e) { console.warn('GPT-5.5 image_generation failed:', e.message); }
       }
 
@@ -451,11 +462,9 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
         } catch(e) { console.warn('Gemini vision failed:', e.message); }
       }
 
-      console.warn('All vision paths failed — falling back to text-only FLUX generation');
+      console.warn('All vision paths failed for an uploaded photo — erroring instead of silently generating a generic image that ignores it');
+      return res.status(502).json({ error: 'Could not generate from your photo — every image engine failed or timed out. Please try again.' });
     }
-    // Photo uploads that exhaust every vision engine skip straight to the FLUX text
-    // fallback below — retrying gpt-image-2/Gemini here would just repeat the same
-    // failure and risks blowing the 120s function timeout on top of the vision attempts.
     const skipTextEngineRetries = action === 'generate-with-image';
 
     // ── Prompt expansion — lightweight Gemini text call ────────
@@ -558,12 +567,12 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
 
       if (OPENAI_KEY && imageDataUrl && imageDataUrl.startsWith('data:')) {
         try {
-          const imageUrl = await callGptImageResponses({
+          const imageUrl = await callGptImage({
             promptText: refinePrompt,
             images: [imageDataUrl],
-            timeoutMs: 60000
+            timeoutMs: 45000
           });
-          return res.status(200).json({ url: imageUrl, engine: 'gpt-5.5-image' });
+          return res.status(200).json({ url: imageUrl, engine: 'gpt-image-2-edit' });
         } catch(e) { console.error('GPT refine failed:', e.message); }
       }
 
@@ -771,7 +780,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
     // ── Image generation — GPT-5.5 + image_generation tool → Gemini → FLUX ───────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // Primary: GPT-5.5 + image_generation tool — same pipeline ChatGPT uses.
+    // Primary: gpt-image-2 — best instruction adherence
     // Single attempt only: retries here previously stacked with the vision-block
     // engines and blew past Vercel's 120s function timeout on failure cascades.
     if (OPENAI_KEY && !skipTextEngineRetries) {
@@ -779,8 +788,8 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
       try {
-        const imageUrl = await callGptImageResponses({ promptText: prompt, size, quality: 'high', timeoutMs: 60000 });
-        return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-5.5-image' });
+        const imageUrl = await callGptImage({ promptText: prompt, size, quality: 'high', timeoutMs: 45000 });
+        return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2' });
       } catch(e) {
         console.warn('GPT-5.5 image_generation failed, falling back to Gemini:', e.message);
       }
