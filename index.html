@@ -2429,7 +2429,10 @@ function buildKeyElementsBlock(parsed) {
   if (parsed.weight)           lines.push(`WEIGHT: ${parsed.weight}`);
   if (parsed.fortyYard)        lines.push(`40-YARD DASH: ${parsed.fortyYard}`);
   if (parsed.gpa)              lines.push(`GPA: ${parsed.gpa}`);
-  if (parsed.stats?.length)    lines.push(`STATS: ${parsed.stats.join(', ')}`);
+  if (parsed.stats?.length) {
+    lines.push(`STATS: ${parsed.stats.join(', ')}`);
+    lines.push(`STAT LABELS — MANDATORY: every stat number above must display its unit/category label directly beside or below it (e.g. "38 PTS", not a bare "38"). This applies to EVERY stat including the first one in the list — do not drop the label on any single stat.`);
+  }
   if (parsed.date)             lines.push(`DATE/EVENT: ${parsed.date}`);
   if (parsed.effects?.length)  lines.push(`VISUAL EFFECTS: apply ${parsed.effects.join(', ')}`);
   return lines.length ? `\nKEY ELEMENTS — render every item listed here exactly on the graphic:\n${lines.join('\n')}\n` : '';
