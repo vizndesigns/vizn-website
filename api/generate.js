@@ -883,34 +883,25 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       }
     }
 
-    // Fallback: FLUX Dev
+    // Fallback: FLUX 1.1 Pro — higher quality than FLUX Dev, same tier used for backgrounds
     if (!REPLICATE_KEY) return res.status(500).json({ error: 'No AI key configured. Add OPENAI_API_KEY or REPLICATE_API_KEY.' });
 
-    const styleColorNeg = {
-      aggressive: 'blue colors, navy, gold, yellow, purple, green, cyan',
-      modern:     'red colors, crimson, scarlet, purple, green, orange',
-      collegiate: 'blue, navy, purple, cyan, neon colors, orange',
-      minimal:    'red, blue, purple, orange, pink, brown, warm colors',
-      hype:       'red, orange, brown, green, yellow, earth tones, crimson',
-      retro:      'neon colors, electric blue, purple, cyan, bright colors, green'
-    };
-    const colorNeg = styleColorNeg[style] || '';
+    const fluxW = Math.min(parseInt(width)  || 832,  1440);
+    const fluxH = Math.min(parseInt(height) || 1024, 1440);
 
     const fluxRes = await fetch(
-      'https://api.replicate.com/v1/models/black-forest-labs/flux-dev/predictions',
+      'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
       {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=55' },
         body:    JSON.stringify({ input: {
           prompt,
-          negative_prompt: `watermark, blurry text, amateur design, clip art, 3D render artifact, stock photo, low quality, text cut off at edges, typography cropped at border, elements outside frame, text touching image edge, ${colorNeg}`,
-          width:  width  || 832,
-          height: height || 1024,
-          num_outputs:         1,
-          num_inference_steps: 50,
-          guidance:            7.0,
-          output_format:       'png',
-          output_quality:      95
+          width:             fluxW,
+          height:            fluxH,
+          output_format:     'png',
+          output_quality:    95,
+          safety_tolerance:  6,
+          prompt_upsampling: true
         } })
       }
     );
@@ -921,10 +912,13 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
     }
 
     const prediction = await fluxRes.json();
-    if (prediction.status === 'succeeded' && prediction.output?.[0]) {
-      return res.status(200).json({ status: 'succeeded', imageUrl: prediction.output[0], engine: 'flux' });
+    const fluxOut = typeof prediction.output === 'string' ? prediction.output
+                  : Array.isArray(prediction.output)      ? prediction.output[0]
+                  : null;
+    if (prediction.status === 'succeeded' && fluxOut) {
+      return res.status(200).json({ status: 'succeeded', imageUrl: fluxOut, engine: 'flux-pro' });
     }
-    return res.status(202).json({ status: 'processing', predictionId: prediction.id, engine: 'flux' });
+    return res.status(202).json({ status: 'processing', predictionId: prediction.id, engine: 'flux-pro' });
 
   } catch (err) {
     console.error('VIZN /api/generate error:', err.message);
