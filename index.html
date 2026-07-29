@@ -685,9 +685,10 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <button id="clearRefBtn" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;line-height:1" onclick="clearRefImage()">&#x2715;</button>
           </div>
         </div>
-        <div class="cg"><div class="clabel">Design Type</div>
+        <div class="cg"><div class="clabel">Design Type <span style="font-weight:400;color:var(--muted);font-size:8px;letter-spacing:0">(optional)</span></div>
           <div class="type-list">
-            <div class="ti on" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
+            <div class="ti on" data-type="none"><div class="ti-radio"></div><span class="ti-lbl">✍️ Use My Prompt As-Is</span></div>
+            <div class="ti" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
             <div class="ti" data-type="game-day"><div class="ti-radio"></div><span class="ti-lbl">🏟 Game Day Graphic</span></div>
             <div class="ti" data-type="halftime-score"><div class="ti-radio"></div><span class="ti-lbl">⏱ Halftime Score Graphic</span></div>
             <div class="ti" data-type="final-score"><div class="ti-radio"></div><span class="ti-lbl">🏁 Final Score Graphic</span></div>
@@ -1159,7 +1160,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 // ═══════════════════════════════════════════════════════
 
 const S = {
-  type:'commitment', style:'modern',
+  type:'none', style:'modern',
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
   athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
@@ -2549,6 +2550,27 @@ function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
   const multiPlayerBlock = isTeam
     ? `\nTEAM COMPOSITE — ${playerCount} ATHLETES REQUIRED:\n• The contact sheet image contains ${playerCount} athletes — count the panels\n• EVERY athlete must appear in the final graphic — include all ${playerCount}, none missing\n• Each player gets equal visual weight — none is cropped or hidden\n• Arrange them in a dynamic horizontal or grid formation across the composition\n• If a Starting Lineup or Roster graphic, show them in a clean row or column arrangement\n`
     : '';
+
+  if (type === 'none') {
+    return `You are a world-class professional sports graphic designer working at the level of Nike, Jordan Brand, and ESPN. Create exactly what is described below — follow the prompt literally and precisely.
+
+${multiPlayerBlock}
+${colorBlock}
+
+DESIGN BRIEF — execute this exactly:
+"${raw}"
+${keyElements}
+${poseInstruction}
+
+SAFE ZONE — NON-NEGOTIABLE: Every element must be fully contained within the central 80% of the canvas. Nothing touches the outer 10% edge on any side.
+
+Add professional sports graphic design elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'}.
+Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
+Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
+Single dramatic key light, deep shadows, layered spatial depth.
+
+DO NOT INCLUDE: ${_negatives}`;
+  }
 
   return `${typeDirectives[type] || typeDirectives['other']}
 ${multiPlayerBlock}
