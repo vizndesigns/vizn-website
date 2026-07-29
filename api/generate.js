@@ -294,7 +294,7 @@ export default async function handler(req, res) {
             images: refImage ? [refImage] : [],
             size: bgSize,
             quality: 'high',
-            timeoutMs: 45000
+            timeoutMs: 60000
           });
           return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-bg' });
         } catch(e) { console.warn('GPT team-bg error:', e.message); }
@@ -373,6 +373,10 @@ export default async function handler(req, res) {
       }
 
       // ── PRIMARY: gpt-image-2 edits — best-in-class identity preservation + text rendering ──
+      // 90s timeout: this is what the reference-quality Kyrie/Mavericks design actually
+      // needed to complete. Cutting it to 45s (an earlier "optimization" this session)
+      // caused it to abort mid-generation on nearly every request and silently fall
+      // back to weaker engines instead.
       if (OPENAI_KEY && athleteImage) {
         try {
           const imageUrl = await callGptImage({
@@ -380,10 +384,10 @@ export default async function handler(req, res) {
             images: [athleteImage],
             size,
             quality: 'high',
-            timeoutMs: 45000
+            timeoutMs: 90000
           });
           return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
-        } catch(e) { console.warn('GPT-5.5 image_generation failed:', e.message); }
+        } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
       }
 
       // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
@@ -570,7 +574,7 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
           const imageUrl = await callGptImage({
             promptText: refinePrompt,
             images: [imageDataUrl],
-            timeoutMs: 45000
+            timeoutMs: 60000
           });
           return res.status(200).json({ url: imageUrl, engine: 'gpt-image-2-edit' });
         } catch(e) { console.error('GPT refine failed:', e.message); }
@@ -777,7 +781,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       return res.status(200).json({ analysis: '' });
     }
 
-    // ── Image generation — GPT-5.5 + image_generation tool → Gemini → FLUX ───────
+    // ── Image generation — gpt-image-2 → Gemini → FLUX ───────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
     // Primary: gpt-image-2 — best instruction adherence
@@ -788,10 +792,10 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
       try {
-        const imageUrl = await callGptImage({ promptText: prompt, size, quality: 'high', timeoutMs: 45000 });
+        const imageUrl = await callGptImage({ promptText: prompt, size, quality: 'high', timeoutMs: 60000 });
         return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2' });
       } catch(e) {
-        console.warn('GPT-5.5 image_generation failed, falling back to Gemini:', e.message);
+        console.warn('gpt-image-2 failed, falling back to Gemini:', e.message);
       }
     }
 
