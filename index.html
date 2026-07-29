@@ -2448,6 +2448,7 @@ function extractColors(text) {
 }
 
 function buildPrompt(raw, sport, style, type) {
+  if (type === 'none') return raw;
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE: ${detectedColors.join(', ')} — use these colors. Do not add unrelated colors.`
@@ -2552,24 +2553,9 @@ function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
     : '';
 
   if (type === 'none') {
-    return `You are a world-class professional sports graphic designer working at the level of Nike, Jordan Brand, and ESPN. Create exactly what is described below — follow the prompt literally and precisely.
-
-${multiPlayerBlock}
-${colorBlock}
-
-DESIGN BRIEF — execute this exactly:
-"${raw}"
-${keyElements}
-${poseInstruction}
-
-SAFE ZONE — NON-NEGOTIABLE: Every element must be fully contained within the central 80% of the canvas. Nothing touches the outer 10% edge on any side.
-
-Add professional sports graphic design elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'}.
-Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
-Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
-Single dramatic key light, deep shadows, layered spatial depth.
-
-DO NOT INCLUDE: ${_negatives}`;
+    // True as-is mode: send exactly what the user typed, same as pasting into ChatGPT
+    // with the photo attached. No extra rules, no scaffolding — let the model decide.
+    return raw;
   }
 
   return `${typeDirectives[type] || typeDirectives['other']}
@@ -3068,26 +3054,28 @@ async function generate(raw) {
     const sport = detectSport(raw);
 
     let enriched = raw;
-    if (S.referenceImage && enriched.trim().length < 30) {
-      enriched = `${sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
-    }
-
-    setStatus('Reading your prompt…');
-    try {
-      const expCtrl = new AbortController();
-      const expTimer = setTimeout(() => expCtrl.abort(), 6000);
-      const expRes = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: expCtrl.signal,
-        body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
-      });
-      clearTimeout(expTimer);
-      if (expRes.ok) {
-        const expData = await expRes.json();
-        if (expData.expanded && expData.expanded.length > raw.length * 0.7) enriched = expData.expanded;
+    if (S.type !== 'none') {
+      if (S.referenceImage && enriched.trim().length < 30) {
+        enriched = `${sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
       }
-    } catch(e) { /* expansion optional */ }
+
+      setStatus('Reading your prompt…');
+      try {
+        const expCtrl = new AbortController();
+        const expTimer = setTimeout(() => expCtrl.abort(), 6000);
+        const expRes = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: expCtrl.signal,
+          body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
+        });
+        clearTimeout(expTimer);
+        if (expRes.ok) {
+          const expData = await expRes.json();
+          if (expData.expanded && expData.expanded.length > raw.length * 0.7) enriched = expData.expanded;
+        }
+      } catch(e) { /* expansion optional */ }
+    }
 
     let finalUrl, finalEngine;
 
