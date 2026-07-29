@@ -188,7 +188,7 @@ export default async function handler(req, res) {
       if (REPLICATE_KEY) {
         try {
           const fluxCtrl  = new AbortController();
-          const fluxTimer = setTimeout(() => fluxCtrl.abort(), 35000);
+          const fluxTimer = setTimeout(() => fluxCtrl.abort(), 50000);
 
           const fluxW = Math.min(parseInt(bgWidth)  || 1024, 1440);
           const fluxH = Math.min(parseInt(bgHeight) || 1280, 1440);
@@ -200,7 +200,7 @@ export default async function handler(req, res) {
               headers: {
                 'Authorization': `Bearer ${REPLICATE_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'wait=30'
+                'Prefer': 'wait=45'
               },
               signal: fluxCtrl.signal,
               body: JSON.stringify({
@@ -239,7 +239,7 @@ export default async function handler(req, res) {
       if (OPENAI_KEY) {
         try {
           const bgCtrl  = new AbortController();
-          const bgTimer = setTimeout(() => bgCtrl.abort(), 35000);
+          const bgTimer = setTimeout(() => bgCtrl.abort(), 60000);
 
           let bgRes, bgData;
           if (refImage) {
@@ -285,7 +285,7 @@ export default async function handler(req, res) {
       if (GOOGLE_KEY) {
         try {
           const ctrl  = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 15000);
+          const timer = setTimeout(() => ctrl.abort(), 25000);
 
           const bgParts = [];
           if (refImage) {
@@ -371,7 +371,7 @@ export default async function handler(req, res) {
             form.append('quality', 'high');
             form.append('n', '1');
             const editCtrl  = new AbortController();
-            const editTimer = setTimeout(() => editCtrl.abort(), 30000);
+            const editTimer = setTimeout(() => editCtrl.abort(), 90000);
             const editRes   = await fetch('https://api.openai.com/v1/images/edits', {
               method: 'POST', headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
               signal: editCtrl.signal, body: form
@@ -401,7 +401,7 @@ Keep the person in this photo exactly as they appear — same face, same body, s
 ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
             const kCtrl = new AbortController();
-            const kTimer = setTimeout(() => kCtrl.abort(), 30000);
+            const kTimer = setTimeout(() => kCtrl.abort(), 60000);
             const kRes = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
               method: 'POST',
               headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
@@ -445,7 +445,7 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
           }
           geminiParts.push({ text: prompt });
           const gCtrl  = new AbortController();
-          const gTimer = setTimeout(() => gCtrl.abort(), 10000);
+          const gTimer = setTimeout(() => gCtrl.abort(), 25000);
           const gRes   = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: gCtrl.signal,
@@ -803,7 +803,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
     // Helper: call gpt-image-2 with timeout and return base64 data URI
     async function tryGptImage(sz) {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 40000);
+      const timer = setTimeout(() => ctrl.abort(), 60000);
       try {
         const imgRes = await fetch('https://api.openai.com/v1/images/generations', {
           method:  'POST',
@@ -848,7 +848,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
     if (GOOGLE_KEY && !skipTextEngineRetries) {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 20000);
+        const timer = setTimeout(() => controller.abort(), 30000);
 
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
@@ -891,7 +891,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
       {
         method:  'POST',
-        headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=30' },
+        headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=45' },
         body:    JSON.stringify({ input: {
           prompt,
           width:             fluxW,
