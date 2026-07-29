@@ -298,7 +298,7 @@ export default async function handler(req, res) {
           bgParts.push({ text: prompt });
 
           const gRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
             {
               method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
               body: JSON.stringify({
@@ -449,7 +449,7 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
           const gCtrl  = new AbortController();
           const gTimer = setTimeout(() => gCtrl.abort(), 55000);
           const gRes   = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: gCtrl.signal,
               body: JSON.stringify({ contents: [{ parts: geminiParts }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } }) }
           );
@@ -545,7 +545,7 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
           if (match) {
             const [, mime, b64] = match;
             const gemRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -649,7 +649,7 @@ Return ONLY this exact JSON, no markdown:
       if (!GOOGLE_KEY) return res.status(200).json({ texts: fallback });
       try {
         const r = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_KEY}`,
           {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -727,7 +727,7 @@ STRICT RULES:
           const ctrl = new AbortController();
           setTimeout(() => ctrl.abort(), 7000);
           const expandRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_KEY}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -761,7 +761,7 @@ STRICT RULES:
       const timer = setTimeout(() => ctrl.abort(), 15000);
       try {
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_KEY}`,
           {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -854,7 +854,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
         const timer = setTimeout(() => controller.abort(), 45000);
 
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GOOGLE_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
           {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
