@@ -2331,14 +2331,14 @@ const _typo = {
   collage:    'ultra-bold condensed Impact, ALL CAPS, oversized numeral or word as dominant graphic element, editorial sports magazine hierarchy'
 };
 
-const _negatives = 'text or elements clipped at any edge, blurry or illegible typography, watermarks, clip art, stock photo feel, amateur composition, muddy low-contrast colors, stray colors not requested, generic drop shadows, 3D render artifacts.';
+const _negatives = 'text or elements clipped at any edge, blurry or illegible typography, watermarks, clip art, stock photo feel, amateur composition, muddy low-contrast colors, stray colors not requested, generic drop shadows, 3D render artifacts, sponsor logos or brand wordmarks not explicitly named in the brief (no invented Nike/Chime/apparel logos), extra caption or label text not in the brief, fake handwritten signatures or scribbled tags, a second/opposing team logo when no opponent is named in the brief, duplicating the same team\'s logo to fake a matchup.';
 
 
 const _composition = {
   'commitment':      "Bilateral symmetry, athlete centered, school logo floating above head, player name as cinematic super-title, confetti or light-burst particles radiating outward.",
-  'game-day':        "Full-bleed team identity — GAME DAY headline dominates upper third, opponent info and matchup center stage, date/time/location in lower third. Electric pregame energy radiates from center.",
-  'halftime-score':  "Broadcast scoreboard layout — team logos flanking the score centered prominently, HALFTIME label above score in accent color, period indicator, clean network sports broadcast aesthetic.",
-  'final-score':     "Final score announcement — FINAL label prominent in accent color, both teams' scores in massive centered type, team logos flanking, clean postgame broadcast tone.",
+  'game-day':        "Full-bleed team identity — GAME DAY headline dominates upper third, matchup info (only if an opponent is named in the brief) center stage, date/time/location in lower third. Electric pregame energy radiates from center.",
+  'halftime-score':  "Broadcast scoreboard layout — team mark centered prominently (add an opposing team logo only if one is named in the brief), HALFTIME label above score in accent color, period indicator, clean network sports broadcast aesthetic.",
+  'final-score':     "Final score announcement — FINAL label prominent in accent color, score in massive centered type, team mark(s) flanking (only include an opposing team logo if one is named in the brief), clean postgame broadcast tone.",
   'player-of-game':  "Player photo as centered spotlight hero with halo or key light treatment, PLAYER OF THE GAME header at top, stat callouts in lower zone, award-presentation energy.",
   'game-recap':      "Split information design — game headline and final score in upper half, key player stats and highlights in lower half, team marks anchoring corners, clean broadcast summary.",
   'starting-lineup': "STARTING LINEUP title dominant at top, player names and numbers in bold vertical list format, team colors and mark anchor the composition, authoritative lineup reveal.",
@@ -2541,12 +2541,24 @@ function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
     : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
   const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
 
+  // Matchup-style graphics (game-day, score cards, recaps) ask the model for "opponent
+  // info" — if the user never actually named an opponent, the model invents one, which
+  // has produced duplicated/self-matchup logos ("Mavericks vs Mavericks"). Only request
+  // a matchup when a real opponent is present in the brief.
+  const matchupTypes = ['game-day', 'halftime-score', 'final-score', 'game-recap'];
+  const oppMatch = raw.match(/\b(?:vs\.?|versus|against)\s+([A-Z][\w.&'-]*(?:\s+[A-Z][\w.&'-]*){0,3})/);
+  const opponentBlock = matchupTypes.includes(type)
+    ? (oppMatch
+        ? `OPPONENT: ${oppMatch[1].trim()} — this is the only opposing team to show. Do not add any other team.`
+        : `NO OPPONENT NAMED IN THE BRIEF: Do not invent an opposing team and do not duplicate the primary team's own logo as a fake "VS" matchup. Show only the primary team's identity — omit any second team logo, VS box, or opponent name entirely.`)
+    : '';
+
   const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
   const poseInstruction = poseKeywords.test(raw)
     ? `${isTeam ? 'ATHLETES' : 'ATHLETE'}: Keep ${isTeam ? 'all athletes' : 'the athlete'} clearly visible and prominent. You may adjust their pose per the brief.`
     : isTeam
       ? `ATHLETE PRESERVATION — CRITICAL: The contact sheet contains ${playerCount} distinct athletes. ALL ${playerCount} must appear in the final design — do NOT omit any. Each person must appear exactly as they look in their panel of the contact sheet. Do NOT change anyone's pose, expression, clothing, or appearance. Only add design elements (backgrounds, typography, graphics, overlays) around and behind them.`
-      : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them.`;
+      : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them. Do NOT add any other people — no ghosted duplicate portraits, no faded silhouettes of teammates, no additional athletes of any kind. The uploaded photo's subject is the only person who may appear anywhere in the image.`;
 
   const multiPlayerBlock = isTeam
     ? `\nTEAM COMPOSITE — ${playerCount} ATHLETES REQUIRED:\n• The contact sheet image contains ${playerCount} athletes — count the panels\n• EVERY athlete must appear in the final graphic — include all ${playerCount}, none missing\n• Each player gets equal visual weight — none is cropped or hidden\n• Arrange them in a dynamic horizontal or grid formation across the composition\n• If a Starting Lineup or Roster graphic, show them in a clean row or column arrangement\n`
@@ -2561,6 +2573,7 @@ function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
   return `${typeDirectives[type] || typeDirectives['other']}
 ${multiPlayerBlock}
 ${colorBlock}
+${opponentBlock}
 
 DESIGN BRIEF (include every element):
 "${raw}"
@@ -2573,6 +2586,7 @@ SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides i
 ${poseInstruction}
 Add professional sports graphic design elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'}.
 Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
+TEXT DISCIPLINE: Render ONLY the text explicitly listed above (headline, brief, key elements). Do not invent additional captions, labels, taglines, sponsor wordmarks, arena/venue names, or decorative handwritten annotations that were not explicitly provided — every extra piece of text is another chance for the render to garble it. Fewer, larger, correct text elements beat many small risky ones.
 Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
