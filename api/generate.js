@@ -372,31 +372,20 @@ export default async function handler(req, res) {
         return putR.ok ? file_url : null;
       }
 
-      // ── PRIMARY: gpt-image-2 edits — best-in-class identity preservation + text rendering ──
-      // 90s timeout: this is what the reference-quality Kyrie/Mavericks design actually
-      // needed to complete. Cutting it to 45s (an earlier "optimization" this session)
-      // caused it to abort mid-generation on nearly every request and silently fall
-      // back to weaker engines instead.
-      if (OPENAI_KEY && athleteImage) {
-        try {
-          const imageUrl = await callGptImage({
-            promptText: prompt,
-            images: [athleteImage],
-            size,
-            quality: 'high',
-            timeoutMs: 90000
-          });
-          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
-        } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
-      }
-
-      // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
+      // ── PRIMARY: FLUX Kontext Pro — identity-preserving image editor ──
+      // gpt-image-2 edits was tried as primary and confirmed (by direct visual comparison
+      // against the uploaded photo) to NOT preserve identity — it generates a similar-looking
+      // but different AI person, because the edits endpoint treats the input as inspiration,
+      // not a strict pixel-preserving edit target. FLUX Kontext is purpose-built for
+      // identity-preserving edits, which is exactly what "show the uploaded player exactly
+      // as they are" requires.
       if (FAL_KEY && athleteImage) {
         try {
           const falImageUrl = await uploadToFal(athleteImage, 'athlete.jpg');
           if (falImageUrl) {
-            const kontextPrompt = `Transform this athlete photo into a professional sports graphic.
-Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.
+            const kontextPrompt = `IDENTITY LOCK — highest priority rule, overrides everything else below: this is a real photo of a real person. Preserve their exact face, exact facial structure, exact skin tone, exact body, exact pose, exact clothing, pixel-for-pixel where possible. Do not beautify, restyle, or regenerate this person into a different-looking individual. Do not add a second copy, ghosted duplicate, or faded silhouette of this person or anyone else anywhere in the image — only one instance of this one person appears, exactly as photographed.
+
+Transform the photo into a professional sports graphic by adding design elements around and behind them — background, typography, color, lighting effects. Do not alter the person himself.
 ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
             const kCtrl = new AbortController();
@@ -422,6 +411,22 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
             }
           }
         } catch(e) { console.warn('FLUX Kontext failed:', e.message); }
+      }
+
+      // ── SECONDARY: gpt-image-2 edits ──
+      // Better text rendering than FLUX, but does not reliably preserve the uploaded
+      // person's actual identity — only used if FLUX Kontext fails.
+      if (OPENAI_KEY && athleteImage) {
+        try {
+          const imageUrl = await callGptImage({
+            promptText: prompt,
+            images: [athleteImage],
+            size,
+            quality: 'high',
+            timeoutMs: 90000
+          });
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
+        } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
       }
 
       // ── TERTIARY: Gemini multimodal ──
