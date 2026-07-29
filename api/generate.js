@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Images:      gpt-image-1 (OpenAI) → FLUX Dev fallback
+//  Images:      gpt-image-2 (OpenAI) → FLUX Kontext Pro / FLUX 1.1 Pro fallback
 //  BG removal:  fal.ai imageutils/rembg  (fast, reliable)
 //  Video:       fal.ai Kling Video 1.6   (hype clips)
 // ─────────────────────────────────────────────────────────────
@@ -172,9 +172,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: 'processing', jobId, soraStatus: pollData.status });
     }
 
-    // ── Fast team background — FLUX → GPT-image-1 → Gemini → canvas ────
+    // ── Fast team background — FLUX → GPT-image-2 → Gemini → canvas ────
     // FLUX 1.1 Pro is primary: fastest + best atmospheric quality for sports BGs.
-    // GPT-image-1 / Gemini as fallbacks. Canvas as last resort.
+    // GPT-image-2 / Gemini as fallbacks. Canvas as last resort.
     if (action === 'team-bg' && prompt) {
       const bgWidth  = req.body.width  || 1024;
       const bgHeight = req.body.height || 1280;
@@ -235,7 +235,7 @@ export default async function handler(req, res) {
         } catch(e) { console.warn('FLUX team-bg error:', e.message); }
       }
 
-      // ── Secondary: GPT-image-1 ───────────────────────────────────────
+      // ── Secondary: GPT-image-2 ───────────────────────────────────────
       if (OPENAI_KEY) {
         try {
           const bgCtrl  = new AbortController();
@@ -250,7 +250,7 @@ export default async function handler(req, res) {
               const form = new FormData();
               form.append('image', new File([refBuffer], 'reference.jpg', { type: refMatch[1] }));
               form.append('prompt', fullBgPrompt);
-              form.append('model', 'gpt-image-1');
+              form.append('model', 'gpt-image-2');
               form.append('size', bgSize);
               form.append('quality', 'high');
               form.append('n', '1');
@@ -265,7 +265,7 @@ export default async function handler(req, res) {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
               signal: bgCtrl.signal,
-              body: JSON.stringify({ model: 'gpt-image-1', prompt: fullBgPrompt, n: 1, size: bgSize, quality: 'high' })
+              body: JSON.stringify({ model: 'gpt-image-2', prompt: fullBgPrompt, n: 1, size: bgSize, quality: 'high' })
             });
           }
           clearTimeout(bgTimer);
@@ -328,8 +328,8 @@ export default async function handler(req, res) {
     }
 
     // ── Vision-based generation — athlete photo → sports graphic ──────────────
-    // Model priority: GPT-image-1 edits → FLUX Kontext Pro → Gemini multimodal
-    // GPT-image-1 is the engine that produced the reference-quality Kyrie/Mavericks design.
+    // Model priority: GPT-image-2 edits → FLUX Kontext Pro → Gemini multimodal
+    // GPT-image-2 is OpenAI's latest and most identity-consistent image model.
     const refImage = req.body.referenceImage || null;
     if (action === 'generate-with-image' && (athleteImage || refImage) && prompt) {
       const size = (width === height) ? '1024x1024'
@@ -354,7 +354,7 @@ export default async function handler(req, res) {
         return putR.ok ? file_url : null;
       }
 
-      // ── PRIMARY: GPT-image-1 edits — the engine that created the Kyrie/Mavericks design ──
+      // ── PRIMARY: GPT-image-2 edits — best-in-class identity preservation + text rendering ──
       // Best text rendering, follows the type-specific directive prompt precisely.
       if (OPENAI_KEY && athleteImage) {
         try {
@@ -366,7 +366,7 @@ export default async function handler(req, res) {
             const form   = new FormData();
             form.append('image', new File([buffer], `athlete.${ext}`, { type: mimeType }));
             form.append('prompt', prompt);
-            form.append('model', 'gpt-image-1');
+            form.append('model', 'gpt-image-2');
             form.append('size', size);
             form.append('quality', 'high');
             form.append('n', '1');
@@ -382,13 +382,13 @@ export default async function handler(req, res) {
               const b64  = editData.data?.[0]?.b64_json;
               const url  = editData.data?.[0]?.url;
               const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
-              if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1-edit' });
+              if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
             } else {
               const editErr = await editRes.json().catch(() => ({}));
-              console.warn('GPT-image-1 edits error:', editErr.error?.message);
+              console.warn('GPT-image-2 edits error:', editErr.error?.message);
             }
           }
-        } catch(e) { console.warn('GPT-image-1 edits failed:', e.message); }
+        } catch(e) { console.warn('GPT-image-2 edits failed:', e.message); }
       }
 
       // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
@@ -576,7 +576,7 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
             const buffer = Buffer.from(b64data, 'base64');
             const ext    = mime.includes('png') ? 'png' : 'jpg';
             const form   = new FormData();
-            form.append('model', 'gpt-image-1');
+            form.append('model', 'gpt-image-2');
             form.append('prompt', refinePrompt);
             form.append('n', '1');
             form.append('image', new File([buffer], `design.${ext}`, { type: mime }));
@@ -586,7 +586,7 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
             const ed = await editRes.json();
             const b64out = ed.data?.[0]?.b64_json;
             if (b64out) {
-              return res.status(200).json({ url: `data:image/png;base64,${b64out}`, engine: 'GPT-Image-1' });
+              return res.status(200).json({ url: `data:image/png;base64,${b64out}`, engine: 'GPT-Image-2' });
             }
           }
         } catch(e) { console.error('GPT refine failed:', e.message); }
@@ -793,10 +793,10 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       return res.status(200).json({ analysis: '' });
     }
 
-    // ── Image generation — gpt-image-1 → Gemini → FLUX ───────
+    // ── Image generation — gpt-image-2 → Gemini → FLUX ───────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // Helper: call gpt-image-1 with timeout and return base64 data URI
+    // Helper: call gpt-image-2 with timeout and return base64 data URI
     async function tryGptImage(sz) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 55000);
@@ -805,19 +805,19 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
           method:  'POST',
           headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
           signal:  ctrl.signal,
-          body:    JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size: sz, quality: 'high' })
+          body:    JSON.stringify({ model: 'gpt-image-2', prompt, n: 1, size: sz, quality: 'high' })
         });
         clearTimeout(timer);
         const imgData = await imgRes.json();
         if (!imgRes.ok) {
           const code = imgData.error?.code || imgData.error?.type || imgRes.status;
-          throw Object.assign(new Error(imgData.error?.message || 'gpt-image-1 error'), { code, status: imgRes.status });
+          throw Object.assign(new Error(imgData.error?.message || 'gpt-image-2 error'), { code, status: imgRes.status });
         }
         const b64 = imgData.data?.[0]?.b64_json;
         const url = imgData.data?.[0]?.url;
         // Prefer b64 (permanent) over URL (expires in 1 hour)
         const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
-        if (!imageUrl) throw new Error('gpt-image-1 returned no image');
+        if (!imageUrl) throw new Error('gpt-image-2 returned no image');
         return imageUrl;
       } catch(e) {
         clearTimeout(timer);
@@ -825,7 +825,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       }
     }
 
-    // Primary: gpt-image-1 — best instruction adherence; retry once on transient errors
+    // Primary: gpt-image-2 — best instruction adherence; retry once on transient errors
     if (OPENAI_KEY) {
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
@@ -834,7 +834,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const imageUrl = await tryGptImage(size);
-          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-1' });
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2' });
         } catch(e) {
           lastErr = e;
           const isTransient = e.status === 429 || e.status === 500 || e.status === 503 || e.name === 'AbortError';
@@ -842,7 +842,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
           await new Promise(r => setTimeout(r, 1500));
         }
       }
-      console.warn('gpt-image-1 failed after retries, falling back to Gemini:', lastErr?.message);
+      console.warn('gpt-image-2 failed after retries, falling back to Gemini:', lastErr?.message);
     }
 
     // Secondary: Gemini (fallback when OpenAI unavailable)
