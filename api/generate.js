@@ -355,8 +355,43 @@ export default async function handler(req, res) {
         return putR.ok ? file_url : null;
       }
 
-      // ── PRIMARY: GPT-image-1 edits — the engine that created the Kyrie design ──
-      // Best text rendering, follows complex prompts precisely, proven sports graphic quality
+      // ── PRIMARY: FLUX Kontext Pro — identity-preserving image editor ──
+      // The only engine here that keeps the actual uploaded person — same face, same body.
+      if (FAL_KEY && athleteImage) {
+        try {
+          const falImageUrl = await uploadToFal(athleteImage, 'athlete.jpg');
+          if (falImageUrl) {
+            const kontextPrompt = `Transform this athlete photo into a professional sports graphic.
+Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.
+${prompt}
+ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
+            const kCtrl = new AbortController();
+            const kTimer = setTimeout(() => kCtrl.abort(), 90000);
+            const kRes = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
+              method: 'POST',
+              headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+              signal: kCtrl.signal,
+              body: JSON.stringify({ image_url: falImageUrl, prompt: kontextPrompt, num_inference_steps: 28, guidance_scale: 2.5, output_format: 'jpeg', output_quality: 95, num_images: 1 })
+            });
+            clearTimeout(kTimer);
+            if (kRes.ok) {
+              const kData = await kRes.json();
+              const imgUrl = kData.images?.[0]?.url;
+              if (imgUrl) {
+                const imgBuf = await (await fetch(imgUrl)).arrayBuffer();
+                const b64 = 'data:image/jpeg;base64,' + Buffer.from(imgBuf).toString('base64');
+                return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-kontext' });
+              }
+            } else {
+              const kerr = await kRes.json().catch(() => ({}));
+              console.warn('FLUX Kontext error:', kerr.detail || kerr.message || kRes.status);
+            }
+          }
+        } catch(e) { console.warn('FLUX Kontext failed:', e.message); }
+      }
+
+      // ── SECONDARY: GPT-image-1 edits ──
+      // Good text rendering but treats the uploaded photo as a style hint, not the actual person.
       if (OPENAI_KEY && athleteImage) {
         try {
           const match = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
@@ -390,40 +425,6 @@ export default async function handler(req, res) {
             }
           }
         } catch(e) { console.warn('GPT-image-1 edits failed:', e.message); }
-      }
-
-      // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
-      if (FAL_KEY && athleteImage) {
-        try {
-          const falImageUrl = await uploadToFal(athleteImage, 'athlete.jpg');
-          if (falImageUrl) {
-            const kontextPrompt = `Transform this athlete photo into a professional sports graphic.
-Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.
-${prompt}
-ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
-            const kCtrl = new AbortController();
-            const kTimer = setTimeout(() => kCtrl.abort(), 90000);
-            const kRes = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
-              method: 'POST',
-              headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
-              signal: kCtrl.signal,
-              body: JSON.stringify({ image_url: falImageUrl, prompt: kontextPrompt, num_inference_steps: 28, guidance_scale: 2.5, output_format: 'jpeg', output_quality: 95, num_images: 1 })
-            });
-            clearTimeout(kTimer);
-            if (kRes.ok) {
-              const kData = await kRes.json();
-              const imgUrl = kData.images?.[0]?.url;
-              if (imgUrl) {
-                const imgBuf = await (await fetch(imgUrl)).arrayBuffer();
-                const b64 = 'data:image/jpeg;base64,' + Buffer.from(imgBuf).toString('base64');
-                return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-kontext' });
-              }
-            } else {
-              const kerr = await kRes.json().catch(() => ({}));
-              console.warn('FLUX Kontext error:', kerr.detail || kerr.message || kRes.status);
-            }
-          }
-        } catch(e) { console.warn('FLUX Kontext failed:', e.message); }
       }
 
       // ── TERTIARY: Gemini multimodal ──
