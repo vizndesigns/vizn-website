@@ -3209,9 +3209,9 @@ function stopGenOverlay(engine, dims) {
   const badge    = el('engineBadge');
   const badgeTxt = el('engineBadgeTxt');
   const _engineLabels = {
-    'gpt-image-2-edit': 'GPT-Image-2 Edit', 'gpt-image-2': 'GPT-Image-2', 'GPT-Image-2': 'GPT-Image-2',
+    'gpt-5.5-image': 'GPT-5.5', 'gpt-bg': 'GPT-5.5',
     'flux-kontext': 'FLUX Kontext Pro', 'flux-pro': 'FLUX 1.1 Pro', 'flux-bg': 'FLUX 1.1 Pro',
-    'gpt-bg': 'GPT-Image-2', 'gemini-bg': 'Gemini', 'gemini-vision': 'Gemini Vision', 'gemini': 'Gemini', 'Gemini': 'Gemini'
+    'gemini-bg': 'Gemini', 'gemini-vision': 'Gemini Vision', 'gemini': 'Gemini'
   };
   const engineLabel = _engineLabels[engine] || engine || 'AI';
   if (badgeTxt) badgeTxt.textContent = '\u2713 ' + engineLabel;

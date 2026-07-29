@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Images:      gpt-image-2 (OpenAI) → FLUX Kontext Pro / FLUX 1.1 Pro fallback
+//  Images:      GPT-5.5 + image_generation tool (OpenAI, ChatGPT's own pipeline)
+//               → FLUX Kontext Pro / FLUX 1.1 Pro fallback
 //  BG removal:  fal.ai imageutils/rembg  (fast, reliable)
 //  Video:       fal.ai Kling Video 1.6   (hype clips)
 // ─────────────────────────────────────────────────────────────
@@ -17,6 +18,43 @@ export default async function handler(req, res) {
   const OPENAI_KEY    = process.env.OPENAI_API_KEY;
   const FAL_KEY       = process.env.FAL_KEY;
   const GOOGLE_KEY    = process.env.GOOGLE_API_KEY;
+
+  // ── GPT-5.5 + hosted image_generation tool — the same pipeline ChatGPT's
+  // image feature runs on: a reasoning model auto-revises the prompt, then
+  // delegates to gpt-image-2 under the hood. Handles both text-to-image and
+  // photo edits (input images go in the same `input` content array).
+  async function callGptImageResponses({ promptText, images = [], size = 'auto', quality = 'high', timeoutMs = 60000 }) {
+    const content = [{ type: 'input_text', text: promptText }];
+    for (const img of images) {
+      if (img) content.push({ type: 'input_image', image_url: img, detail: 'high' });
+    }
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch('https://api.openai.com/v1/responses', {
+        method:  'POST',
+        headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        signal:  ctrl.signal,
+        body:    JSON.stringify({
+          model: 'gpt-5.5',
+          input: [{ role: 'user', content }],
+          tools: [{ type: 'image_generation', size, quality }]
+        })
+      });
+      clearTimeout(timer);
+      const data = await res.json();
+      if (!res.ok) {
+        throw Object.assign(new Error(data.error?.message || 'gpt-5.5 image_generation error'), { status: res.status, code: data.error?.code });
+      }
+      const call = (data.output || []).find(o => o.type === 'image_generation_call');
+      const b64  = call?.result;
+      if (!b64) throw new Error('gpt-5.5 image_generation returned no image');
+      return `data:image/png;base64,${b64}`;
+    } catch(e) {
+      clearTimeout(timer);
+      throw e;
+    }
+  }
 
   try {
     const { action, predictionId, jobId, image, prompt, width, height, athleteImage, style } = req.body;
@@ -235,49 +273,17 @@ export default async function handler(req, res) {
         } catch(e) { console.warn('FLUX team-bg error:', e.message); }
       }
 
-      // ── Secondary: GPT-image-2 ───────────────────────────────────────
+      // ── Secondary: GPT-5.5 + image_generation tool ───────────────────
       if (OPENAI_KEY) {
         try {
-          const bgCtrl  = new AbortController();
-          const bgTimer = setTimeout(() => bgCtrl.abort(), 60000);
-
-          let bgRes, bgData;
-          if (refImage) {
-            // Use edits endpoint so Gemini reference is sent as style guide
-            const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
-            if (refMatch) {
-              const refBuffer = Buffer.from(refMatch[2], 'base64');
-              const form = new FormData();
-              form.append('image', new File([refBuffer], 'reference.jpg', { type: refMatch[1] }));
-              form.append('prompt', fullBgPrompt);
-              form.append('model', 'gpt-image-2');
-              form.append('size', bgSize);
-              form.append('quality', 'high');
-              form.append('n', '1');
-              bgRes  = await fetch('https://api.openai.com/v1/images/edits', {
-                method: 'POST', headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
-                signal: bgCtrl.signal, body: form
-              });
-            }
-          }
-          if (!bgRes) {
-            bgRes = await fetch('https://api.openai.com/v1/images/generations', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-              signal: bgCtrl.signal,
-              body: JSON.stringify({ model: 'gpt-image-2', prompt: fullBgPrompt, n: 1, size: bgSize, quality: 'high' })
-            });
-          }
-          clearTimeout(bgTimer);
-          bgData = await bgRes.json();
-          if (bgRes.ok) {
-            const b64 = bgData.data?.[0]?.b64_json;
-            const url = bgData.data?.[0]?.url;
-            const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
-            if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-bg' });
-          } else {
-            console.warn('GPT team-bg failed:', bgData.error?.message || bgRes.status);
-          }
+          const imageUrl = await callGptImageResponses({
+            promptText: fullBgPrompt,
+            images: refImage ? [refImage] : [],
+            size: bgSize,
+            quality: 'high',
+            timeoutMs: 60000
+          });
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-bg' });
         } catch(e) { console.warn('GPT team-bg error:', e.message); }
       }
 
@@ -328,8 +334,8 @@ export default async function handler(req, res) {
     }
 
     // ── Vision-based generation — athlete photo → sports graphic ──────────────
-    // Model priority: GPT-image-2 edits → FLUX Kontext Pro → Gemini multimodal
-    // GPT-image-2 is OpenAI's latest and most identity-consistent image model.
+    // Model priority: GPT-5.5 + image_generation tool → FLUX Kontext Pro → Gemini multimodal
+    // GPT-5.5 auto-revises the prompt before delegating to gpt-image-2 — same pipeline ChatGPT uses.
     const refImage = req.body.referenceImage || null;
     if (action === 'generate-with-image' && (athleteImage || refImage) && prompt) {
       const size = (width === height) ? '1024x1024'
@@ -354,41 +360,19 @@ export default async function handler(req, res) {
         return putR.ok ? file_url : null;
       }
 
-      // ── PRIMARY: GPT-image-2 edits — best-in-class identity preservation + text rendering ──
-      // Best text rendering, follows the type-specific directive prompt precisely.
+      // ── PRIMARY: GPT-5.5 + image_generation tool — ChatGPT's own pipeline ──
+      // Reasoning model auto-revises the prompt, then edits via gpt-image-2 under the hood.
       if (OPENAI_KEY && athleteImage) {
         try {
-          const match = athleteImage.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            const [, mimeType, b64data] = match;
-            const buffer = Buffer.from(b64data, 'base64');
-            const ext    = mimeType.includes('png') ? 'png' : 'jpg';
-            const form   = new FormData();
-            form.append('image', new File([buffer], `athlete.${ext}`, { type: mimeType }));
-            form.append('prompt', prompt);
-            form.append('model', 'gpt-image-2');
-            form.append('size', size);
-            form.append('quality', 'high');
-            form.append('n', '1');
-            const editCtrl  = new AbortController();
-            const editTimer = setTimeout(() => editCtrl.abort(), 90000);
-            const editRes   = await fetch('https://api.openai.com/v1/images/edits', {
-              method: 'POST', headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
-              signal: editCtrl.signal, body: form
-            });
-            clearTimeout(editTimer);
-            if (editRes.ok) {
-              const editData = await editRes.json();
-              const b64  = editData.data?.[0]?.b64_json;
-              const url  = editData.data?.[0]?.url;
-              const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
-              if (imageUrl) return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
-            } else {
-              const editErr = await editRes.json().catch(() => ({}));
-              console.warn('GPT-image-2 edits error:', editErr.error?.message);
-            }
-          }
-        } catch(e) { console.warn('GPT-image-2 edits failed:', e.message); }
+          const imageUrl = await callGptImageResponses({
+            promptText: prompt,
+            images: [athleteImage],
+            size,
+            quality: 'high',
+            timeoutMs: 90000
+          });
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-5.5-image' });
+        } catch(e) { console.warn('GPT-5.5 image_generation failed:', e.message); }
       }
 
       // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
@@ -572,27 +556,14 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
         } catch(e) { console.error('Gemini refine failed:', e.message); }
       }
 
-      if (OPENAI_KEY) {
+      if (OPENAI_KEY && imageDataUrl && imageDataUrl.startsWith('data:')) {
         try {
-          const match = imageDataUrl && imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            const [, mime, b64data] = match;
-            const buffer = Buffer.from(b64data, 'base64');
-            const ext    = mime.includes('png') ? 'png' : 'jpg';
-            const form   = new FormData();
-            form.append('model', 'gpt-image-2');
-            form.append('prompt', refinePrompt);
-            form.append('n', '1');
-            form.append('image', new File([buffer], `design.${ext}`, { type: mime }));
-            const editRes = await fetch('https://api.openai.com/v1/images/edits', {
-              method: 'POST', headers: { Authorization: `Bearer ${OPENAI_KEY}` }, body: form
-            });
-            const ed = await editRes.json();
-            const b64out = ed.data?.[0]?.b64_json;
-            if (b64out) {
-              return res.status(200).json({ url: `data:image/png;base64,${b64out}`, engine: 'GPT-Image-2' });
-            }
-          }
+          const imageUrl = await callGptImageResponses({
+            promptText: refinePrompt,
+            images: [imageDataUrl],
+            timeoutMs: 60000
+          });
+          return res.status(200).json({ url: imageUrl, engine: 'gpt-5.5-image' });
         } catch(e) { console.error('GPT refine failed:', e.message); }
       }
 
@@ -797,39 +768,10 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       return res.status(200).json({ analysis: '' });
     }
 
-    // ── Image generation — gpt-image-2 → Gemini → FLUX ───────
+    // ── Image generation — GPT-5.5 + image_generation tool → Gemini → FLUX ───────
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    // Helper: call gpt-image-2 with timeout and return base64 data URI
-    async function tryGptImage(sz) {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 60000);
-      try {
-        const imgRes = await fetch('https://api.openai.com/v1/images/generations', {
-          method:  'POST',
-          headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-          signal:  ctrl.signal,
-          body:    JSON.stringify({ model: 'gpt-image-2', prompt, n: 1, size: sz, quality: 'high' })
-        });
-        clearTimeout(timer);
-        const imgData = await imgRes.json();
-        if (!imgRes.ok) {
-          const code = imgData.error?.code || imgData.error?.type || imgRes.status;
-          throw Object.assign(new Error(imgData.error?.message || 'gpt-image-2 error'), { code, status: imgRes.status });
-        }
-        const b64 = imgData.data?.[0]?.b64_json;
-        const url = imgData.data?.[0]?.url;
-        // Prefer b64 (permanent) over URL (expires in 1 hour)
-        const imageUrl = b64 ? `data:image/png;base64,${b64}` : url;
-        if (!imageUrl) throw new Error('gpt-image-2 returned no image');
-        return imageUrl;
-      } catch(e) {
-        clearTimeout(timer);
-        throw e;
-      }
-    }
-
-    // Primary: gpt-image-2 — best instruction adherence
+    // Primary: GPT-5.5 + image_generation tool — same pipeline ChatGPT uses.
     // Single attempt only: retries here previously stacked with the vision-block
     // engines and blew past Vercel's 120s function timeout on failure cascades.
     if (OPENAI_KEY && !skipTextEngineRetries) {
@@ -837,10 +779,10 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
       try {
-        const imageUrl = await tryGptImage(size);
-        return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2' });
+        const imageUrl = await callGptImageResponses({ promptText: prompt, size, quality: 'high', timeoutMs: 60000 });
+        return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-5.5-image' });
       } catch(e) {
-        console.warn('gpt-image-2 failed, falling back to Gemini:', e.message);
+        console.warn('GPT-5.5 image_generation failed, falling back to Gemini:', e.message);
       }
     }
 
