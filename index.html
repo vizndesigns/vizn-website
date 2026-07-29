@@ -685,10 +685,9 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <button id="clearRefBtn" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;line-height:1" onclick="clearRefImage()">&#x2715;</button>
           </div>
         </div>
-        <div class="cg"><div class="clabel">Design Type <span style="font-weight:400;color:var(--muted);font-size:8px;letter-spacing:0">(optional)</span></div>
+        <div class="cg"><div class="clabel">Design Type</div>
           <div class="type-list">
-            <div class="ti on" data-type="none"><div class="ti-radio"></div><span class="ti-lbl">✍️ Use My Prompt As-Is</span></div>
-            <div class="ti" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
+            <div class="ti on" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
             <div class="ti" data-type="game-day"><div class="ti-radio"></div><span class="ti-lbl">🏟 Game Day Graphic</span></div>
             <div class="ti" data-type="halftime-score"><div class="ti-radio"></div><span class="ti-lbl">⏱ Halftime Score Graphic</span></div>
             <div class="ti" data-type="final-score"><div class="ti-radio"></div><span class="ti-lbl">🏁 Final Score Graphic</span></div>
@@ -1160,7 +1159,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 // ═══════════════════════════════════════════════════════
 
 const S = {
-  type:'none', style:'modern',
+  type:'commitment', style:'modern',
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
   athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
@@ -2275,7 +2274,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
   (styles[style] || styles.aggressive)();
 }
 
-// ── Fast team background — FLUX → GPT-image-2 → Gemini → canvas fallback ──
+// ── Fast team background — FLUX → GPT-image-1 → Gemini → canvas fallback ──
 async function callTeamBackground(prompt, type, referenceImage = null, teamColors = null) {
   const { w, h } = getDims(type);
   try {
@@ -2331,14 +2330,14 @@ const _typo = {
   collage:    'ultra-bold condensed Impact, ALL CAPS, oversized numeral or word as dominant graphic element, editorial sports magazine hierarchy'
 };
 
-const _negatives = 'text or elements clipped at any edge, blurry or illegible typography, watermarks, clip art, stock photo feel, amateur composition, muddy low-contrast colors, stray colors not requested, generic drop shadows, 3D render artifacts, sponsor logos or brand wordmarks not explicitly named in the brief (no invented Nike/Chime/apparel logos), extra caption or label text not in the brief, fake handwritten signatures or scribbled tags, a second/opposing team logo when no opponent is named in the brief, duplicating the same team\'s logo to fake a matchup.';
+const _negatives = 'text or elements clipped at any edge, blurry or illegible typography, watermarks, clip art, stock photo feel, amateur composition, muddy low-contrast colors, stray colors not requested, generic drop shadows, 3D render artifacts.';
 
 
 const _composition = {
   'commitment':      "Bilateral symmetry, athlete centered, school logo floating above head, player name as cinematic super-title, confetti or light-burst particles radiating outward.",
-  'game-day':        "Full-bleed team identity — GAME DAY headline dominates upper third, matchup info (only if an opponent is named in the brief) center stage, date/time/location in lower third. Electric pregame energy radiates from center.",
-  'halftime-score':  "Broadcast scoreboard layout — team mark centered prominently (add an opposing team logo only if one is named in the brief), HALFTIME label above score in accent color, period indicator, clean network sports broadcast aesthetic.",
-  'final-score':     "Final score announcement — FINAL label prominent in accent color, score in massive centered type, team mark(s) flanking (only include an opposing team logo if one is named in the brief), clean postgame broadcast tone.",
+  'game-day':        "Full-bleed team identity — GAME DAY headline dominates upper third, opponent info and matchup center stage, date/time/location in lower third. Electric pregame energy radiates from center.",
+  'halftime-score':  "Broadcast scoreboard layout — team logos flanking the score centered prominently, HALFTIME label above score in accent color, period indicator, clean network sports broadcast aesthetic.",
+  'final-score':     "Final score announcement — FINAL label prominent in accent color, both teams' scores in massive centered type, team logos flanking, clean postgame broadcast tone.",
   'player-of-game':  "Player photo as centered spotlight hero with halo or key light treatment, PLAYER OF THE GAME header at top, stat callouts in lower zone, award-presentation energy.",
   'game-recap':      "Split information design — game headline and final score in upper half, key player stats and highlights in lower half, team marks anchoring corners, clean broadcast summary.",
   'starting-lineup': "STARTING LINEUP title dominant at top, player names and numbers in bold vertical list format, team colors and mark anchor the composition, authoritative lineup reveal.",
@@ -2448,7 +2447,6 @@ function extractColors(text) {
 }
 
 function buildPrompt(raw, sport, style, type) {
-  if (type === 'none') return raw;
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE: ${detectedColors.join(', ')} — use these colors. Do not add unrelated colors.`
@@ -2541,39 +2539,20 @@ function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
     : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
   const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
 
-  // Matchup-style graphics (game-day, score cards, recaps) ask the model for "opponent
-  // info" — if the user never actually named an opponent, the model invents one, which
-  // has produced duplicated/self-matchup logos ("Mavericks vs Mavericks"). Only request
-  // a matchup when a real opponent is present in the brief.
-  const matchupTypes = ['game-day', 'halftime-score', 'final-score', 'game-recap'];
-  const oppMatch = raw.match(/\b(?:vs\.?|versus|against)\s+([A-Z][\w.&'-]*(?:\s+[A-Z][\w.&'-]*){0,3})/);
-  const opponentBlock = matchupTypes.includes(type)
-    ? (oppMatch
-        ? `OPPONENT: ${oppMatch[1].trim()} — this is the only opposing team to show. Do not add any other team.`
-        : `NO OPPONENT NAMED IN THE BRIEF: Do not invent an opposing team and do not duplicate the primary team's own logo as a fake "VS" matchup. Show only the primary team's identity — omit any second team logo, VS box, or opponent name entirely.`)
-    : '';
-
   const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
   const poseInstruction = poseKeywords.test(raw)
     ? `${isTeam ? 'ATHLETES' : 'ATHLETE'}: Keep ${isTeam ? 'all athletes' : 'the athlete'} clearly visible and prominent. You may adjust their pose per the brief.`
     : isTeam
       ? `ATHLETE PRESERVATION — CRITICAL: The contact sheet contains ${playerCount} distinct athletes. ALL ${playerCount} must appear in the final design — do NOT omit any. Each person must appear exactly as they look in their panel of the contact sheet. Do NOT change anyone's pose, expression, clothing, or appearance. Only add design elements (backgrounds, typography, graphics, overlays) around and behind them.`
-      : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them. Do NOT add any other people — no ghosted duplicate portraits, no faded silhouettes of teammates, no additional athletes of any kind. The uploaded photo's subject is the only person who may appear anywhere in the image.`;
+      : `ATHLETE PRESERVATION — CRITICAL: The person in the uploaded photo MUST appear EXACTLY as they are in that photo. Do NOT change their pose, body position, expression, clothing, or any aspect of how they look. Do NOT generate a new version or different image of this person. Use their EXACT appearance from the photo as-is. Only add design elements (backgrounds, typography, graphics, color treatments) around and behind them.`;
 
   const multiPlayerBlock = isTeam
     ? `\nTEAM COMPOSITE — ${playerCount} ATHLETES REQUIRED:\n• The contact sheet image contains ${playerCount} athletes — count the panels\n• EVERY athlete must appear in the final graphic — include all ${playerCount}, none missing\n• Each player gets equal visual weight — none is cropped or hidden\n• Arrange them in a dynamic horizontal or grid formation across the composition\n• If a Starting Lineup or Roster graphic, show them in a clean row or column arrangement\n`
     : '';
 
-  if (type === 'none') {
-    // True as-is mode: send exactly what the user typed, same as pasting into ChatGPT
-    // with the photo attached. No extra rules, no scaffolding — let the model decide.
-    return raw;
-  }
-
   return `${typeDirectives[type] || typeDirectives['other']}
 ${multiPlayerBlock}
 ${colorBlock}
-${opponentBlock}
 
 DESIGN BRIEF (include every element):
 "${raw}"
@@ -2586,7 +2565,6 @@ SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides i
 ${poseInstruction}
 Add professional sports graphic design elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'}.
 Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
-TEXT DISCIPLINE: Render ONLY the text explicitly listed above (headline, brief, key elements). Do not invent additional captions, labels, taglines, sponsor wordmarks, arena/venue names, or decorative handwritten annotations that were not explicitly provided — every extra piece of text is another chance for the render to garble it. Fewer, larger, correct text elements beat many small risky ones.
 Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
@@ -3068,34 +3046,32 @@ async function generate(raw) {
     const sport = detectSport(raw);
 
     let enriched = raw;
-    if (S.type !== 'none') {
-      if (S.referenceImage && enriched.trim().length < 30) {
-        enriched = `${sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
-      }
-
-      setStatus('Reading your prompt…');
-      try {
-        const expCtrl = new AbortController();
-        const expTimer = setTimeout(() => expCtrl.abort(), 6000);
-        const expRes = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: expCtrl.signal,
-          body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
-        });
-        clearTimeout(expTimer);
-        if (expRes.ok) {
-          const expData = await expRes.json();
-          if (expData.expanded && expData.expanded.length > raw.length * 0.7) enriched = expData.expanded;
-        }
-      } catch(e) { /* expansion optional */ }
+    if (S.referenceImage && enriched.trim().length < 30) {
+      enriched = `${sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
     }
+
+    setStatus('Reading your prompt…');
+    try {
+      const expCtrl = new AbortController();
+      const expTimer = setTimeout(() => expCtrl.abort(), 6000);
+      const expRes = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: expCtrl.signal,
+        body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
+      });
+      clearTimeout(expTimer);
+      if (expRes.ok) {
+        const expData = await expRes.json();
+        if (expData.expanded && expData.expanded.length > raw.length * 0.7) enriched = expData.expanded;
+      }
+    } catch(e) { /* expansion optional */ }
 
     let finalUrl, finalEngine;
 
     if (hasPhotos || S.referenceImage) {
       // ── DIRECT AI GENERATION (ChatGPT-style) ────────────────────────────────────────
-      // Your real photos go straight to GPT-image-2 as visual input.
+      // Your real photos go straight to GPT-image-1 as visual input.
       // The AI sees exactly what you uploaded and builds the design around it.
       const playerCount = S.athleteOriginals.length;
       const prompt = buildVisionPrompt(enriched, sport, S.style, S.type, playerCount);
@@ -3222,12 +3198,7 @@ function stopGenOverlay(engine, dims) {
   // Engine badge
   const badge    = el('engineBadge');
   const badgeTxt = el('engineBadgeTxt');
-  const _engineLabels = {
-    'gpt-image-2-edit': 'GPT-Image-2 Edit', 'gpt-image-2': 'GPT-Image-2', 'gpt-bg': 'GPT-Image-2',
-    'flux-kontext': 'FLUX Kontext Pro', 'flux-pro': 'FLUX 1.1 Pro', 'flux-bg': 'FLUX 1.1 Pro',
-    'gemini-bg': 'Gemini', 'gemini-vision': 'Gemini Vision', 'gemini': 'Gemini'
-  };
-  const engineLabel = _engineLabels[engine] || engine || 'AI';
+  const engineLabel = (engine || 'AI').replace('gemini-vision','Gemini Vision').replace('gpt-image-1-edit','GPT-Image-1 Edit').replace('gemini-3.1-flash-image','Gemini Flash').replace('gpt-image-1','GPT-Image-1').replace('flux','FLUX Dev');
   if (badgeTxt) badgeTxt.textContent = '\u2713 ' + engineLabel;
   if (badge) {
     badge.style.opacity = '0';

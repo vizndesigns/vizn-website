@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/generate.js": {
-      "maxDuration": 300
+      "maxDuration": 120
     }
   },
   "rewrites": [
