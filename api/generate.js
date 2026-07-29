@@ -188,7 +188,7 @@ export default async function handler(req, res) {
       if (REPLICATE_KEY) {
         try {
           const fluxCtrl  = new AbortController();
-          const fluxTimer = setTimeout(() => fluxCtrl.abort(), 55000);
+          const fluxTimer = setTimeout(() => fluxCtrl.abort(), 35000);
 
           const fluxW = Math.min(parseInt(bgWidth)  || 1024, 1440);
           const fluxH = Math.min(parseInt(bgHeight) || 1280, 1440);
@@ -200,7 +200,7 @@ export default async function handler(req, res) {
               headers: {
                 'Authorization': `Bearer ${REPLICATE_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'wait=50'
+                'Prefer': 'wait=30'
               },
               signal: fluxCtrl.signal,
               body: JSON.stringify({
@@ -239,7 +239,7 @@ export default async function handler(req, res) {
       if (OPENAI_KEY) {
         try {
           const bgCtrl  = new AbortController();
-          const bgTimer = setTimeout(() => bgCtrl.abort(), 55000);
+          const bgTimer = setTimeout(() => bgCtrl.abort(), 35000);
 
           let bgRes, bgData;
           if (refImage) {
@@ -285,7 +285,7 @@ export default async function handler(req, res) {
       if (GOOGLE_KEY) {
         try {
           const ctrl  = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 30000);
+          const timer = setTimeout(() => ctrl.abort(), 15000);
 
           const bgParts = [];
           if (refImage) {
@@ -371,7 +371,7 @@ export default async function handler(req, res) {
             form.append('quality', 'high');
             form.append('n', '1');
             const editCtrl  = new AbortController();
-            const editTimer = setTimeout(() => editCtrl.abort(), 90000);
+            const editTimer = setTimeout(() => editCtrl.abort(), 30000);
             const editRes   = await fetch('https://api.openai.com/v1/images/edits', {
               method: 'POST', headers: { 'Authorization': `Bearer ${OPENAI_KEY}` },
               signal: editCtrl.signal, body: form
@@ -401,7 +401,7 @@ Keep the person in this photo exactly as they appear — same face, same body, s
 ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
             const kCtrl = new AbortController();
-            const kTimer = setTimeout(() => kCtrl.abort(), 90000);
+            const kTimer = setTimeout(() => kCtrl.abort(), 30000);
             const kRes = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
               method: 'POST',
               headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
@@ -445,7 +445,7 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
           }
           geminiParts.push({ text: prompt });
           const gCtrl  = new AbortController();
-          const gTimer = setTimeout(() => gCtrl.abort(), 55000);
+          const gTimer = setTimeout(() => gCtrl.abort(), 10000);
           const gRes   = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: gCtrl.signal,
@@ -467,8 +467,12 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
         } catch(e) { console.warn('Gemini vision failed:', e.message); }
       }
 
-      console.warn('All vision paths failed — falling back to text generation');
+      console.warn('All vision paths failed — falling back to text-only FLUX generation');
     }
+    // Photo uploads that exhaust every vision engine skip straight to the FLUX text
+    // fallback below — retrying gpt-image-2/Gemini here would just repeat the same
+    // failure and risks blowing the 120s function timeout on top of the vision attempts.
+    const skipTextEngineRetries = action === 'generate-with-image';
 
     // ── Prompt expansion — lightweight Gemini text call ────────
     // ── Surgical refine — image-to-image targeted edit ───────
@@ -799,7 +803,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
     // Helper: call gpt-image-2 with timeout and return base64 data URI
     async function tryGptImage(sz) {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 55000);
+      const timer = setTimeout(() => ctrl.abort(), 40000);
       try {
         const imgRes = await fetch('https://api.openai.com/v1/images/generations', {
           method:  'POST',
@@ -825,31 +829,26 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       }
     }
 
-    // Primary: gpt-image-2 — best instruction adherence; retry once on transient errors
-    if (OPENAI_KEY) {
+    // Primary: gpt-image-2 — best instruction adherence
+    // Single attempt only: retries here previously stacked with the vision-block
+    // engines and blew past Vercel's 120s function timeout on failure cascades.
+    if (OPENAI_KEY && !skipTextEngineRetries) {
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
-      let lastErr;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const imageUrl = await tryGptImage(size);
-          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2' });
-        } catch(e) {
-          lastErr = e;
-          const isTransient = e.status === 429 || e.status === 500 || e.status === 503 || e.name === 'AbortError';
-          if (!isTransient || attempt === 1) break;
-          await new Promise(r => setTimeout(r, 1500));
-        }
+      try {
+        const imageUrl = await tryGptImage(size);
+        return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2' });
+      } catch(e) {
+        console.warn('gpt-image-2 failed, falling back to Gemini:', e.message);
       }
-      console.warn('gpt-image-2 failed after retries, falling back to Gemini:', lastErr?.message);
     }
 
     // Secondary: Gemini (fallback when OpenAI unavailable)
-    if (GOOGLE_KEY) {
+    if (GOOGLE_KEY && !skipTextEngineRetries) {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 45000);
+        const timer = setTimeout(() => controller.abort(), 20000);
 
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
@@ -892,7 +891,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
       'https://api.replicate.com/v1/models/black-forest-labs/flux-1.1-pro/predictions',
       {
         method:  'POST',
-        headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=55' },
+        headers: { 'Authorization': `Bearer ${REPLICATE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'wait=30' },
         body:    JSON.stringify({ input: {
           prompt,
           width:             fluxW,
