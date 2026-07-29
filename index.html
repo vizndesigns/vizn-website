@@ -2560,14 +2560,14 @@ ${colorBlock}
 DESIGN BRIEF (include every element):
 "${raw}"
 ${keyElements}
-SPORT: ${sport.toUpperCase()}
-TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
+${sport && sport !== 'sports' ? `SPORT (context only — do not render this word anywhere on the image): ${sport.toUpperCase()}\n` : ''}TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
 SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
 
 ${poseInstruction}
 Add professional sports graphic design elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'}.
 Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp.
+STICK TO THE BRIEF: Render only facts explicitly stated in the design brief above. Do not invent a position, stat, team, date, or any other detail that isn't given — if it's not in the brief, leave it out entirely rather than guessing or filling the space with a plausible-sounding label.
 Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
 Single dramatic key light, deep shadows, layered spatial depth.
 Quality level: Nike campaign / Jordan Brand launch / ESPN broadcast graphic.
