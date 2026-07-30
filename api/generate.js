@@ -379,18 +379,23 @@ export default async function handler(req, res) {
       }
 
       // ── PRIMARY: gpt-image-2 edits — best text rendering, best identity, when it finishes ──
-      // Runs whenever either image is present, passing both when both exist. Retried once
-      // on failure/timeout before falling to FLUX Kontext: gpt-image-2's failures here have
-      // consistently looked transient (it succeeds on plenty of similar requests), and its
-      // quality ceiling is well above the fallback engines' — worth a second real attempt
-      // instead of immediately settling for a worse result.
+      // Runs whenever either image is present, passing both when both exist. Fires TWO
+      // independent gpt-image-2 requests in parallel and uses whichever succeeds first —
+      // this is a real reliability lever, not just a timeout tweak: it roughly doubles the
+      // odds of getting gpt-image-2's quality instead of falling to a weaker fallback, at
+      // the cost of ~2x OpenAI spend per generation. Chosen deliberately for a paid product
+      // where a customer seeing FLUX Kontext's garbled text is worse than the extra cost.
       if (OPENAI_KEY && (athleteImage || refImage)) {
         const images = [athleteImage, refImage].filter(Boolean);
-        for (const timeoutMs of [90000, 60000]) {
-          try {
-            const imageUrl = await callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs });
-            return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
-          } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
+        try {
+          const imageUrl = await Promise.any([
+            callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs: 90000 }),
+            callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs: 90000 })
+          ]);
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
+        } catch(e) {
+          const detail = e?.errors ? e.errors.map(err => err.message).join(' | ') : e.message;
+          console.warn('gpt-image-2 edit failed (both parallel attempts):', detail);
         }
       }
 
@@ -786,18 +791,22 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
     // Primary: gpt-image-2 — best instruction adherence
-    // 90s timeout, not 45s: a 45s cutoff was aborting real requests before gpt-image-2
-    // could finish, which silently fell through to Gemini — the engine that actually
-    // produced the ghosting/fake-badge/impossible-score artifacts users kept reporting.
+    // Two parallel requests, first success wins — same reliability trade as the photo-upload
+    // path (roughly 2x OpenAI spend per generation, roughly 2x the odds of avoiding the
+    // weaker Gemini/FLUX fallback). Deliberate choice for a paid product.
     if (OPENAI_KEY) {
       const size = (width === height) ? '1024x1024'
                  : (width  > height)  ? '1536x1024'
                  :                      '1024x1536';
       try {
-        const imageUrl = await callGptImage({ promptText: prompt, size, quality: 'high', timeoutMs: 90000 });
+        const imageUrl = await Promise.any([
+          callGptImage({ promptText: prompt, size, quality: 'high', timeoutMs: 90000 }),
+          callGptImage({ promptText: prompt, size, quality: 'high', timeoutMs: 90000 })
+        ]);
         return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2' });
       } catch(e) {
-        console.warn('gpt-image-2 failed, falling back to Gemini:', e.message);
+        const detail = e?.errors ? e.errors.map(err => err.message).join(' | ') : e.message;
+        console.warn('gpt-image-2 failed (both parallel attempts), falling back to Gemini:', detail);
       }
     }
 
