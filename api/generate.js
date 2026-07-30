@@ -378,22 +378,20 @@ export default async function handler(req, res) {
         return putR.ok ? file_url : null;
       }
 
-      // ── PRIMARY: gpt-image-2 edits — best-in-class text rendering, completes reliably ──
-      // Was gated on athleteImage only, so a reference-image-only upload (no athlete
-      // photo) skipped straight to Gemini, the weakest engine. Now runs whenever either
-      // image is present, and passes both when both exist so the model can see the
-      // actual person AND the style reference in the same call.
+      // ── PRIMARY: gpt-image-2 edits — best text rendering, best identity, when it finishes ──
+      // Runs whenever either image is present, passing both when both exist. Retried once
+      // on failure/timeout before falling to FLUX Kontext: gpt-image-2's failures here have
+      // consistently looked transient (it succeeds on plenty of similar requests), and its
+      // quality ceiling is well above the fallback engines' — worth a second real attempt
+      // instead of immediately settling for a worse result.
       if (OPENAI_KEY && (athleteImage || refImage)) {
-        try {
-          const imageUrl = await callGptImage({
-            promptText: prompt,
-            images: [athleteImage, refImage].filter(Boolean),
-            size,
-            quality: 'high',
-            timeoutMs: 90000
-          });
-          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
-        } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
+        const images = [athleteImage, refImage].filter(Boolean);
+        for (const timeoutMs of [90000, 60000]) {
+          try {
+            const imageUrl = await callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs });
+            return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
+          } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
+        }
       }
 
       // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
