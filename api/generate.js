@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Images:      gpt-image-2 (OpenAI) → FLUX Kontext Pro fallback
+//  Images:      gpt-image-2 (OpenAI) → FLUX.2 Pro Edit → Gemini 3 Pro Image fallback
 //  BG removal:  fal.ai imageutils/rembg  (fast, reliable)
 //  Video:       fal.ai Kling Video 1.6   (hype clips)
 // ─────────────────────────────────────────────────────────────
@@ -21,9 +21,9 @@ export default async function handler(req, res) {
   // ── gpt-image-2 direct — Images API (generations for text-only, edits for photos) ──
   // GPT-5.5 + the Responses API "image_generation" tool was tried twice (90s then 150s
   // timeout) and failed 100% of the time in production — every single request aborted
-  // without completing, silently falling through to FLUX Kontext, which is what was
-  // actually producing the garbled text/fake badges. Not viable for this workload at
-  // any reasonable timeout. Back to the direct API for good.
+  // without completing, silently falling through to the fallback engines, which is what
+  // was actually producing the garbled text/fake badges. Not viable for this workload
+  // at any reasonable timeout. Back to the direct API for good.
   async function callGptImage({ promptText, images = [], size = 'auto', quality = 'high', timeoutMs = 45000 }) {
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -318,12 +318,12 @@ export default async function handler(req, res) {
           bgParts.push({ text: prompt });
 
           const gRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent?key=${GOOGLE_KEY}`,
             {
               method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
               body: JSON.stringify({
                 contents: [{ parts: bgParts }],
-                generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.35 }
+                generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.35, imageConfig: { aspectRatio: '2:3' } }
               })
             }
           );
@@ -348,9 +348,10 @@ export default async function handler(req, res) {
     }
 
     // ── Vision-based generation — athlete photo → sports graphic ──────────────
-    // Model priority: gpt-image-2 edits → FLUX Kontext Pro → Gemini multimodal
-    // FLUX Kontext is the ONLY model that truly preserves a real person's identity.
-    // GPT/Gemini treat uploaded photos as style hints and generate fake AI people.
+    // Model priority: gpt-image-2 edits → FLUX.2 Pro Edit → Gemini 3 Pro Image multimodal
+    // gpt-image-2 leads on text + photorealism (Artificial Analysis Arena #1); FLUX.2 Pro
+    // Edit is the identity-preservation specialist if gpt-image-2 fails; Gemini 3 Pro
+    // Image is the final multimodal fallback.
     const refImage = req.body.referenceImage || null;
     if (action === 'generate-with-image' && (athleteImage || refImage) && prompt) {
       const size = (width === height) ? '1024x1024'
@@ -393,18 +394,20 @@ export default async function handler(req, res) {
         } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
       }
 
-      // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
-      // Kontext's API takes a single edit-target image: prefer the athlete photo
-      // (identity preservation matters more there) and fall back to the reference
-      // image as the edit target when that's all that was uploaded.
+      // ── SECONDARY: FLUX.2 Pro Edit — newer, stronger identity preservation than
+      // FLUX.1 Kontext, better typography, and supports MULTIPLE reference images at
+      // once (up to 9) — so when both an athlete photo and a style reference are
+      // uploaded, both go in together instead of picking just one.
       if (FAL_KEY && (athleteImage || refImage)) {
         try {
-          const kontextSource = athleteImage || refImage;
-          const falImageUrl = await uploadToFal(kontextSource, athleteImage ? 'athlete.jpg' : 'reference.jpg');
-          if (falImageUrl) {
+          const kontextUrls = (await Promise.all(
+            [athleteImage, refImage].filter(Boolean).map((img, i) =>
+              uploadToFal(img, i === 0 && athleteImage ? 'athlete.jpg' : 'reference.jpg'))
+          )).filter(Boolean);
+          if (kontextUrls.length) {
             const kontextPrompt = athleteImage
               ? `Transform this athlete photo into a professional sports graphic.
-Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.
+Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.${refImage ? ' A second reference image is also provided purely for style inspiration (color palette, typography, layout) — do not use it for the person’s identity.' : ''}
 ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`
               : `Use this image only as creative inspiration — its color palette, composition, or typography style — to build a NEW, distinct sports graphic. Do not reproduce it.
@@ -412,27 +415,29 @@ ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
             const kCtrl = new AbortController();
             const kTimer = setTimeout(() => kCtrl.abort(), 60000);
-            const kRes = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
+            const kRes = await fetch('https://fal.run/fal-ai/flux-2-pro/edit', {
               method: 'POST',
               headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
               signal: kCtrl.signal,
-              body: JSON.stringify({ image_url: falImageUrl, prompt: kontextPrompt, num_inference_steps: 28, guidance_scale: 2.5, output_format: 'jpeg', output_quality: 95, num_images: 1 })
+              body: JSON.stringify({ image_urls: kontextUrls, prompt: kontextPrompt })
             });
             clearTimeout(kTimer);
             if (kRes.ok) {
               const kData = await kRes.json();
               const imgUrl = kData.images?.[0]?.url;
               if (imgUrl) {
-                const imgBuf = await (await fetch(imgUrl)).arrayBuffer();
-                const b64 = 'data:image/jpeg;base64,' + Buffer.from(imgBuf).toString('base64');
-                return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-kontext' });
+                const imgRes  = await fetch(imgUrl);
+                const imgBuf  = await imgRes.arrayBuffer();
+                const imgMime = (imgRes.headers.get('content-type') || 'image/png').split(';')[0];
+                const b64 = `data:${imgMime};base64,` + Buffer.from(imgBuf).toString('base64');
+                return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-2-pro' });
               }
             } else {
               const kerr = await kRes.json().catch(() => ({}));
-              console.warn('FLUX Kontext error:', kerr.detail || kerr.message || kRes.status);
+              console.warn('FLUX.2 Pro error:', kerr.detail || kerr.message || kRes.status);
             }
           }
-        } catch(e) { console.warn('FLUX Kontext failed:', e.message); }
+        } catch(e) { console.warn('FLUX.2 Pro failed:', e.message); }
       }
 
       // ── TERTIARY: Gemini multimodal ──
@@ -457,9 +462,9 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
           const gCtrl  = new AbortController();
           const gTimer = setTimeout(() => gCtrl.abort(), 25000);
           const gRes   = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent?key=${GOOGLE_KEY}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: gCtrl.signal,
-              body: JSON.stringify({ contents: [{ parts: geminiParts }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } }) }
+              body: JSON.stringify({ contents: [{ parts: geminiParts }], generationConfig: { responseModalities: ['IMAGE', 'TEXT'], imageConfig: { aspectRatio: '2:3' } } }) }
           );
           clearTimeout(gTimer);
           if (gRes.ok) {
@@ -541,7 +546,7 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
           if (match) {
             const [, mime, b64] = match;
             const gemRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent?key=${GOOGLE_KEY}`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -550,7 +555,7 @@ APPLY ONLY THE ONE CHANGE. The output must look identical to the input with only
                     { inlineData: { mimeType: mime, data: b64 } },
                     { text: refinePrompt }
                   ]}],
-                  generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.15 }
+                  generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.15, imageConfig: { aspectRatio: '2:3' } }
                 })
               }
             );
@@ -805,14 +810,14 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
         const timer = setTimeout(() => controller.abort(), 45000);
 
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent?key=${GOOGLE_KEY}`,
           {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             signal:  controller.signal,
             body:    JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.4 }
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'], temperature: 0.4, imageConfig: { aspectRatio: '2:3' } }
             })
           }
         );
