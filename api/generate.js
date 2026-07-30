@@ -234,7 +234,17 @@ export default async function handler(req, res) {
       const refImage = req.body.referenceImage || null;
 
       const refPrefix = refImage ? 'Match the color palette, lighting style, and visual atmosphere of the reference image provided. Generate a NEW background — do not copy the reference exactly. ' : '';
-      const fullBgPrompt = refPrefix + prompt;
+      // This background gets a real photo and real canvas-drawn text composited onto it
+      // afterward — it must be a clean atmosphere-only plate, or the AI's own people/text/
+      // scoreboards collide with the real ones layered on top (ghosted duplicate faces,
+      // doubled headlines, unreadable overlapping scoreboards).
+      const fullBgPrompt = `${refPrefix}Generate ONLY a cinematic sports-arena atmosphere background plate — lighting, color, gradient, depth, and mood. Context for color/mood only, do not depict literally: "${prompt}"
+
+ABSOLUTE RULES — this is a blank stage, not a finished graphic:
+- ZERO humans, athletes, faces, silhouettes, crowds, or any body parts, anywhere
+- ZERO text, letters, numbers, words, or scoreboards of any kind
+- ZERO logos, crests, badges, or team marks of any kind
+Pure atmosphere and lighting only.`;
 
       // ── Primary: FLUX 1.1 Pro — fastest + cinematic atmospheric quality ─
       if (REPLICATE_KEY) {

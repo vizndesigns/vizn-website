@@ -3712,6 +3712,11 @@ async function analyzeReference(referenceDataUrl) {
 // correct spelling/digits) instead of asking an image model to render them.
 async function extractAthleteText(prompt) {
   const empty = { headline: '', number: '', school: '', subtitle: '', detail: '' };
+  // The backend returns a generic placeholder array ("PLAYER NAME", "#00", "TEAM NAME")
+  // when extraction fails rather than erroring — that's meant as a safe non-crashing
+  // default, but it's not safe to actually DRAW: a customer seeing a literal "#00" badge
+  // or "PLAYER NAME" text is worse than just omitting the field. Treat these as absent.
+  const placeholders = new Set(['PLAYER NAME', '#00', 'TEAM NAME']);
   try {
     const res = await fetch('/api/generate', {
       method: 'POST',
@@ -3721,7 +3726,10 @@ async function extractAthleteText(prompt) {
     if (!res.ok) return empty;
     const data = await res.json();
     const texts = Array.isArray(data.texts) ? data.texts : [];
-    const byRole = role => texts.find(t => t.role === role)?.text || '';
+    const byRole = role => {
+      const text = texts.find(t => t.role === role)?.text || '';
+      return placeholders.has(text) ? '' : text;
+    };
     return {
       headline: byRole('headline'),
       number:   byRole('number'),
