@@ -311,7 +311,7 @@ export default async function handler(req, res) {
           if (refImage) {
             const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
             if (refMatch) {
-              bgParts.push({ text: 'REFERENCE STYLE — match the color palette and atmosphere of this image:' });
+              bgParts.push({ text: 'REFERENCE IMAGE — draw from this image\'s color palette and atmosphere to inform a NEW background, not a copy of it:' });
               bgParts.push({ inline_data: { mime_type: refMatch[1], data: refMatch[2] } });
             }
           }
@@ -376,11 +376,15 @@ export default async function handler(req, res) {
       }
 
       // ── PRIMARY: gpt-image-2 edits — best-in-class text rendering, completes reliably ──
-      if (OPENAI_KEY && athleteImage) {
+      // Was gated on athleteImage only, so a reference-image-only upload (no athlete
+      // photo) skipped straight to Gemini, the weakest engine. Now runs whenever either
+      // image is present, and passes both when both exist so the model can see the
+      // actual person AND the style reference in the same call.
+      if (OPENAI_KEY && (athleteImage || refImage)) {
         try {
           const imageUrl = await callGptImage({
             promptText: prompt,
-            images: [athleteImage],
+            images: [athleteImage, refImage].filter(Boolean),
             size,
             quality: 'high',
             timeoutMs: 90000
@@ -390,12 +394,20 @@ export default async function handler(req, res) {
       }
 
       // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
-      if (FAL_KEY && athleteImage) {
+      // Kontext's API takes a single edit-target image: prefer the athlete photo
+      // (identity preservation matters more there) and fall back to the reference
+      // image as the edit target when that's all that was uploaded.
+      if (FAL_KEY && (athleteImage || refImage)) {
         try {
-          const falImageUrl = await uploadToFal(athleteImage, 'athlete.jpg');
+          const kontextSource = athleteImage || refImage;
+          const falImageUrl = await uploadToFal(kontextSource, athleteImage ? 'athlete.jpg' : 'reference.jpg');
           if (falImageUrl) {
-            const kontextPrompt = `Transform this athlete photo into a professional sports graphic.
+            const kontextPrompt = athleteImage
+              ? `Transform this athlete photo into a professional sports graphic.
 Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.
+${prompt}
+ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`
+              : `Use this image only as creative inspiration — its color palette, composition, or typography style — to build a NEW, distinct sports graphic. Do not reproduce it.
 ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
             const kCtrl = new AbortController();
@@ -430,7 +442,7 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
           if (refImage) {
             const refMatch = refImage.match(/^data:([^;]+);base64,(.+)$/);
             if (refMatch) {
-              geminiParts.push({ text: 'REFERENCE STYLE — match this visual style exactly:' });
+              geminiParts.push({ text: 'REFERENCE IMAGE — use specific elements of this image (color palette, typography, layout, mood) as creative inspiration for a NEW, distinct design. Do not reproduce this image:' });
               geminiParts.push({ inline_data: { mime_type: refMatch[1], data: refMatch[2] } });
             }
           }

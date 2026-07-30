@@ -2359,6 +2359,13 @@ function buildKeyElementsBlock(parsed) {
   return lines.length ? `\nKEY ELEMENTS — render every item listed here exactly on the graphic:\n${lines.join('\n')}\n` : '';
 }
 
+// Turns a reference image's analysis (color palette/typography/layout/effects/mood) into
+// an instruction to draw specific elements from it — inspired-by, not a copy.
+function buildReferenceBlock(referenceAnalysis) {
+  if (!referenceAnalysis) return '';
+  return `\nREFERENCE IMAGE ANALYSIS — an image was uploaded for inspiration. Here is what it actually contains:\n${referenceAnalysis}\n\nUse this as a creative reference, not a template to copy: pick specific elements from the analysis above — e.g. its color palette, a typography treatment, a layout technique, a visual effect, or its overall mood — and work them into this NEW design. The result should feel like it's from the same creative family as the reference, but it must be its own distinct design, not a reproduction of it. Do not recreate the reference image itself.\n`;
+}
+
 function extractColors(text) {
   const colorNames = ['red','blue','green','black','white','gold','silver','purple','orange','yellow',
     'pink','navy','maroon','teal','crimson','scarlet','gray','grey','brown','tan','cream',
@@ -2370,12 +2377,13 @@ function extractColors(text) {
   return [...new Set([...found, ...hexCodes])];
 }
 
-function buildPrompt(raw, sport, style) {
+function buildPrompt(raw, sport, style, referenceAnalysis = '') {
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE: ${detectedColors.join(', ')} — use these colors. Do not add unrelated colors.`
     : 'COLOR: Use only the team/brand colors described in the brief below.';
   const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
+  const referenceBlock = buildReferenceBlock(referenceAnalysis);
   const styleDesc = {
     aggressive: 'ultra-bold condensed type, diagonal slash shapes, dark dramatic background, intense energy',
     modern:     'clean geometric sans-serif, precision lines, pitch-black background, razor-sharp layout',
@@ -2390,6 +2398,7 @@ function buildPrompt(raw, sport, style) {
 
 DESIGN BRIEF — read the entire brief, not just the first sentence. If it names multiple facts (colors, props, actions, stats, dates, secondary text, specific instructions), every single one must appear in the output: "${raw}"
 ${keyElements}
+${referenceBlock}
 STYLE: ${styleDesc}
 ${colorBlock}
 ${sport && sport !== 'sports' ? `SPORT CONTEXT: ${sport}` : ''}
@@ -2440,7 +2449,7 @@ Context: ${sport} ${type.replace(/-/g,' ')} graphic, ${style} style aesthetic.`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
-function buildVisionPrompt(raw, sport, style, playerCount = 1) {
+function buildVisionPrompt(raw, sport, style, playerCount = 1, referenceAnalysis = '') {
   const isTeam  = playerCount > 1;
   const subject = isTeam ? `these ${playerCount} athletes (shown in the contact sheet provided)` : 'this athlete photo';
   const openingDirective = `Design a professional sports graphic around ${subject}, built entirely from the brief below. ${isTeam ? `All ${playerCount} athletes are visual heroes` : 'The athlete is the visual hero'} with strong design elements surrounding them. ${_formatGuidance}`;
@@ -2448,7 +2457,8 @@ function buildVisionPrompt(raw, sport, style, playerCount = 1) {
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
     : 'COLOR: Use ONLY the colors explicitly stated in the design brief below. Do not invent or add any colors.';
-  const keyElements = buildKeyElementsBlock(parsePromptElements(raw));
+  const keyElements   = buildKeyElementsBlock(parsePromptElements(raw));
+  const referenceBlock = buildReferenceBlock(referenceAnalysis);
 
   const poseKeywords = /\b(different pose|action pose|jumping|dunking|throwing|running|catching|swinging|diving|sliding|sprinting|celebrating|different angle|new pose|reimagine|repose)\b/i;
   const poseInstruction = poseKeywords.test(raw)
@@ -2468,6 +2478,7 @@ ${colorBlock}
 DESIGN BRIEF — read the entire brief below, not just the first sentence. If it names multiple facts (colors, props, actions, stats, dates, secondary text, specific instructions), every single one must appear in the output — treat this like a checklist, not a mood reference:
 "${raw}"
 ${keyElements}
+${referenceBlock}
 ${sport && sport !== 'sports' ? `SPORT (context only — do not render this word anywhere on the image): ${sport.toUpperCase()}\n` : ''}TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
 
 SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides is a completely forbidden area. Every element — every letter, every logo, every graphic shape — must be fully contained within the central 80% of the canvas. If any text or element would touch or cross a boundary, reduce its size until it fits entirely within the safe zone. No exceptions.
@@ -2480,6 +2491,7 @@ BACKGROUND — build this in layers, the way college athletic departments and ES
 • Lighting: 2-3 hard directional spotlight beams or volumetric light shafts cutting through the scene, driving the eye toward the subject; deep contrast, not evenly lit.
 • Graphic layer: thin geometric accent lines, a subtle color-block panel, or light halftone/grain texture ONLY — these are abstract shapes and textures, never logos, badges, crests, seals, emblems, or any circular/shield mark of any kind. The only logos allowed anywhere in the image are ones explicitly named in the brief below (e.g. the team's actual logo, an actual sponsor named in the brief) — do not invent any additional badge, seal, or emblem.
 Add these elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'} — never on top of them.
+PHOTOREALISM — this is what separates a real photo composite from an obviously-AI image: preserve natural skin texture (visible pores, subtle asymmetry, real sweat/sheen where applicable) rather than smoothing it into plastic/waxy skin. Jersey and fabric must show real cloth behavior — wrinkles, stretch, and shadow that follow the body's actual form, not a flat printed-on texture. Avoid the oversaturated, over-sharpened, uniformly-lit "HDR" look; use natural falloff, slight imperfection, and photographic depth of field like a real broadcast camera lens, not a digitally pristine render.
 Include ALL text from the brief — names, numbers, schools, dates — exactly as written, pixel-sharp — and each distinct piece of text appears EXACTLY ONCE in the image. Do not repeat the headline, or any other text, a second time anywhere else in the composition (no giant duplicate headline as a background element, no repeated word for texture/depth).
 STICK TO THE BRIEF: Render only facts explicitly stated in the design brief above. Do not invent a position, stat, team, date, badge, emblem, or any other detail that isn't given — if it's not in the brief, leave it out entirely rather than guessing or filling the space with a plausible-sounding label.
 Typography hierarchy: one dominant headline, one supporting size, one detail size maximum.
@@ -2993,6 +3005,15 @@ async function generate(raw) {
       } catch(e) { /* expansion optional */ }
     }
 
+    // If a reference image was uploaded, actually analyze it (color palette,
+    // typography, layout, effects, mood) so specific elements from it can be
+    // woven into the new design, instead of just handing the AI raw pixels and
+    // hoping it picks up on the style.
+    let referenceAnalysis = '';
+    if (S.referenceImage) {
+      referenceAnalysis = await analyzeReference(S.referenceImage);
+    }
+
     let finalUrl, finalEngine;
 
     if (hasPhotos || S.referenceImage) {
@@ -3000,7 +3021,7 @@ async function generate(raw) {
       // Your real photos go straight to gpt-image-2 as visual input.
       // The AI sees exactly what you uploaded and builds the design around it.
       const playerCount = S.athleteOriginals.length;
-      const prompt = buildVisionPrompt(enriched, sport, S.style, playerCount);
+      const prompt = buildVisionPrompt(enriched, sport, S.style, playerCount, referenceAnalysis);
       const result = await callGenerateWithImage(
         hasPhotos ? S.athleteOriginals : [],
         prompt,
@@ -3010,7 +3031,7 @@ async function generate(raw) {
       finalEngine = result.engine;
     } else {
       // ── TEXT-TO-IMAGE ────────────────────────────────────────────────────
-      const prompt = buildPrompt(enriched, sport, S.style);
+      const prompt = buildPrompt(enriched, sport, S.style, referenceAnalysis);
       const result = await callReplicate(prompt);
       finalUrl    = result.url;
       finalEngine = result.engine;
