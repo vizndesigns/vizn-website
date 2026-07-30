@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 //  VIZN — Vercel Serverless Function
-//  Images:      gpt-image-2 (OpenAI) → FLUX.2 Pro Edit → Gemini 3 Pro Image fallback
+//  Images:      gpt-image-2 (OpenAI) → FLUX Kontext Pro → Gemini 3 Pro Image fallback
 //  BG removal:  fal.ai imageutils/rembg  (fast, reliable)
 //  Video:       fal.ai Kling Video 1.6   (hype clips)
 // ─────────────────────────────────────────────────────────────
@@ -305,7 +305,7 @@ export default async function handler(req, res) {
       if (GOOGLE_KEY) {
         try {
           const ctrl  = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 30000);
+          const timer = setTimeout(() => ctrl.abort(), 55000);
 
           const bgParts = [];
           if (refImage) {
@@ -348,10 +348,12 @@ export default async function handler(req, res) {
     }
 
     // ── Vision-based generation — athlete photo → sports graphic ──────────────
-    // Model priority: gpt-image-2 edits → FLUX.2 Pro Edit → Gemini 3 Pro Image multimodal
-    // gpt-image-2 leads on text + photorealism (Artificial Analysis Arena #1); FLUX.2 Pro
-    // Edit is the identity-preservation specialist if gpt-image-2 fails; Gemini 3 Pro
-    // Image is the final multimodal fallback.
+    // Model priority: gpt-image-2 edits → FLUX Kontext Pro → Gemini 3 Pro Image multimodal
+    // FLUX Kontext is the identity-preservation specialist if gpt-image-2 fails; GPT/Gemini
+    // treat uploaded photos more as style hints. (FLUX.2 Pro Edit was tried here briefly —
+    // its stricter real-person-face moderation rejected a legitimate athlete-photo edit in
+    // production with a content_policy_violation. Kontext has a long proven track record on
+    // this exact use case with zero content-policy failures, so it's back.)
     const refImage = req.body.referenceImage || null;
     if (action === 'generate-with-image' && (athleteImage || refImage) && prompt) {
       const size = (width === height) ? '1024x1024'
@@ -394,20 +396,18 @@ export default async function handler(req, res) {
         } catch(e) { console.warn('gpt-image-2 edit failed:', e.message); }
       }
 
-      // ── SECONDARY: FLUX.2 Pro Edit — newer, stronger identity preservation than
-      // FLUX.1 Kontext, better typography, and supports MULTIPLE reference images at
-      // once (up to 9) — so when both an athlete photo and a style reference are
-      // uploaded, both go in together instead of picking just one.
+      // ── SECONDARY: FLUX Kontext Pro — identity-preserving image editor ──
+      // Kontext's API takes a single edit-target image: prefer the athlete photo
+      // (identity preservation matters more there) and fall back to the reference
+      // image as the edit target when that's all that was uploaded.
       if (FAL_KEY && (athleteImage || refImage)) {
         try {
-          const kontextUrls = (await Promise.all(
-            [athleteImage, refImage].filter(Boolean).map((img, i) =>
-              uploadToFal(img, i === 0 && athleteImage ? 'athlete.jpg' : 'reference.jpg'))
-          )).filter(Boolean);
-          if (kontextUrls.length) {
+          const kontextSource = athleteImage || refImage;
+          const falImageUrl = await uploadToFal(kontextSource, athleteImage ? 'athlete.jpg' : 'reference.jpg');
+          if (falImageUrl) {
             const kontextPrompt = athleteImage
               ? `Transform this athlete photo into a professional sports graphic.
-Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.${refImage ? ' A second reference image is also provided purely for style inspiration (color palette, typography, layout) — do not use it for the person’s identity.' : ''}
+Keep the person in this photo exactly as they appear — same face, same body, same pose, same clothing. Do not change them at all.
 ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`
               : `Use this image only as creative inspiration — its color palette, composition, or typography style — to build a NEW, distinct sports graphic. Do not reproduce it.
@@ -415,11 +415,11 @@ ${prompt}
 ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Nothing cropped at any edge.`;
             const kCtrl = new AbortController();
             const kTimer = setTimeout(() => kCtrl.abort(), 60000);
-            const kRes = await fetch('https://fal.run/fal-ai/flux-2-pro/edit', {
+            const kRes = await fetch('https://fal.run/fal-ai/flux-pro/kontext', {
               method: 'POST',
               headers: { 'Authorization': `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
               signal: kCtrl.signal,
-              body: JSON.stringify({ image_urls: kontextUrls, prompt: kontextPrompt })
+              body: JSON.stringify({ image_url: falImageUrl, prompt: kontextPrompt, num_inference_steps: 28, guidance_scale: 2.5, output_format: 'jpeg', output_quality: 95, num_images: 1 })
             });
             clearTimeout(kTimer);
             if (kRes.ok) {
@@ -430,14 +430,14 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
                 const imgBuf  = await imgRes.arrayBuffer();
                 const imgMime = (imgRes.headers.get('content-type') || 'image/png').split(';')[0];
                 const b64 = `data:${imgMime};base64,` + Buffer.from(imgBuf).toString('base64');
-                return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-2-pro' });
+                return res.status(200).json({ status: 'succeeded', imageUrl: b64, engine: 'flux-kontext' });
               }
             } else {
               const kerr = await kRes.json().catch(() => ({}));
-              console.warn('FLUX.2 Pro error:', kerr.detail || kerr.message || kRes.status);
+              console.warn('FLUX Kontext error:', kerr.detail || kerr.message || kRes.status);
             }
           }
-        } catch(e) { console.warn('FLUX.2 Pro failed:', e.message); }
+        } catch(e) { console.warn('FLUX Kontext failed:', e.message); }
       }
 
       // ── TERTIARY: Gemini multimodal ──
@@ -460,7 +460,7 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
           }
           geminiParts.push({ text: prompt });
           const gCtrl  = new AbortController();
-          const gTimer = setTimeout(() => gCtrl.abort(), 25000);
+          const gTimer = setTimeout(() => gCtrl.abort(), 50000);
           const gRes   = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent?key=${GOOGLE_KEY}`,
             { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: gCtrl.signal,
@@ -807,7 +807,7 @@ Be specific. This analysis will guide generation of a new sports graphic with a 
     if (GOOGLE_KEY) {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 45000);
+        const timer = setTimeout(() => controller.abort(), 70000);
 
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent?key=${GOOGLE_KEY}`,
