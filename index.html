@@ -2467,7 +2467,7 @@ function buildPrompt(raw, sport, style, type) {
 
   return `Create a professional sports graphic for social media / broadcast.
 
-DESIGN BRIEF: "${raw}"
+DESIGN BRIEF — read the entire brief, not just the first sentence. If it names multiple facts (colors, props, actions, stats, dates, secondary text, specific instructions), every single one must appear in the output: "${raw}"
 ${keyElements}
 STYLE: ${styleDesc}
 ${colorBlock}
@@ -2557,7 +2557,7 @@ function buildVisionPrompt(raw, sport, style, type, playerCount = 1) {
 ${multiPlayerBlock}
 ${colorBlock}
 
-DESIGN BRIEF (include every element):
+DESIGN BRIEF — read the entire brief below, not just the first sentence. If it names multiple facts (colors, props, actions, stats, dates, secondary text, specific instructions), every single one must appear in the output — treat this like a checklist, not a mood reference:
 "${raw}"
 ${keyElements}
 ${sport && sport !== 'sports' ? `SPORT (context only — do not render this word anywhere on the image): ${sport.toUpperCase()}\n` : ''}TYPOGRAPHY: ${_typo[style] || _typo.aggressive}
@@ -3059,22 +3059,31 @@ async function generate(raw) {
       enriched = `${sport} sports graphic, ${S.type.replace(/-/g, ' ')} design, ${S.style} style`;
     }
 
-    setStatus('Reading your prompt…');
-    try {
-      const expCtrl = new AbortController();
-      const expTimer = setTimeout(() => expCtrl.abort(), 6000);
-      const expRes = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: expCtrl.signal,
-        body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
-      });
-      clearTimeout(expTimer);
-      if (expRes.ok) {
-        const expData = await expRes.json();
-        if (expData.expanded && expData.expanded.length > raw.length * 0.7) enriched = expData.expanded;
-      }
-    } catch(e) { /* expansion optional */ }
+    // Only expand short/vague prompts. A prompt that's already detailed (multiple
+    // facts: names, numbers, stats, colors, specific instructions) must NOT be run
+    // through the "rewrite into 2-4 sentences" expansion step below — compressing a
+    // long, detailed prompt into a handful of sentences is how details get quietly
+    // dropped, even with an explicit "preserve every fact" instruction on that call.
+    const isAlreadyDetailed = raw.trim().length >= 80;
+
+    if (!isAlreadyDetailed) {
+      setStatus('Reading your prompt…');
+      try {
+        const expCtrl = new AbortController();
+        const expTimer = setTimeout(() => expCtrl.abort(), 6000);
+        const expRes = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: expCtrl.signal,
+          body: JSON.stringify({ action: 'expand-prompt', prompt: raw })
+        });
+        clearTimeout(expTimer);
+        if (expRes.ok) {
+          const expData = await expRes.json();
+          if (expData.expanded && expData.expanded.length > raw.length * 0.7) enriched = expData.expanded;
+        }
+      } catch(e) { /* expansion optional */ }
+    }
 
     let finalUrl, finalEngine;
 
