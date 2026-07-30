@@ -2274,7 +2274,7 @@ function drawSportsOverlay(ctx, canvas, opts) {
   (styles[style] || styles.aggressive)();
 }
 
-// ── Fast team background — FLUX → GPT-image-1 → Gemini → canvas fallback ──
+// ── Fast team background — FLUX → GPT-5.5 image tool → Gemini → canvas fallback ──
 async function callTeamBackground(prompt, type, referenceImage = null, teamColors = null) {
   const { w, h } = getDims(type);
   try {
@@ -3074,7 +3074,7 @@ async function generate(raw) {
 
     if (hasPhotos || S.referenceImage) {
       // ── DIRECT AI GENERATION (ChatGPT-style) ────────────────────────────────────────
-      // Your real photos go straight to GPT-image-1 as visual input.
+      // Your real photos go straight to GPT-5.5's image_generation tool as visual input.
       // The AI sees exactly what you uploaded and builds the design around it.
       const playerCount = S.athleteOriginals.length;
       const prompt = buildVisionPrompt(enriched, sport, S.style, S.type, playerCount);
@@ -3159,10 +3159,29 @@ function startGenOverlay(hasPhoto) {
   });
   _activateStep('step-analyze');
 
-  // Phase steps with realistic timing based on whether we have a photo
-  setTimeout(() => _activateStep('step-design'),  hasPhoto ? 4000 : 2500);
-  setTimeout(() => _activateStep('step-render'),  hasPhoto ? 10000 : 6000);
-  setTimeout(() => _activateStep('step-finish'),  hasPhoto ? 22000 : 14000);
+  // Phase steps — GPT-5.5's image_generation tool routinely takes 60-150s for a
+  // photo edit, so these are paced to match reality instead of implying it's
+  // almost done at 22s and then appearing stuck for the next minute-plus.
+  setTimeout(() => _activateStep('step-design'),  hasPhoto ? 6000  : 3000);
+  setTimeout(() => _activateStep('step-render'),  hasPhoto ? 18000 : 10000);
+  setTimeout(() => _activateStep('step-finish'),  hasPhoto ? 45000 : 25000);
+
+  // Reassuring status updates during the long tail — without these, 60-150s of
+  // silence on "finishing" reads as broken even though it's working normally.
+  const reassurance = hasPhoto
+    ? [
+        [8000,  'Reading your photo and brief…'],
+        [25000, 'GPT-5.5 is reasoning through the design and revising the prompt…'],
+        [50000, 'Generating the image — high-quality photo edits typically take 60-150 seconds…'],
+        [90000, 'Still rendering — this is normal for a detailed photo edit, hang tight…'],
+        [130000,'Almost there — finalizing pixel-level details…']
+      ]
+    : [
+        [6000,  'GPT-5.5 is interpreting your brief…'],
+        [20000, 'Generating the image — this usually takes 45-120 seconds…'],
+        [70000, 'Still rendering — almost there…']
+      ];
+  reassurance.forEach(([delay, msg]) => setTimeout(() => setStatus(msg), delay));
 
   // Live elapsed timer
   const timerEl = el('genTimer');
@@ -3201,7 +3220,12 @@ function stopGenOverlay(engine, dims) {
   // Engine badge
   const badge    = el('engineBadge');
   const badgeTxt = el('engineBadgeTxt');
-  const engineLabel = (engine || 'AI').replace('gemini-vision','Gemini Vision').replace('gpt-image-1-edit','GPT-Image-1 Edit').replace('gemini-3.1-flash-image','Gemini Flash').replace('gpt-image-1','GPT-Image-1').replace('flux','FLUX Dev');
+  const _engineLabels = {
+    'gpt-5.5-image': 'GPT-5.5', 'gpt-bg': 'GPT-5.5',
+    'flux-kontext': 'FLUX Kontext Pro', 'flux': 'FLUX',
+    'gemini-bg': 'Gemini', 'gemini-vision': 'Gemini Vision', 'gemini': 'Gemini'
+  };
+  const engineLabel = _engineLabels[engine] || engine || 'AI';
   if (badgeTxt) badgeTxt.textContent = '\u2713 ' + engineLabel;
   if (badge) {
     badge.style.opacity = '0';
