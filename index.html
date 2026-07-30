@@ -1181,6 +1181,27 @@ function detectSport(raw) {
   return 'sports';
 }
 
+// Big background headline word for the canvas-composite path (drawTypeLayer) — replaces
+// the old manual Design Type picker. Reads the same cues a category button used to encode,
+// straight from the description. Returns null if nothing matches (caller falls back to the
+// athlete's name).
+function detectHeadlineWord(raw) {
+  if (!raw) return null;
+  const lo = raw.toLowerCase();
+  if (/\bcommit(ted|ment)?\b/.test(lo))                      return 'COMMITTED';
+  if (/\bsigning\s*day\b/.test(lo))                          return 'SIGNING DAY';
+  if (/\boffer\s*(extended)?\b/.test(lo))                    return 'OFFER EXTENDED';
+  if (/\bgame\s*day\b/.test(lo))                             return 'GAME DAY';
+  if (/\bhalftime\b/.test(lo))                                return 'HALFTIME';
+  if (/\bfinal\s*score\b|\bfinal\b/.test(lo))                return 'FINAL';
+  if (/\bplayer\s*of\s*the\s*game\b|\bplayer\s*of\s*game\b/.test(lo)) return 'PLAYER OF THE GAME';
+  if (/\bgame\s*recap\b|\brecap\b/.test(lo))                 return 'RECAP';
+  if (/\bstarting\s*lineup\b|\blineup\b/.test(lo))           return 'STARTING LINEUP';
+  if (/\bschedule\b/.test(lo))                               return 'SCHEDULE';
+  if (/\bspotlight\b/.test(lo))                              return 'SPOTLIGHT';
+  return null;
+}
+
 // ── Size dropdown — real-time preview + generation dims ──
 const dimSel = document.getElementById('dimSelect');
 if (dimSel) {
@@ -2219,6 +2240,39 @@ function drawSportsOverlay(ctx, canvas, opts) {
   };
 
   (styles[style] || styles.aggressive)();
+
+  // ── Athlete info — real fillText, not AI-rendered, so it's always spelled/numbered
+  // correctly. Number as a corner badge (never collides with the bottom band); subtitle
+  // + detail as a small row just above the team-name band.
+  const info = opts.athleteInfo || {};
+  if (info.number) {
+    const num    = info.number.replace(/^#/, '').trim();
+    const badgeR = Math.round(ch * 0.052);
+    const bx     = cw - badgeR - Math.round(cw * 0.045);
+    const by     = badgeR + Math.round(ch * 0.035);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fill();
+    ctx.lineWidth   = Math.max(2, Math.round(badgeR * 0.09));
+    ctx.strokeStyle = colorRgba(ac1, 1);
+    ctx.stroke();
+    ctx.font = `900 ${Math.round(badgeR * 1.15)}px Impact,'Arial Black',Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('#' + num, bx, by + Math.round(badgeR * 0.05));
+    ctx.restore();
+  }
+  const infoRowY = ch * 0.685;
+  if (info.subtitle) {
+    drawText(info.subtitle.toUpperCase(), cw * 0.5, infoRowY,
+      `700 ${Math.round(ch * 0.026)}px Arial, sans-serif`, colorRgba(ac1, 1), 'rgba(0,0,0,0.85)', Math.round(ch * 0.003));
+  }
+  if (info.detail) {
+    drawText(info.detail.toUpperCase(), cw * 0.5, infoRowY + ch * 0.032,
+      `600 ${Math.round(ch * 0.020)}px Arial, sans-serif`, '#FFFFFF', 'rgba(0,0,0,0.85)', Math.round(ch * 0.0025));
+  }
 }
 
 // ── Fast team background — FLUX → gpt-image-2 → Gemini → canvas fallback ──
@@ -3018,17 +3072,44 @@ async function generate(raw) {
 
     let finalUrl, finalEngine;
 
-    if (hasPhotos || S.referenceImage) {
-      // ── DIRECT AI GENERATION (ChatGPT-style) ────────────────────────────────────────
-      // Your real photos go straight to gpt-image-2 as visual input.
-      // The AI sees exactly what you uploaded and builds the design around it.
-      const playerCount = S.athleteOriginals.length;
-      const prompt = buildVisionPrompt(enriched, sport, S.style, playerCount, referenceAnalysis);
-      const result = await callGenerateWithImage(
-        hasPhotos ? S.athleteOriginals : [],
-        prompt,
-        S.referenceImage
-      );
+    if (hasPhotos) {
+      // ── REAL-PHOTO COMPOSITE — guarantees the actual uploaded person + correct text ──
+      // Cuts the real athlete out of their photo (bg removal already ran on upload),
+      // generates an AI background with no person in it (zero identity risk there), then
+      // composites the real cutout on top and draws name/number/stats with real canvas
+      // fillText. Neither the face nor the text goes through AI regeneration, so both are
+      // guaranteed correct instead of probabilistic — this is what AI image editing alone
+      // could never reliably do across this entire build.
+      try {
+        setStatus('Reading your brief…');
+        const teamName      = extractTeamName(enriched) || extractTeamName(raw);
+        const teamColors    = getTeamAccentColors(enriched) || getTeamAccentColors(raw);
+        const headlineWord  = detectHeadlineWord(enriched) || detectHeadlineWord(raw);
+        const athleteInfo   = await extractAthleteText(enriched);
+        const bigLabel      = headlineWord || (athleteInfo.headline || teamName || '').toUpperCase() || null;
+
+        setStatus('Generating your background…');
+        const bgUrl = await callTeamBackground(enriched, bigLabel, S.referenceImage, teamColors);
+
+        setStatus('Compositing your photo…');
+        const designOpts = {
+          type: bigLabel, style: S.style, prompt: enriched,
+          teamName, teamColors, isSinglePlayer: S.athleteOriginals.length === 1, athleteInfo
+        };
+        finalUrl    = await compositeLayers(bgUrl, S.athleteCutouts, designOpts);
+        finalEngine = 'photo-composite';
+      } catch(e) {
+        console.warn('Composite pipeline failed, falling back to AI vision edit:', e.message);
+        const playerCount = S.athleteOriginals.length;
+        const prompt = buildVisionPrompt(enriched, sport, S.style, playerCount, referenceAnalysis);
+        const result = await callGenerateWithImage(S.athleteOriginals, prompt, S.referenceImage);
+        finalUrl    = result.url;
+        finalEngine = result.engine;
+      }
+    } else if (S.referenceImage) {
+      // ── Reference image only, no athlete photo — nothing to composite ──────
+      const prompt = buildVisionPrompt(enriched, sport, S.style, 1, referenceAnalysis);
+      const result = await callGenerateWithImage([], prompt, S.referenceImage);
       finalUrl    = result.url;
       finalEngine = result.engine;
     } else {
@@ -3038,7 +3119,7 @@ async function generate(raw) {
       finalUrl    = result.url;
       finalEngine = result.engine;
     }
-    showResult(finalUrl);
+    showResult(finalUrl, finalEngine);
     S.lastImage = finalUrl;
     toast('Design generated \u2713', 'ok');
   } catch(e) {
@@ -3161,6 +3242,7 @@ function stopGenOverlay(engine, dims) {
   const badge    = el('engineBadge');
   const badgeTxt = el('engineBadgeTxt');
   const _engineLabels = {
+    'photo-composite': 'Real Photo Composite',
     'gpt-image-2-edit': 'GPT-Image-2 Edit', 'gpt-image-2': 'GPT-Image-2', 'gpt-bg': 'GPT-Image-2',
     'flux-kontext': 'FLUX Kontext Pro', 'flux-pro': 'FLUX 1.1 Pro', 'flux': 'FLUX',
     'gemini-bg': 'Gemini 3 Pro', 'gemini-vision': 'Gemini 3 Pro', 'gemini': 'Gemini 3 Pro'
@@ -3618,6 +3700,31 @@ async function analyzeReference(referenceDataUrl) {
     const data = await res.json();
     return data.analysis || '';
   } catch { return ''; }
+}
+
+// For the canvas-composite path: extract player name/number/school/subtitle/detail as
+// plain text roles from the brief, so they can be drawn with real fillText (guaranteed
+// correct spelling/digits) instead of asking an image model to render them.
+async function extractAthleteText(prompt) {
+  const empty = { headline: '', number: '', school: '', subtitle: '', detail: '' };
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'parse-prompt-text', prompt })
+    });
+    if (!res.ok) return empty;
+    const data = await res.json();
+    const texts = Array.isArray(data.texts) ? data.texts : [];
+    const byRole = role => texts.find(t => t.role === role)?.text || '';
+    return {
+      headline: byRole('headline'),
+      number:   byRole('number'),
+      school:   byRole('school'),
+      subtitle: byRole('subtitle'),
+      detail:   byRole('detail')
+    };
+  } catch { return empty; }
 }
 
 </script>
