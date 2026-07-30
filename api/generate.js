@@ -480,19 +480,8 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
         hype:       'bold extended display (Industry/Azonix), gradient fills from primary to secondary color, outer glow, electric energy',
         retro:      'vintage block letters (Chunk Five/Alfa Slab), worn edge texture, distressed ink treatment, halftone dot overlay'
       };
-      const compositionGuide = {
-        'recruiting':   "low angle worm's-eye view, athlete dominant left two-thirds, typographic lockup right third, stadium depth-of-field background blur",
-        'commitment':   'bilateral symmetry, centered athlete, school logo above head, player name as cinematic super-title',
-        'player-card':  '3/4 portrait fills upper 60%, stats grid lower 40%, diagonal foil-stripe divides zones',
-        'schedule':     'grid-based information design, modular schedule rows, team mark anchoring upper-left',
-        'team-poster':  'wide-angle establishing shot, team color fills 70%, player name runs full-width as display banner',
-        'senior-night': 'warm spotlight vignette, athlete centered in circle of light, celebratory particles',
-        'mvp':          'award podium perspective, athlete elevated, trophy casting dramatic shadow, gold foil award typography',
-        'championship': 'victory panorama, full-bleed team color, confetti and streamers, trophy in foreground'
-      };
       const sport  = req.body.sport  || 'sports';
       const style  = req.body.style  || 'aggressive';
-      const type   = req.body.type   || 'recruiting';
       const width  = parseInt(req.body.width)  || 1024;
       const height = parseInt(req.body.height) || 1536;
       const orientation = width > height ? 'LANDSCAPE' : width < height ? 'PORTRAIT' : 'SQUARE';
@@ -501,9 +490,7 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
 
 ORIGINAL DESIGN CONTEXT:
 - Sport: ${sport.toUpperCase()}
-- Design type: ${type}
 - Visual style: ${style} — ${styleGuide[style] || styleGuide.aggressive}
-- Composition: ${compositionGuide[type] || compositionGuide['recruiting']}
 - Canvas orientation: ${orientation} (${width}×${height})
 
 REQUESTED CHANGE: "${req.body.prompt}"
