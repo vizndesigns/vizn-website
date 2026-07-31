@@ -2255,6 +2255,28 @@ function drawSportsOverlay(ctx, canvas, opts) {
     ctx.fillText('#' + num, bx, by + Math.round(badgeR * 0.05));
     ctx.restore();
   }
+  // Score — real text in a bordered pill, not left out. This is often the single most
+  // important piece of content on a Final Score / Halftime / Recap graphic; the guarantee
+  // of "no invented score" only matters if a REAL score still gets drawn when one exists.
+  if (info.score) {
+    const scoreText = info.score.toUpperCase();
+    const fs = Math.round(ch * 0.040);
+    ctx.save();
+    ctx.font = `900 ${fs}px Impact,'Arial Black',Arial`;
+    const textW = ctx.measureText(scoreText).width;
+    const padX  = fs * 0.65, padY = fs * 0.40;
+    const boxW  = textW + padX * 2, boxH = fs + padY * 2;
+    const boxX  = (cw - boxW) / 2, boxY = ch * 0.585;
+    ctx.fillStyle = 'rgba(0,0,0,0.60)';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+    ctx.lineWidth   = Math.max(2, Math.round(fs * 0.05));
+    ctx.strokeStyle = colorRgba(ac1, 0.95);
+    ctx.strokeRect(boxX, boxY, boxW, boxH);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(scoreText, cw / 2, boxY + boxH / 2 + fs * 0.03);
+    ctx.restore();
+  }
   const infoRowY = ch * 0.685;
   if (info.subtitle) {
     drawText(info.subtitle.toUpperCase(), cw * 0.5, infoRowY,
@@ -3711,7 +3733,7 @@ async function analyzeReference(referenceDataUrl) {
 // plain text roles from the brief, so they can be drawn with real fillText (guaranteed
 // correct spelling/digits) instead of asking an image model to render them.
 async function extractAthleteText(prompt) {
-  const empty = { headline: '', number: '', school: '', subtitle: '', detail: '' };
+  const empty = { headline: '', number: '', school: '', subtitle: '', detail: '', score: '' };
   // The backend returns a generic placeholder array ("PLAYER NAME", "#00", "TEAM NAME")
   // when extraction fails rather than erroring — that's meant as a safe non-crashing
   // default, but it's not safe to actually DRAW: a customer seeing a literal "#00" badge
@@ -3735,7 +3757,8 @@ async function extractAthleteText(prompt) {
       number:   byRole('number'),
       school:   byRole('school'),
       subtitle: byRole('subtitle'),
-      detail:   byRole('detail')
+      detail:   byRole('detail'),
+      score:    byRole('score')
     };
   } catch { return empty; }
 }

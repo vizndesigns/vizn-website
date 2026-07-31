@@ -663,6 +663,10 @@ Roles:
 - "school": school, team, or program name (e.g. "ALABAMA", "CRIMSON TIDE")
 - "subtitle": secondary descriptor (e.g. "WIDE RECEIVER", "CLASS OF 2025")
 - "detail": small text, dates, stats, taglines
+- "score": the game score line, ONLY if the prompt explicitly states a score and/or an
+  opponent team — format exactly as "TEAM 118 - TEAM 110" (or "118 - 110" if no team names
+  given). Do NOT invent a score or opponent that isn't explicitly in the prompt — omit this
+  role entirely rather than guess.
 
 Prompt: "${prompt}"
 
