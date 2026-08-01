@@ -3115,8 +3115,14 @@ async function generate(raw) {
         const athleteInfo   = await extractAthleteText(enriched);
         const bigLabel      = headlineWord || (athleteInfo.headline || teamName || '').toUpperCase() || null;
 
+        // Deterministic canvas background, not an AI-generated one. Tried constraining the
+        // AI background prompt to "zero humans, zero text" (twice) and it kept ignoring that
+        // instruction anyway — models weight thematic association ("final score", "athlete")
+        // over an explicit negative instruction, so wording alone can't guarantee compliance.
+        // Same fix philosophy as the real photo/real text: don't hope the AI complies with
+        // something that has to be guaranteed, generate it with code that can't get it wrong.
         setStatus('Generating your background…');
-        const bgUrl = await callTeamBackground(enriched, bigLabel, S.referenceImage, teamColors);
+        const bgUrl = generateCanvasTeamBackground(enriched, S.style, bigLabel, teamColors);
 
         setStatus('Compositing your photo…');
         const designOpts = {
