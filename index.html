@@ -3318,26 +3318,39 @@ function setStatus(s) {
 }
 
 // ── Wire up buttons ───────────────────────────────────
+// With no photo attached, generation falls back to pure text-to-image, which can only ever
+// imagine a likeness — it never uses a real photo. If the brief names an actual person,
+// generating anyway means shipping a fake AI-made likeness of a real individual. Block that
+// outright instead of warning-and-proceeding: check whether the brief names a real person
+// (via the same text-extraction already used by the photo pipeline, not a fragile keyword
+// guess) before generating, not after.
+async function blockedForFakeLikeness(raw) {
+  const hasPhotos = S.athleteOriginals && S.athleteOriginals.length > 0;
+  if (hasPhotos) return false;
+  setStatus('Checking for a named player…');
+  const check = await extractAthleteText(raw);
+  if (looksLikePersonName(check.headline)) {
+    toast('"' + check.headline + '" is a real person — upload their photo to generate them for real. Blocked to avoid creating a fake AI likeness.', 'err');
+    setStatus('AI Ready — Click Generate');
+    return true;
+  }
+  return false;
+}
+
 const genBtn = el('generateBtn');
-if (genBtn) genBtn.addEventListener('click', () => {
+if (genBtn) genBtn.addEventListener('click', async () => {
   const inp = el('promptInput');
   const raw = inp ? inp.value.trim() : '';
-  // With no photo attached, generation falls back to pure text-to-image — the AI imagines
-  // a player from the description, it does not use a real photo, no matter who the prompt
-  // names. That distinction has caused real confusion ("this is not Kyrie") when a photo
-  // was expected but wasn't actually attached — flag it clearly before generating instead
-  // of after, when the surprising result has already burned a generation.
-  const hasPhotos = S.athleteOriginals && S.athleteOriginals.length > 0;
-  if (!hasPhotos) {
-    const proceed = confirm('No photo attached — this will generate an AI-imagined player from your description, not a real photo. For the actual person guaranteed, cancel and upload their photo first.\n\nGenerate from text only anyway?');
-    if (!proceed) return;
-  }
+  if (!raw) { toast('Describe your design first', 'err'); return; }
+  if (await blockedForFakeLikeness(raw)) return;
   generate(raw);
 });
 
 const regenBtn = el('regenBtn');
-if (regenBtn) regenBtn.addEventListener('click', () => {
-  if (S.lastPrompt) generate(S.lastPrompt);
+if (regenBtn) regenBtn.addEventListener('click', async () => {
+  if (!S.lastPrompt) return;
+  if (await blockedForFakeLikeness(S.lastPrompt)) return;
+  generate(S.lastPrompt);
 });
 
 const refToggle = el('refineToggle');
@@ -3744,6 +3757,24 @@ async function analyzeReference(referenceDataUrl) {
     const data = await res.json();
     return data.analysis || '';
   } catch { return ''; }
+}
+
+// Heuristic: does this extracted "headline" look like an actual person's name (e.g.
+// "Kyrie Irving"), as opposed to a design-format title (e.g. "Final Score", "Game Day")
+// that the same extraction role can also return? Used to decide whether a text-only
+// generation (no photo attached) is about to invent a fake likeness for a real, named
+// person — which should be blocked, not just generated as an AI guess.
+function looksLikePersonName(text) {
+  if (!text) return false;
+  const words = text.trim().split(/\s+/);
+  if (words.length < 2 || words.length > 4) return false;
+  const formatWords = new Set([
+    'FINAL','SCORE','GAME','DAY','HALFTIME','COMMITTED','COMMITMENT','SIGNING','OFFER',
+    'EXTENDED','PLAYER','OF','THE','RECAP','STARTING','LINEUP','SCHEDULE','SPOTLIGHT',
+    'CHAMPIONSHIP','SEASON','HOME','AWAY','WEEK','VS','VERSUS','TEAM','ROSTER'
+  ]);
+  if (words.map(w => w.toUpperCase()).some(w => formatWords.has(w))) return false;
+  return words.every(w => /^[A-Za-z'.-]{2,20}$/.test(w));
 }
 
 // For the canvas-composite path: extract player name/number/school/subtitle/detail as
