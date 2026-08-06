@@ -760,15 +760,28 @@ Return ONLY this exact JSON, no markdown:
 `Extract every text element from this sports graphic design prompt. Assign each a role.
 
 Roles:
-- "headline": player name or primary title (e.g. "JAMES WEBB", "CHAMPIONSHIP")
+- "headline": the ATHLETE'S OWN personal name — an actual person's first + last name (e.g.
+  "AVA BARTLETT", "JAMES WEBB") — if one is named anywhere in the prompt. A person's name
+  ALWAYS wins this role over a school/team/mascot name, even when the team name appears
+  first, in bold, or more prominently. Only fall back to a primary design title (e.g.
+  "CHAMPIONSHIP", "GAME DAY") when no specific person is named at all.
 - "number": jersey or player number (e.g. "#13", "13")
-- "school": school, team, or program name (e.g. "ALABAMA", "CRIMSON TIDE")
-- "subtitle": secondary descriptor (e.g. "WIDE RECEIVER", "CLASS OF 2025")
+- "school": school, team, or program name, including any mascot word (e.g. "ALABAMA CRIMSON
+  TIDE", "ADDISON BULLDOGS") — this is NEVER a person's name, even if it's listed first.
+- "subtitle": secondary descriptor — position, class year, or the sport name when it's given
+  as its own separate line/label distinct from the school name (e.g. "WIDE RECEIVER",
+  "CLASS OF 2025", "VOLLEYBALL")
 - "detail": small text, dates, stats, taglines
 - "score": the game score line, ONLY if the prompt explicitly states a score and/or an
   opponent team — format exactly as "TEAM 118 - TEAM 110" (or "118 - 110" if no team names
   given). Do NOT invent a score or opponent that isn't explicitly in the prompt — omit this
   role entirely rather than guess.
+
+Many prompts list team name, sport, player name, and jersey number as separate lines, in
+that order — e.g. "ADDISON BULLDOGS / VOLLEYBALL / AVA BARTLETT / #32". In that pattern:
+school = "ADDISON BULLDOGS", subtitle = "VOLLEYBALL", headline = "AVA BARTLETT" (the actual
+person, not the team, even though the team is listed first), number = "#32". Do not swap
+headline and school.
 
 Prompt: "${prompt}"
 

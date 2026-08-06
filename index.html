@@ -1886,10 +1886,23 @@ function extractTeamName(prompt) {
     'STAR','ELITE','PREMIER','CHAMPION','CHAMPIONSHIP','WINNER','MVP','ALL'
   ]);
 
-  // All-caps words not in skip list (team abbreviations: LSU, GCU, USC, etc.)
-  const capsWords = [...prompt.matchAll(/\b([A-Z]{2,})\b/g)]
-    .map(m => m[1]).filter(w => !skip.has(w));
-  if (capsWords.length) return capsWords[0];
+  // All-caps words not in skip list (team abbreviations: LSU, GCU, USC, etc.) — capture a
+  // RUN of consecutive all-caps words so a two-word name like "ADDISON BULLDOGS" isn't
+  // truncated down to just "ADDISON". The run starts at the first valid caps word and ends
+  // at the next skip-listed/non-caps word.
+  const tokens = prompt.match(/\S+/g) || [];
+  let run = [];
+  for (const tok of tokens) {
+    const word = tok.replace(/[^A-Za-z]/g, '');
+    const isCapsWord = word.length >= 2 && word === word.toUpperCase();
+    if (isCapsWord && !skip.has(word)) {
+      run.push(word);
+      if (run.length >= 4) break;
+    } else if (run.length) {
+      break;
+    }
+  }
+  if (run.length) return run.join(' ');
 
   // Word before a sport noun (e.g., "Alabama football" → "ALABAMA")
   const m = prompt.match(/(\b\w{3,}\b)\s+(?:baseball|football|basketball|soccer|softball|volleyball|lacrosse|hockey|team|squad|crew)\b/i)
@@ -1959,6 +1972,60 @@ function getTeamAccentColors(prompt) {
     if (regex.test(lo)) return [primary, secondary];
   }
   return null;
+}
+
+// ── Sample real jersey/uniform colors directly from the athlete's own uploaded photo ──
+// Used only when the team isn't in the lookup table above AND no color words are named in
+// the prompt — otherwise the background would fall back to a generic per-style accent color
+// that has no relation to the actual uploaded photo (e.g. a maroon background behind a blue
+// jersey). Samples the bg-removed cutout, so opaque pixels are almost entirely jersey fabric
+// + skin/hair — filtering out near-white/near-black/low-saturation pixels biases the result
+// toward the uniform's actual colors rather than skin tone.
+function sampleDominantColors(dataUri) {
+  return new Promise(resolve => {
+    if (!dataUri) { resolve([]); return; }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const maxPx = 300;
+        let w = img.width, h = img.height;
+        if (!w || !h) { resolve([]); return; }
+        if (w > maxPx || h > maxPx) {
+          if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+          else        { w = Math.round(w * maxPx / h); h = maxPx; }
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+
+        const STEP = 24; // quantize step per channel — buckets similar shades together
+        const buckets = new Map();
+        for (let i = 0; i < data.length; i += 4 * 3) { // sample every 3rd pixel
+          const a = data[i + 3];
+          if (a < 200) continue; // transparent / antialiased edge — not real jersey pixel
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          const max = Math.max(r, g, b), min = Math.min(r, g, b);
+          const sat = max === 0 ? 0 : (max - min) / max;
+          if (max > 235 && sat < 0.12) continue; // near-white (highlights, jersey trim glare)
+          if (max < 30) continue;                // near-black (shadow)
+          if (sat < 0.22) continue;               // low-saturation — likely skin tone or gray
+          const key = [Math.round(r / STEP) * STEP, Math.round(g / STEP) * STEP, Math.round(b / STEP) * STEP].join(',');
+          buckets.set(key, (buckets.get(key) || 0) + 1);
+        }
+
+        const toHex = n => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+        const colors = [...buckets.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([key]) => { const [r, g, b] = key.split(',').map(Number); return '#' + toHex(r) + toHex(g) + toHex(b); });
+        resolve(colors);
+      } catch(e) { resolve([]); } // canvas taint or other read failure — non-fatal, just skip sampling
+    };
+    img.onerror = () => resolve([]);
+    img.src = dataUri;
+  });
 }
 
 // ── Type-as-background layer — GCU/ESPN style: huge type BEHIND athletes ──
@@ -3188,10 +3255,20 @@ async function generate(raw) {
       try {
         setStatus('Reading your brief…');
         const teamName      = extractTeamName(enriched) || extractTeamName(raw);
-        const teamColors    = getTeamAccentColors(enriched) || getTeamAccentColors(raw);
+        let   teamColors    = getTeamAccentColors(enriched) || getTeamAccentColors(raw);
         const headlineWord  = detectHeadlineWord(enriched) || detectHeadlineWord(raw);
         const athleteInfo   = await extractAthleteText(enriched);
         const bigLabel      = headlineWord || (athleteInfo.headline || teamName || '').toUpperCase() || null;
+
+        // No known team in the color lookup table AND no color words named in the brief —
+        // fall back to sampling the real jersey colors from the uploaded photo itself, so
+        // the background actually matches the athlete instead of a generic style default.
+        if (!teamColors && !extractColors(enriched).length && !extractColors(raw).length) {
+          try {
+            const sampled = await sampleDominantColors(S.athleteCutouts[0]);
+            if (sampled.length) teamColors = sampled;
+          } catch(e) { console.warn('Color sampling failed:', e.message); }
+        }
 
         // Deterministic canvas background, not an AI-generated one. Tried constraining the
         // AI background prompt to "zero humans, zero text" (twice) and it kept ignoring that
