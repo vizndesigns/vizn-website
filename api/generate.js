@@ -71,7 +71,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action, predictionId, jobId, image, prompt, width, height, athleteImage, style } = req.body;
+    const { action, predictionId, jobId, image, prompt, width, height, athleteImage, style, query } = req.body;
 
     // ── Poll FLUX prediction ──────────────────────────────────
     if (action === 'poll' && predictionId) {
@@ -134,6 +134,108 @@ export default async function handler(req, res) {
       const outBuf = await (await fetch(outputUrl)).arrayBuffer();
       const b64    = 'data:image/png;base64,' + Buffer.from(outBuf).toString('base64');
       return res.status(200).json({ status: 'succeeded', imageUrl: b64 });
+    }
+
+    // ── Web photo search for named real people — Gemini Google Search grounding ──
+    // Finds candidate source pages via Gemini's search grounding tool (no new API key —
+    // reuses GOOGLE_KEY already configured for the other Gemini calls in this file), then
+    // scrapes each page's og:image/twitter:image meta tag server-side to get an actual photo.
+    // Never auto-applied: the frontend requires the user to pick + confirm rights before use.
+    if (action === 'search-photo' && query) {
+      if (!GOOGLE_KEY) return res.status(500).json({ error: 'GOOGLE_KEY not configured' });
+
+      async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+          return await fetch(url, { ...opts, signal: ctrl.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      function extractImageMeta(html) {
+        const patterns = [
+          /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]*content=["']([^"']+)["']/i,
+          /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image(?::secure_url)?["']/i,
+          /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]*content=["']([^"']+)["']/i,
+          /<meta[^>]+content=["']([^"']+)["'][^>]*name=["']twitter:image(?::src)?["']/i,
+        ];
+        for (const re of patterns) {
+          const m = html.match(re);
+          if (m) return m[1];
+        }
+        return null;
+      }
+
+      // Step 1: grounded search for candidate source pages
+      let chunks = [];
+      try {
+        const searchRes = await fetchWithTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_KEY}`,
+          {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text:
+                `Search the web for a clear, current photo of this real person: "${query}". ` +
+                `Prefer official team/school rosters, ESPN, MaxPreps, 247Sports, Rivals, Wikipedia, ` +
+                `or verified news outlets. Reply with a one-line confirmation only.`
+              }] }],
+              tools: [{ google_search: {} }]
+            })
+          },
+          15000
+        );
+        const searchData = await searchRes.json();
+        chunks = searchData.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      } catch(e) {
+        console.warn('search-photo: grounding search failed:', e.message);
+      }
+
+      const pageUrls = [...new Set(chunks.map(c => c.web?.uri).filter(Boolean))].slice(0, 8);
+      if (!pageUrls.length) return res.status(200).json({ candidates: [] });
+
+      // Step 2: scrape each candidate page for an og:image/twitter:image
+      const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+      const scraped = await Promise.allSettled(pageUrls.map(async pageUrl => {
+        const pageRes = await fetchWithTimeout(pageUrl, { headers: { 'User-Agent': UA } }, 5000);
+        if (!pageRes.ok) throw new Error(`page ${pageRes.status}`);
+        const html   = await pageRes.text();
+        const imgUrl = extractImageMeta(html);
+        if (!imgUrl) throw new Error('no og:image');
+        const resolved = new URL(imgUrl, pageUrl).href;
+        const chunk     = chunks.find(c => c.web?.uri === pageUrl);
+        return { imgUrl: resolved, sourceUrl: pageUrl, sourceTitle: chunk?.web?.title || new URL(pageUrl).hostname };
+      }));
+
+      const found    = scraped.filter(r => r.status === 'fulfilled').map(r => r.value);
+      const seenImg  = new Set();
+      const deduped  = found.filter(f => {
+        if (seenImg.has(f.imgUrl)) return false;
+        seenImg.add(f.imgUrl);
+        return true;
+      }).slice(0, 4);
+
+      // Step 3: fetch + base64-encode each image so the frontend never hits CORS/hotlink issues
+      const settled = await Promise.allSettled(deduped.map(async f => {
+        const imgRes = await fetchWithTimeout(f.imgUrl, { headers: { 'User-Agent': UA } }, 6000);
+        if (!imgRes.ok) throw new Error(`image ${imgRes.status}`);
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        if (!contentType.startsWith('image/')) throw new Error('not an image');
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        if (buf.length > 8 * 1024 * 1024) throw new Error('image too large');
+        const sourceDomain = new URL(f.sourceUrl).hostname.replace(/^www\./, '');
+        return {
+          image:       `data:${contentType};base64,${buf.toString('base64')}`,
+          sourceUrl:   f.sourceUrl,
+          sourceTitle: f.sourceTitle,
+          sourceDomain
+        };
+      }));
+
+      const candidates = settled.filter(r => r.status === 'fulfilled').map(r => r.value);
+      return res.status(200).json({ candidates });
     }
 
     // ── Video generation — fal.ai Kling Video 1.6 ─────────────

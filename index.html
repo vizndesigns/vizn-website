@@ -450,6 +450,11 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 .mfe{font-family:var(--fa);font-size:26px;color:var(--lime);text-transform:uppercase}
 .mfn{font-family:var(--fa);font-size:12px;text-transform:uppercase;color:var(--white);margin-top:5px}
 .mfd{font-size:10px;color:var(--muted);margin-top:3px}
+.psr-thumb{background:var(--dark);border:2px solid var(--border);cursor:pointer;padding:6px;transition:border-color 0.2s}
+.psr-thumb:hover{border-color:var(--muted)}
+.psr-thumb.sel{border-color:var(--lime)}
+.psr-thumb img{width:100%;height:110px;object-fit:cover;display:block}
+.psr-thumb .psr-dom{font-size:9px;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:0.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .modal-close{margin-top:16px;width:100%;background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--fa);font-size:13px;letter-spacing:0.1em;text-transform:uppercase;padding:11px;cursor:pointer;transition:all 0.2s}
 .modal-close:hover{border-color:var(--lime);color:var(--lime)}
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(72px);background:var(--panel);border:1px solid var(--border);padding:12px 22px;font-family:var(--fm);font-size:11px;letter-spacing:0.08em;color:var(--white);z-index:2000;transition:transform 0.3s ease;white-space:nowrap}
@@ -684,6 +689,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
           <div id="clearPhotosRow" style="display:none;margin-top:6px">
             <button onclick="clearAllPhotos()" style="font-family:var(--fm);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);background:none;border:1px solid var(--border);padding:4px 10px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">✕ Clear all photos</button>
           </div>
+          <button class="expand-btn" id="openPhotoSearch" style="margin-top:8px;width:100%">&#128269; No photo? Search the web for one</button>
         </div>
         <div class="api-panel" id="apiPanel">
           <div class="api-title">Replicate API Key</div>
@@ -1112,6 +1118,28 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   </div>
 </div>
 
+<!-- WEB PHOTO SEARCH MODAL -->
+<div class="modal-bg" id="photoSearchModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-title">Find a Photo Online</div>
+    <div class="modal-sub">Search the web for a real photo of a named player. You'll pick one and confirm you have the rights to use it — VIZN never applies a web photo automatically.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input type="text" id="photoSearchInput" class="fin" placeholder="Player's full name" style="flex:1;margin:0">
+      <button id="photoSearchGo" class="modal-close" style="width:auto;padding:11px 18px;white-space:nowrap;margin:0">Search</button>
+    </div>
+    <div id="photoSearchStatus" style="font-size:11px;color:var(--muted);margin-bottom:12px;display:none"></div>
+    <div id="photoSearchResults" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px"></div>
+    <div id="photoSearchConfirm" style="display:none;margin-bottom:14px">
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--muted);cursor:pointer">
+        <input type="checkbox" id="photoRightsCheck" style="margin-top:2px">
+        <span>I confirm I have the rights to use this photo (or it qualifies for fair use), and understand VIZN stamps a source disclaimer on the final design.</span>
+      </label>
+      <button id="photoSearchUse" class="modal-close" disabled style="margin-top:10px;opacity:0.4">Use This Photo</button>
+    </div>
+    <button class="modal-close" id="closePhotoSearch">Cancel</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1124,6 +1152,7 @@ const S = {
   lastPrompt:'', lastImage:null, generating:false,
   athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
   athleteOriginals:[], // original compressed photos (shown immediately, sent to vision AI)
+  webPhotoSources:[],  // parallel to athleteOriginals — source URL if photo came from web search, else null
   bgRemoving:0,        // count of photos still being processed
   referenceImage:null  // base64 data URL of uploaded reference graphic (style inspiration)
 };
@@ -1238,6 +1267,40 @@ async function removeBg(file) {
   throw new Error('Background removal returned unexpected response');
 }
 
+// ── Same as removeBg() but for a photo that's already a data URI (web-search results) —
+// skips the File/FileReader step since there's no File object to read from.
+async function removeBgFromDataUri(dataUri) {
+  const r = await fetch('/api/generate', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ action: 'remove-bg', image: dataUri })
+  });
+  const d = await r.json();
+  if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+  if (d.status === 'succeeded' && d.imageUrl) return d.imageUrl;
+  throw new Error('Background removal returned unexpected response');
+}
+
+// ── Resize a data URI in place (web-search photos can arrive at arbitrary sizes) ──
+function compressDataUri(dataUri, maxPx = 900) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxPx || h > maxPx) {
+        if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else        { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error('Could not load image'));
+    img.src = dataUri;
+  });
+}
+
 // ── Image compression (keeps uploaded photos under Vercel's 4.5MB body limit)
 function compressImageAsPng(file, maxPx = 900) {
   return new Promise(resolve => {
@@ -1292,6 +1355,7 @@ function updateClearRow() {
 function clearAllPhotos() {
   S.athleteOriginals = [];
   S.athleteCutouts   = [];
+  S.webPhotoSources  = [];
   S.bgRemoving       = 0;
   const chips = el('fChips');
   if (chips) chips.innerHTML = '';
@@ -1384,6 +1448,7 @@ if (fileInputEl) {
       origSlots.forEach((o, i) => {
         if (o !== null) {
           S.athleteOriginals.push(o);
+          S.webPhotoSources.push(null);
           if (cutoutSlots[i] !== null) {
             S.athleteCutouts.push(cutoutSlots[i]);
           } else {
@@ -1419,6 +1484,7 @@ document.getElementById('fChips')?.addEventListener('click', e => {
   chip.remove();
   S.athleteOriginals.splice(idx, 1);
   S.athleteCutouts.splice(idx, 1);
+  S.webPhotoSources.splice(idx, 1);
   document.querySelectorAll('#fChips .fchip').forEach((c, ni) => { c.dataset.idx = ni; });
   updateClearRow();
   if (S.athleteOriginals.length === 0) {
@@ -2286,6 +2352,18 @@ function drawSportsOverlay(ctx, canvas, opts) {
     drawText(info.detail.toUpperCase(), cw * 0.5, infoRowY + ch * 0.032,
       `600 ${Math.round(ch * 0.020)}px Arial, sans-serif`, '#FFFFFF', 'rgba(0,0,0,0.85)', Math.round(ch * 0.0025));
   }
+  // Web-sourced photo disclaimer — real fillText (never left to an AI model to remember
+  // or word correctly), tucked in a top corner that's clear of the headline/badge/team-name
+  // areas the rest of this function draws into.
+  if (opts.hasWebPhoto) {
+    ctx.save();
+    const fs = Math.max(10, Math.round(ch * 0.016));
+    ctx.font = `500 ${fs}px Arial, sans-serif`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillText('Photo sourced from the web — verify usage rights before commercial use', cw * 0.03, ch * 0.018);
+    ctx.restore();
+  }
 }
 
 // ── Fast team background — FLUX → gpt-image-2 → Gemini → canvas fallback ──
@@ -3127,7 +3205,8 @@ async function generate(raw) {
         setStatus('Compositing your photo…');
         const designOpts = {
           type: bigLabel, style: S.style, prompt: enriched,
-          teamName, teamColors, isSinglePlayer: S.athleteOriginals.length === 1, athleteInfo
+          teamName, teamColors, isSinglePlayer: S.athleteOriginals.length === 1, athleteInfo,
+          hasWebPhoto: S.webPhotoSources.some(Boolean)
         };
         finalUrl    = await compositeLayers(bgUrl, S.athleteCutouts, designOpts);
         finalEngine = 'photo-composite';
@@ -3330,12 +3409,164 @@ async function blockedForFakeLikeness(raw) {
   setStatus('Checking for a named player…');
   const check = await extractAthleteText(raw);
   if (looksLikePersonName(check.headline)) {
-    toast('"' + check.headline + '" is a real person — upload their photo to generate them for real. Blocked to avoid creating a fake AI likeness.', 'err');
+    toast('"' + check.headline + '" is a real person — upload their photo, or click 🔍 Search the web for one, to generate them for real. Blocked to avoid creating a fake AI likeness.', 'err');
     setStatus('AI Ready — Click Generate');
     return true;
   }
   return false;
 }
+
+// ── Web photo search — Gemini Google Search grounding, scraped for a real photo.
+// Candidates are only ever added to the roster after the user picks one AND confirms
+// the rights checkbox — never applied automatically.
+let _photoSearchCandidates = [];
+let _photoSearchSelected   = null;
+
+function closePhotoSearchModal() {
+  const modal = el('photoSearchModal');
+  if (modal) modal.classList.remove('show');
+  const results = el('photoSearchResults');
+  if (results) results.innerHTML = '';
+  const confirmBox = el('photoSearchConfirm');
+  if (confirmBox) confirmBox.style.display = 'none';
+  const check = el('photoRightsCheck');
+  if (check) check.checked = false;
+  const useBtn = el('photoSearchUse');
+  if (useBtn) { useBtn.disabled = true; useBtn.style.opacity = '0.4'; }
+  const statusEl = el('photoSearchStatus');
+  if (statusEl) statusEl.style.display = 'none';
+  _photoSearchCandidates = [];
+  _photoSearchSelected   = null;
+}
+
+const openSearchBtn = el('openPhotoSearch');
+if (openSearchBtn) openSearchBtn.addEventListener('click', async () => {
+  const modal = el('photoSearchModal');
+  if (modal) modal.classList.add('show');
+  const input = el('photoSearchInput');
+  if (input && !input.value.trim()) {
+    const raw = (el('promptInput')?.value || '').trim();
+    if (raw) {
+      const check = await extractAthleteText(raw);
+      if (looksLikePersonName(check.headline)) input.value = check.headline;
+    }
+  }
+});
+
+const closeSearchBtn = el('closePhotoSearch');
+if (closeSearchBtn) closeSearchBtn.addEventListener('click', closePhotoSearchModal);
+
+async function runPhotoSearch() {
+  const input = el('photoSearchInput');
+  const query = input ? input.value.trim() : '';
+  if (!query) { toast('Enter a player name first', 'err'); return; }
+
+  const results     = el('photoSearchResults');
+  const statusEl    = el('photoSearchStatus');
+  const confirmBox  = el('photoSearchConfirm');
+  if (results) results.innerHTML = '';
+  if (confirmBox) confirmBox.style.display = 'none';
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = 'Searching the web…'; }
+  _photoSearchCandidates = [];
+  _photoSearchSelected   = null;
+
+  try {
+    const r = await fetch('/api/generate', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'search-photo', query })
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || `HTTP ${r.status}`);
+    _photoSearchCandidates = d.candidates || [];
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Search failed: ' + (e.message || 'unknown error');
+    return;
+  }
+
+  if (!_photoSearchCandidates.length) {
+    if (statusEl) statusEl.textContent = 'No usable photos found — try a different name, or upload one directly.';
+    return;
+  }
+  if (statusEl) statusEl.style.display = 'none';
+
+  _photoSearchCandidates.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'psr-thumb';
+    card.dataset.idx = i;
+    card.innerHTML = '<img src="' + c.image + '" alt=""><div class="psr-dom">' + c.sourceDomain + '</div>';
+    card.addEventListener('click', () => selectPhotoCandidate(i));
+    results.appendChild(card);
+  });
+}
+
+function selectPhotoCandidate(i) {
+  _photoSearchSelected = _photoSearchCandidates[i];
+  qsa('#photoSearchResults .psr-thumb').forEach(t => t.classList.toggle('sel', parseInt(t.dataset.idx) === i));
+  const confirmBox = el('photoSearchConfirm');
+  if (confirmBox) confirmBox.style.display = 'block';
+  const check = el('photoRightsCheck');
+  if (check) check.checked = false;
+  const useBtn = el('photoSearchUse');
+  if (useBtn) { useBtn.disabled = true; useBtn.style.opacity = '0.4'; }
+}
+
+const searchGoBtn = el('photoSearchGo');
+if (searchGoBtn) searchGoBtn.addEventListener('click', runPhotoSearch);
+const searchInputEl = el('photoSearchInput');
+if (searchInputEl) searchInputEl.addEventListener('keydown', e => { if (e.key === 'Enter') runPhotoSearch(); });
+
+const rightsCheck = el('photoRightsCheck');
+if (rightsCheck) rightsCheck.addEventListener('change', () => {
+  const useBtn = el('photoSearchUse');
+  if (!useBtn) return;
+  useBtn.disabled = !rightsCheck.checked;
+  useBtn.style.opacity = rightsCheck.checked ? '1' : '0.4';
+});
+
+const useBtnEl = el('photoSearchUse');
+if (useBtnEl) useBtnEl.addEventListener('click', async () => {
+  if (!_photoSearchSelected || useBtnEl.disabled) return;
+  const candidate = _photoSearchSelected;
+  useBtnEl.disabled = true;
+  setStatus('Adding photo from ' + candidate.sourceDomain + '…');
+  try {
+    const compressed = await compressDataUri(candidate.image, 900);
+    S.athleteOriginals.push(compressed);
+    S.webPhotoSources.push(candidate.sourceUrl);
+    if (S.athleteOriginals.length === 1) showPhotoPreview(compressed);
+
+    let cutout = compressed;
+    try { cutout = await removeBgFromDataUri(compressed); }
+    catch(bgErr) { console.warn('BG removal failed for web photo:', bgErr.message); }
+    S.athleteCutouts.push(cutout);
+
+    const chips = el('fChips');
+    if (chips) {
+      const idx = S.athleteOriginals.length - 1;
+      const ch = document.createElement('div');
+      ch.className = 'fchip';
+      ch.dataset.idx = idx;
+      ch.innerHTML = '🌐 ' + candidate.sourceDomain + ' <span class="rm" style="cursor:pointer;color:#666;margin-left:4px">✕</span>';
+      chips.appendChild(ch);
+    }
+
+    updateClearRow();
+    const n = S.athleteOriginals.length;
+    setStatus('✓ ' + n + ' player' + (n > 1 ? 's' : '') + ' ready — click Generate');
+    toast('Photo added from ' + candidate.sourceDomain + ' ✓', 'ok');
+    if (n > 1) {
+      const grid = await stitchPhotosToGrid(S.athleteOriginals);
+      showPhotoPreview(grid);
+      const aiTxtEl = el('aiTxt');
+      if (aiTxtEl) aiTxtEl.textContent = n + ' players loaded — add description and Generate';
+    }
+    closePhotoSearchModal();
+  } catch(e) {
+    toast('Could not add photo: ' + (e.message || 'unknown error'), 'err');
+    useBtnEl.disabled = false;
+  }
+});
 
 const genBtn = el('generateBtn');
 if (genBtn) genBtn.addEventListener('click', async () => {
