@@ -783,6 +783,11 @@ school = "ADDISON BULLDOGS", subtitle = "VOLLEYBALL", headline = "AVA BARTLETT" 
 person, not the team, even though the team is listed first), number = "#32". Do not swap
 headline and school.
 
+The source prompt may contain markdown formatting (**bold**, _italic_, backticks, or quotes
+used purely for structure/emphasis) — strip all of that. Every "text" value must be the clean
+display text only, exactly as a viewer should read it on the finished graphic, never literal
+asterisks, underscores, or backticks.
+
 Prompt: "${prompt}"
 
 Return ONLY a raw JSON array, no markdown, no explanation:

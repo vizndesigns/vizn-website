@@ -4095,6 +4095,11 @@ async function extractAthleteText(prompt) {
   // default, but it's not safe to actually DRAW: a customer seeing a literal "#00" badge
   // or "PLAYER NAME" text is worse than just omitting the field. Treat these as absent.
   const placeholders = new Set(['PLAYER NAME', '#00', 'TEAM NAME']);
+  // Belt-and-suspenders: customers often paste prompts with markdown formatting (**bold**
+  // team/player names, as in the "Premium Sports Banner Prompt" template). The extraction
+  // is instructed to strip it, but this is drawn with real fillText — guarantee it here too
+  // rather than trust the model never echoes a stray asterisk/underscore/backtick onto the canvas.
+  const stripMarkdown = s => s.replace(/[*_`]/g, '').replace(/\s{2,}/g, ' ').trim();
   try {
     const res = await fetch('/api/generate', {
       method: 'POST',
@@ -4106,7 +4111,7 @@ async function extractAthleteText(prompt) {
     const texts = Array.isArray(data.texts) ? data.texts : [];
     const byRole = role => {
       const text = texts.find(t => t.role === role)?.text || '';
-      return placeholders.has(text) ? '' : text;
+      return placeholders.has(text) ? '' : stripMarkdown(text);
     };
     return {
       headline: byRole('headline'),
