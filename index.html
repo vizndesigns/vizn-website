@@ -3321,7 +3321,18 @@ function setStatus(s) {
 const genBtn = el('generateBtn');
 if (genBtn) genBtn.addEventListener('click', () => {
   const inp = el('promptInput');
-  generate(inp ? inp.value.trim() : '');
+  const raw = inp ? inp.value.trim() : '';
+  // With no photo attached, generation falls back to pure text-to-image — the AI imagines
+  // a player from the description, it does not use a real photo, no matter who the prompt
+  // names. That distinction has caused real confusion ("this is not Kyrie") when a photo
+  // was expected but wasn't actually attached — flag it clearly before generating instead
+  // of after, when the surprising result has already burned a generation.
+  const hasPhotos = S.athleteOriginals && S.athleteOriginals.length > 0;
+  if (!hasPhotos) {
+    const proceed = confirm('No photo attached — this will generate an AI-imagined player from your description, not a real photo. For the actual person guaranteed, cancel and upload their photo first.\n\nGenerate from text only anyway?');
+    if (!proceed) return;
+  }
+  generate(raw);
 });
 
 const regenBtn = el('regenBtn');
