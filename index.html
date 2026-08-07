@@ -1926,6 +1926,11 @@ function extractTeamName(prompt) {
     const isCapsWord = word.length >= 2 && word === word.toUpperCase();
     if (isCapsWord && !skip.has(word)) {
       run.push(word);
+      // A trailing colon (e.g. "MAIN COMPOSITION:") marks this as a section heading from
+      // a pasted template, not a real team name — discard it and keep scanning instead of
+      // returning a false match (this exact pattern rendered "MAIN COMPOSITION" as the team
+      // name on a real team-photo composite).
+      if (/:$/.test(tok)) { run = []; continue; }
       if (run.length >= 4) break;
     } else if (run.length) {
       break;
