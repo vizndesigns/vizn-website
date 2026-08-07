@@ -2060,7 +2060,12 @@ function drawTypeLayer(ctx, canvas, opts) {
     ctx.save();
     ctx.font = `900 italic ${sz}px Impact,'Arial Black',Arial`;
     const m = ctx.measureText(word).width;
-    if (m > 0) sz = Math.round(sz * (cw * 0.93) / m);
+    // Target 80% of canvas width, not 93% — ctx.measureText() returns the advance width,
+    // which doesn't account for the italic slant's overhang past that box (the top-right
+    // of each glyph leans past its own measured edge). At 93% target, long words like
+    // "VOLLEYBALL" rendered edge-to-edge with visible clipping on both sides. 80% leaves
+    // real margin for that overhang plus the stroke outline drawn around the fill.
+    if (m > 0) sz = Math.round(sz * (cw * 0.80) / m);
     ctx.restore();
     return Math.max(sz, 40);
   }
