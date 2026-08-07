@@ -238,7 +238,6 @@ select.fin{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .ra-lime:hover{background:#DDFF33}
 .ra-ghost{background:rgba(0,0,0,0.88);border:1px solid var(--borderb)!important;color:var(--text)}
 .ra-ghost:hover{border-color:var(--lime)!important;color:var(--lime)}
-.refine-row{display:none;gap:8px;padding:10px 18px;border-top:1px solid var(--border);background:var(--dark)}
 /* ── Generation Loading Overlay ──────────────────── */
 .gen-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:10}
 .gen-overlay.active{display:flex}
@@ -263,12 +262,6 @@ select.fin{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 /* ── Expand prompt button ──────────────────────────── */
 .expand-btn{font-family:var(--fm);font-size:9px;letter-spacing:0.1em;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 0;display:flex;align-items:center;gap:5px;transition:color 0.2s}
 .expand-btn:hover{color:var(--lime)}
-.refine-row.show{display:flex}
-.refine-row input{flex:1;background:var(--panel);border:1px solid var(--border);color:var(--white);font-family:var(--fd);font-size:13px;padding:9px 12px;outline:none}
-.refine-row input:focus{border-color:var(--lime)}
-.refine-row input::placeholder{color:#333;font-style:italic}
-.refine-row button{background:var(--lime);border:none;color:#000;font-family:var(--fa);font-size:14px;letter-spacing:0.1em;text-transform:uppercase;padding:9px 20px;cursor:pointer;clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);white-space:nowrap;transition:background 0.2s}
-.refine-row button:hover{background:#DDFF33}
 
 /* FEATURES */
 .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
@@ -810,9 +803,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
           <div class="ai-stat"><div class="ai-stat-dot"></div><span class="ai-stat-txt" id="aiTxt">Set API Key → Generate</span></div>
           <div class="result-acts" id="resultActs">
             <button class="ra ra-lime" id="downloadBtn">⬇ Download</button>
-<button class="ra ra-ghost" id="refineToggle">↻ Refine</button>
             <button class="ra ra-ghost" id="openExport">⬇ Export</button>
-            <button class="ra ra-ghost" id="generateVideoBtn" style="background:linear-gradient(135deg,#7B2FFF,#FF2D78);border:none;color:#fff;font-weight:700">🎬 Video</button>
           </div>
         </div>
         <div class="gen-stats-bar" id="genStatsBar">
@@ -821,23 +812,6 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
           Engine: <span id="statEngine">&#8212;</span>
           <span class="gen-stat-sep">&#183;</span>
           Format: <span id="statFormat">&#8212;</span>
-        </div>
-        <div class="refine-row" id="refineRow">
-          <input type="text" id="refineInput" placeholder="Change font to Impact, swap colors to red &amp; black, add motion blur to background, make name larger…">
-          <button id="refineApply">↻ Apply</button>
-        </div>
-
-        <!-- Video result panel -->
-        <div id="videoPanel" style="display:none;padding:20px;background:#0a0a0a;border-top:1px solid #222">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <span style="font-family:var(--fa);font-size:12px;letter-spacing:0.1em;color:#7B2FFF">🎬 SORA 2 VIDEO</span>
-            <span id="videoStatus" style="font-size:12px;color:#aaa">Generating…</span>
-          </div>
-          <video id="generatedVideo" controls style="width:100%;border-radius:4px;display:none;max-height:400px;background:#000"></video>
-          <div id="videoLoading" style="height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden;margin-top:8px">
-            <div id="videoProgress" style="height:100%;width:0%;background:linear-gradient(90deg,#7B2FFF,#FF2D78);transition:width 0.5s;border-radius:3px"></div>
-          </div>
-          <button id="downloadVideoBtn" style="display:none;margin-top:12px;background:linear-gradient(135deg,#7B2FFF,#FF2D78);border:none;color:#fff;font-family:var(--fa);font-size:11px;letter-spacing:0.1em;padding:10px 20px;cursor:pointer;border-radius:4px">⬇ Download Video</button>
         </div>
       </div>
     </div>
@@ -3673,8 +3647,6 @@ function showResult(url, engine) {
   if (acts) acts.classList.add('show');
   const expBtn = el('exportTopBtn');
   if (expBtn) expBtn.classList.add('show');
-  const refRow = el('refineRow');
-  if (refRow) refRow.classList.add('show');
   stopGenOverlay(engine || 'AI', getDims());
 }
 
@@ -3983,76 +3955,6 @@ if (regenBtn) regenBtn.addEventListener('click', async () => {
   generate(S.lastPrompt);
 });
 
-const refToggle = el('refineToggle');
-if (refToggle) refToggle.addEventListener('click', () => {
-  const row = el('refineRow');
-  if (row) row.classList.toggle('show');
-});
-
-async function ensureBase64(url) {
-  if (!url || url.startsWith('data:')) return url;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error('Could not load design image (HTTP ' + resp.status + ')');
-  const blob = await resp.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Image read failed'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-const refApply = el('refineApply');
-if (refApply) refApply.addEventListener('click', async () => {
-  const inp = el('refineInput');
-  const r = inp ? inp.value.trim() : '';
-  if (!r) return;
-  if (!S.lastImage) {
-    // Same fake-likeness guard as the main Generate/Regenerate buttons — this fallback calls
-    // generate() directly too, and was missing the check entirely, so a named real person with
-    // no photo attached (e.g. photos were cleared and never re-uploaded before hitting Refine)
-    // would silently fall through to a fabricated AI face instead of being blocked.
-    const combined = S.lastPrompt + '. Refinement: ' + r;
-    if (await blockedForFakeLikeness(combined)) return;
-    generate(combined);
-    return;
-  }
-  startGenOverlay(true);
-  setStatus('Applying change…');
-  try {
-    const imageDataUrl = await ensureBase64(S.lastImage);
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'refine',
-        prompt: r,
-        imageDataUrl,
-        sport: detectSport(S.lastPrompt),
-        style: S.style,
-        width: S.outputW,
-        height: S.outputH
-      })
-    });
-    const data = await res.json();
-    if (data.url) {
-      S.lastImage = data.url;
-      showResult(data.url, data.engine);
-      if (inp) inp.value = '';
-    } else {
-      throw new Error(data.error || 'Refine failed');
-    }
-  } catch (err) {
-    clearGenOverlay();
-    setStatus('Refine failed: ' + err.message);
-  }
-});
-
-const refInput = el('refineInput');
-if (refInput) refInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); refApply && refApply.click(); }
-});
-
 const dlBtn = el('downloadBtn');
 if (dlBtn) dlBtn.addEventListener('click', () => {
   if (!S.lastImage) return;
@@ -4231,97 +4133,6 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ── Init ──────────────────────────────────────────────
 setStatus('AI Ready \u2014 Click Generate');
 console.log('VIZN: JS loaded OK');
-
-// ── Motion Graphic Video Generation ─────────────────────
-let S_videoGenerating = false;
-
-function buildVideoPrompt(p, sport, style) {
-  const motions = {
-    aggressive: 'Typography kinetically crashes onto screen with explosive impact. Crimson and white color blocks slam into position from opposite edges. Dramatic lens flare bursts across the graphic. Slow push-in camera ends on sharp freeze frame of the complete design.',
-    modern:     'Design elements elegantly slide and fade into their final positions. Clean geometric shapes draw themselves on screen with precise motion paths. Smooth cinematic dolly move reveals the full composition. Refined, editorial motion quality.',
-    collegiate: 'Classic unveil unfolds from center outward. Maroon and gold color fields sweep across the frame. Bold slab type stamps down with authority one line at a time. Final frame holds the complete design.',
-    minimal:    'Elements appear one at a time with long, deliberate fades. Thin rule lines draw across the composition. Single electric lime accent element sparks on last. Extended hold on the finished design. Breathing, meditative motion.',
-    hype:       'Rapid-fire neon light trails streak across the frame. Purple and cyan type glitches and resolves into sharp letterforms. Electric particle burst radiates from the center. High-energy flash cuts between design build stages.',
-    retro:      'Vintage film grain flickers over the design. Sepia warm tones fade in slowly. Type elements stamp onto screen with ink-press weight. VHS scan-line artifact sweeps across once. Nostalgic slow dissolve to final hold.'
-  };
-  return `MOTION GRAPHIC DESIGN ANIMATION — animate this sports graphic design, not a sports scene.
-Design content: ${p}
-Animation direction: ${motions[style] || motions.aggressive}
-All text and graphic elements animate ON from off-screen or zero opacity into their final composed positions.
-The final 1–2 seconds hold on the complete, finished graphic design.
-Style: professional motion design / broadcast graphics package. 5 seconds total.`;
-}
-
-async function generateVideo() {
-  if (S_videoGenerating || !S.lastPrompt) { toast('Generate a design first', 'err'); return; }
-  S_videoGenerating = true;
-
-  const panel=el('videoPanel'), statusEl=el('videoStatus'), progress=el('videoProgress'),
-        videoEl=el('generatedVideo'), dlBtn=el('downloadVideoBtn'), loading=el('videoLoading');
-
-  if (panel)    panel.style.display = 'block';
-  if (videoEl)  videoEl.style.display = 'none';
-  if (dlBtn)    dlBtn.style.display = 'none';
-  if (loading)  loading.style.display = 'block';
-  if (statusEl) statusEl.textContent = S.lastImage ? 'Creating motion graphic…' : 'Queuing video…';
-  if (progress) progress.style.width = '5%';
-
-  try {
-    const r1 = await fetch('/api/generate', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        action: 'generate-video',
-        prompt: buildVideoPrompt(S.lastPrompt, detectSport(S.lastPrompt), S.style),
-        imageDataUrl: S.lastImage || null
-      })
-    });
-    const d1 = await r1.json();
-    if (!r1.ok || d1.error) throw new Error(d1.error || 'Video error ' + r1.status);
-    if (d1.status === 'succeeded' && d1.videoUrl) { _showVid(d1.videoUrl); return; }
-
-    const jobId = d1.jobId;
-    if (!jobId) throw new Error('No job ID returned: ' + JSON.stringify(d1).slice(0, 100));
-    if (statusEl) statusEl.textContent = 'Rendering motion graphic… (30–90s)';
-
-    for (let i = 0, pct = 10; i < 60; i++) {
-      await sleep(5000);
-      pct = Math.min(90, pct + 3);
-      if (progress) progress.style.width = pct + '%';
-      if (statusEl) statusEl.textContent = 'Generating… ' + Math.round(pct) + '%';
-      const r2 = await fetch('/api/generate', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ action: 'poll-video', jobId })
-      });
-      const d2 = await r2.json();
-      if (d2.status === 'succeeded' && d2.videoUrl) { _showVid(d2.videoUrl); return; }
-      if (d2.status === 'failed') throw new Error('Sora generation failed');
-    }
-    throw new Error('Timed out after 5 minutes');
-
-  } catch(e) {
-    console.error('Sora error:', e);
-    if (statusEl) statusEl.textContent = '⚠ ' + (e.message || 'failed').slice(0, 80);
-    if (progress) progress.style.width = '0%';
-    toast('Video error: ' + e.message, 'err');
-  } finally { S_videoGenerating = false; }
-
-  function _showVid(url) {
-    if (progress) progress.style.width = '100%';
-    if (statusEl) statusEl.textContent = '✓ Video ready';
-    if (loading)  setTimeout(() => { if (loading) loading.style.display = 'none'; }, 500);
-    if (videoEl)  { videoEl.src = url; videoEl.style.display = 'block'; }
-    if (dlBtn)    {
-      dlBtn.style.display = 'block';
-      dlBtn.onclick = () => { const a = document.createElement('a'); a.href = url; a.download = 'vizn-hype.mp4'; a.click(); };
-    }
-    toast('Hype video ready ✓', 'ok');
-  }
-}
-
-const vidBtn = el('generateVideoBtn');
-if (vidBtn) vidBtn.addEventListener('click', generateVideo);
-
-
 
 // ── Auto-expand prompt ────────────────────────────────
 const expandBtn = el('expandPromptBtn');
