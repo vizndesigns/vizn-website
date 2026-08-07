@@ -2647,6 +2647,8 @@ ${sport && sport !== 'sports' ? `SPORT CONTEXT: ${sport}` : ''}
 
 Use strong typography, dramatic lighting, and the exact text/numbers from the brief.
 NUMBER ACCURACY: Any number in the brief (scores, jersey numbers, stats, dates) must be rendered with the exact digit count and exact digits given — never add, drop, duplicate, or run digits together (e.g. a score of "108" must never render as "1008" or "18"). If a number isn't explicitly stated in the brief, don't invent one.
+STICK TO THE BRIEF: Render only facts, props, and elements explicitly stated above — do not invent a sport, setting, prop, or detail that isn't given. If the brief names a specific sport, its equipment (the actual ball, court/field markings, uniform style) must visibly match that sport, not a generic athletic scene.
+CURRENT SOCIAL-MEDIA SPORTS DESIGN TRENDS — match what real teams and athletes post today, not a generic template: oversized glowing/textured jersey-number treatment as a dominant graphic element, team-color gradient or diagonal color-blocking (not a flat fill), rim-lighting separating the subject from the background, atmospheric particles/glow/light-leak effects used with intent (not scattered randomly), and a clear typographic hierarchy (one dominant headline, one supporting line, nothing competing for attention).
 Quality standard: ESPN / Nike / Jordan Brand level.
 All text must be pixel-sharp and fully visible — nothing cropped.
 
@@ -3723,7 +3725,16 @@ if (refApply) refApply.addEventListener('click', async () => {
   const inp = el('refineInput');
   const r = inp ? inp.value.trim() : '';
   if (!r) return;
-  if (!S.lastImage) { generate(S.lastPrompt + '. Refinement: ' + r); return; }
+  if (!S.lastImage) {
+    // Same fake-likeness guard as the main Generate/Regenerate buttons — this fallback calls
+    // generate() directly too, and was missing the check entirely, so a named real person with
+    // no photo attached (e.g. photos were cleared and never re-uploaded before hitting Refine)
+    // would silently fall through to a fabricated AI face instead of being blocked.
+    const combined = S.lastPrompt + '. Refinement: ' + r;
+    if (await blockedForFakeLikeness(combined)) return;
+    generate(combined);
+    return;
+  }
   startGenOverlay(true);
   setStatus('Applying change…');
   try {
