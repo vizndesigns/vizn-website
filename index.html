@@ -171,6 +171,14 @@ select.fin{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .chip .ci{font-size:18px}
 .chip .cl{font-family:var(--fm);font-size:8px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)}
 .chip.on .cl{color:var(--lime)}
+.type-list{display:flex;flex-direction:column;gap:4px}
+.ti{display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--dark);border:1px solid var(--border);cursor:pointer;transition:all 0.2s}
+.ti:hover,.ti.on{border-color:var(--lime);background:rgba(204,255,0,0.04)}
+.ti-radio{width:12px;height:12px;border:1px solid var(--border);border-radius:50%;flex-shrink:0;position:relative;transition:border-color 0.2s}
+.ti.on .ti-radio{border-color:var(--lime)}
+.ti.on .ti-radio::after{content:'';position:absolute;width:5px;height:5px;background:var(--lime);border-radius:50%;top:2.5px;left:2.5px}
+.ti-lbl{font-family:var(--fd);font-size:12px;color:var(--muted)}
+.ti.on .ti-lbl{color:var(--white)}
 .upz{border:1px dashed var(--borderb);padding:20px;text-align:center;cursor:pointer;background:var(--dark);transition:all 0.2s;position:relative}
 .upz:hover{border-color:var(--lime);background:rgba(204,255,0,0.03)}
 .upz input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
@@ -678,6 +686,22 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <button id="clearRefBtn" style="display:none;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0;line-height:1" onclick="clearRefImage()">&#x2715;</button>
           </div>
         </div>
+        <div class="cg"><div class="clabel">Design Type</div>
+          <div class="type-list">
+            <div class="ti on" data-type="commitment"><div class="ti-radio"></div><span class="ti-lbl">🏫 Commitment Graphic</span></div>
+            <div class="ti" data-type="game-day"><div class="ti-radio"></div><span class="ti-lbl">🏟 Game Day Graphic</span></div>
+            <div class="ti" data-type="halftime-score"><div class="ti-radio"></div><span class="ti-lbl">⏱ Halftime Score Graphic</span></div>
+            <div class="ti" data-type="final-score"><div class="ti-radio"></div><span class="ti-lbl">🏁 Final Score Graphic</span></div>
+            <div class="ti" data-type="player-of-game"><div class="ti-radio"></div><span class="ti-lbl">⭐ Player of the Game</span></div>
+            <div class="ti" data-type="game-recap"><div class="ti-radio"></div><span class="ti-lbl">📋 Game Recap Graphic</span></div>
+            <div class="ti" data-type="starting-lineup"><div class="ti-radio"></div><span class="ti-lbl">📝 Starting Lineup Graphic</span></div>
+            <div class="ti" data-type="home-schedule"><div class="ti-radio"></div><span class="ti-lbl">📅 Home Schedule Graphic</span></div>
+            <div class="ti" data-type="season-schedule"><div class="ti-radio"></div><span class="ti-lbl">🗓 Season Schedule Graphic</span></div>
+            <div class="ti" data-type="player-spotlight"><div class="ti-radio"></div><span class="ti-lbl">🎯 Player Spotlight Banner</span></div>
+            <div class="ti" data-type="recruit-offer"><div class="ti-radio"></div><span class="ti-lbl">📨 Recruit Offer Graphic</span></div>
+            <div class="ti" data-type="other"><div class="ti-radio"></div><span class="ti-lbl">✨ Other</span></div>
+          </div>
+        </div>
         <div class="cg"><div class="clabel">Upload Assets</div>
           <div class="upz" id="upZone">
             <input type="file" id="fileInput" multiple accept="image/*,.pdf,.svg">
@@ -1150,6 +1174,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 const S = {
   apiKey: localStorage.getItem('vizn_key') || '',
   lastPrompt:'', lastImage:null, generating:false,
+  type: 'commitment',  // Design Type category — drives per-category art direction in buildVisionPrompt
   athleteCutouts:[],   // array of base64 PNGs (transparent) after bg removal
   athleteOriginals:[], // original compressed photos (shown immediately, sent to vision AI)
   webPhotoSources:[],  // parallel to athleteOriginals — source URL if photo came from web search, else null
@@ -1229,6 +1254,16 @@ function detectStyle(raw) {
   if (/\b(retro|vintage|throwback|old.school|nostalgic)\b/.test(lo))                        return 'retro';
   return 'modern';
 }
+
+// ── Design Type picker ────────────────────────────────
+qsa('.ti').forEach(d => {
+  d.addEventListener('click', () => {
+    qsa('.ti').forEach(x => x.classList.remove('on'));
+    d.classList.add('on');
+    S.type = d.dataset.type;
+    // Size dropdown controls aspect ratio — Design Type click does not override it.
+  });
+});
 
 // ── Size dropdown — real-time preview + generation dims ──
 const dimSel = document.getElementById('dimSelect');
@@ -2528,9 +2563,40 @@ const _typo = {
 
 const _negatives = 'text or elements clipped at any edge, blurry or illegible typography, watermarks, clip art, stock photo feel, amateur composition, muddy low-contrast colors, stray colors not requested, generic drop shadows, 3D render artifacts, sponsor logos or brand wordmarks not explicitly named in the brief, extra caption or label text not in the brief, fake handwritten signatures or scribbled tags, invented badges/crests/seals/emblems/circular marks of any kind, repeating the headline or any other text a second time anywhere in the image, a second/opposing team logo when no opponent is named in the brief, duplicating the same team\'s logo to fake a matchup.';
 
+// Per-category composition guidance — restored from the original 12 Design Type categories.
+// Paired with the explicit Design Type picker (S.type) below: each category gets its own
+// composition/vocabulary directive instead of one auto-detected generic template.
+const _composition = {
+  'commitment':      "Bilateral symmetry, athlete centered, school logo floating above head, player name as cinematic super-title, confetti or light-burst particles radiating outward.",
+  'game-day':        "Full-bleed team identity — GAME DAY headline dominates upper third, opponent info and matchup center stage, date/time/location in lower third. Electric pregame energy radiates from center.",
+  'halftime-score':  "Broadcast scoreboard layout — team logos flanking the score centered prominently, HALFTIME label above score in accent color, period indicator, clean network sports broadcast aesthetic.",
+  'final-score':     "Final score announcement — FINAL label prominent in accent color, both teams' scores in massive centered type, team logos flanking, clean postgame broadcast tone.",
+  'player-of-game':  "Player photo as centered spotlight hero with halo or key light treatment, PLAYER OF THE GAME header at top, stat callouts in lower zone, award-presentation energy.",
+  'game-recap':      "Split information design — game headline and final score in upper half, key player stats and highlights in lower half, team marks anchoring corners, clean broadcast summary.",
+  'starting-lineup': "STARTING LINEUP title dominant at top, player names and numbers in bold vertical list format, team colors and mark anchor the composition, authoritative lineup reveal.",
+  'home-schedule':   "Team mark anchors upper-left, HOME SCHEDULE title prominent, schedule rows with date/opponent/time clearly readable, home games highlighted in team primary color.",
+  'season-schedule': "Season year as full-width display headline at top, all opponents listed chronologically in clean modular grid, team identity colors the entire layout, strong horizontal hierarchy.",
+  'player-spotlight':"Tall banner format — athlete portrait fills upper two-thirds as vertical hero, name in massive horizontal type band below portrait, stats and position in lower zone, feature spotlight energy.",
+  'recruit-offer':   "School/program logo prominent in upper zone, player name in cinematic display type center-frame, OFFER EXTENDED label in bold accent treatment, prestige and excitement radiating outward.",
+  'other':           "Balanced composition with team identity elements prominent, clear typographic hierarchy, strong color blocking, professional sports broadcast quality."
+};
+const _typeVocab = {
+  'commitment':      'Nike signing day campaign style, Under Armour commitment reveal visual, NBC Sports announcement energy',
+  'game-day':        'ESPN GameDay hype graphic, Fox Sports pregame visual, TNT tip-off broadcast energy',
+  'halftime-score':  'Network halftime scoreboard aesthetic, ESPN in-game score overlay, CBS Sports halftime show visual language',
+  'final-score':     'ESPN SportsCenter results card, Fox Sports final score graphic, CBS Sports postgame result visual',
+  'player-of-game':  'ESPN Player of the Game callout, Fox Sports MVP spotlight, TNT best performance graphic',
+  'game-recap':      'ESPN BoxScore recap card, CBS Sports game summary visual, Fox Sports game recap aesthetic',
+  'starting-lineup': 'ESPN lineup announce graphic, NBA/NFL starting lineup reveal visual, Fox Sports depth chart aesthetic',
+  'home-schedule':   'Team official home schedule graphic, ESPN schedule release visual, local sports broadcast schedule card',
+  'season-schedule': 'NFL/NBA season schedule release broadcast graphic, ESPN full-season visual, Fox Sports calendar release aesthetic',
+  'player-spotlight':'ESPN player feature banner, Sports Illustrated player profile aesthetic, Jordan Brand athlete spotlight visual',
+  'recruit-offer':   '247Sports offer announcement graphic, ESPN recruiting reveal visual, On3 Sports offer aesthetic',
+  'other':           'Nike/Jordan Brand campaign standard, ESPN broadcast graphic quality, professional sports media production'
+};
 
-// Format-recognition guidance the AI applies based on what the brief actually asks for,
-// instead of a manual category picker forcing one template regardless of content.
+// Format-recognition guidance used by the plain text-to-image path (buildPrompt), which has
+// no Design Type picker driving it — auto-detects the right format from the brief itself.
 const _formatGuidance = `Recognize the specific format the brief calls for and execute it with the right conventions — for example: a commitment announcement (bilateral symmetry, school logo above head, cinematic name treatment), a game day hype graphic (bold GAME DAY headline; matchup info and an opposing team logo ONLY if an opponent is actually named in the brief — never invent or duplicate one), a halftime or final score card (score in massive centered type, HALFTIME/FINAL label, team marks — opposing team only if named), a player-of-the-game or spotlight feature (hero portrait treatment, stat callouts), a game recap (score + key stats, broadcast summary layout), a starting lineup or roster reveal (names/numbers in a clean list or grid), a schedule release (date/opponent/time rows in a clean grid), a recruiting offer (school logo, OFFER EXTENDED treatment, prestige energy), or any other specific sports-media format — read the brief and match its real format. If the brief doesn't clearly map to one of these, use full creative freedom with strong design elements. Nike/Jordan Brand campaign standard, ESPN broadcast graphic quality, professional sports media production.`;
 
 function parsePromptElements(text) {
@@ -2701,10 +2767,27 @@ Context: ${sport} ${type.replace(/-/g,' ')} graphic, ${style} style aesthetic.`;
 }
 
 // Vision prompt — used when athlete photo is sent directly to the AI
-function buildVisionPrompt(raw, sport, style, playerCount = 1, referenceAnalysis = '') {
+function buildVisionPrompt(raw, sport, style, type, playerCount = 1, referenceAnalysis = '') {
   const isTeam  = playerCount > 1;
   const subject = isTeam ? `these ${playerCount} athletes (shown in the contact sheet provided)` : 'this athlete photo';
-  const openingDirective = `Design a professional sports graphic around ${subject}, built entirely from the brief below. ${isTeam ? `All ${playerCount} athletes are visual heroes` : 'The athlete is the visual hero'} with strong design elements surrounding them. ${_formatGuidance}`;
+  // Per-category opening directive — restored from the original 12 Design Type categories
+  // (the exact directive structure that produced the "Kyrie" game-day design this was modeled
+  // after), instead of one auto-detected generic template for every category.
+  const typeDirectives = {
+    'commitment':      `Design a COMMITMENT ANNOUNCEMENT GRAPHIC around ${subject}. ${_typeVocab['commitment']} energy. ${_composition['commitment']}`,
+    'game-day':        `Design a GAME DAY GRAPHIC around ${subject}. ${isTeam ? 'All athletes are featured prominently as the faces of the game.' : 'Athlete is the face of the game.'} ${_typeVocab['game-day']} aesthetic. ${_composition['game-day']}`,
+    'halftime-score':  `Design a HALFTIME SCORE GRAPHIC featuring ${subject}. ${isTeam ? 'Athletes are supporting visuals;' : 'Athlete is a supporting visual;'} score and team info are primary content. ${_typeVocab['halftime-score']} aesthetic. ${_composition['halftime-score']}`,
+    'final-score':     `Design a FINAL SCORE GRAPHIC featuring ${subject}. ${isTeam ? 'Athletes as supporting visuals;' : 'Athlete as supporting visual;'} final score and FINAL label are primary content. ${_typeVocab['final-score']} aesthetic. ${_composition['final-score']}`,
+    'player-of-game':  `Design a PLAYER OF THE GAME GRAPHIC around ${subject}. ${isTeam ? 'The lead athlete is the hero; others frame them.' : 'They are the hero of the composition.'} ${_typeVocab['player-of-game']} aesthetic. ${_composition['player-of-game']}`,
+    'game-recap':      `Design a GAME RECAP GRAPHIC featuring ${subject}. Game score and key stats are primary content; ${isTeam ? 'athletes are' : 'athlete is'} supporting visuals. ${_typeVocab['game-recap']} aesthetic. ${_composition['game-recap']}`,
+    'starting-lineup': `Design a STARTING LINEUP GRAPHIC featuring ${subject}. ${isTeam ? `All ${playerCount} athletes appear side-by-side in the lineup formation — this IS the lineup graphic.` : 'They appear as part of the lineup announcement.'} ${_typeVocab['starting-lineup']} aesthetic. ${_composition['starting-lineup']}`,
+    'home-schedule':   `Design a HOME SCHEDULE GRAPHIC featuring ${subject} as ${isTeam ? 'the faces of the home season' : 'the face of the home season'}. Schedule information is primary; ${isTeam ? 'athletes are' : 'athlete is'} supporting visuals. ${_typeVocab['home-schedule']} aesthetic. ${_composition['home-schedule']}`,
+    'season-schedule': `Design a SEASON SCHEDULE GRAPHIC featuring ${subject} as ${isTeam ? 'the faces of the season' : 'the face of the season'}. Schedule grid is primary content; ${isTeam ? 'athletes as' : 'athlete as'} supporting visuals. ${_typeVocab['season-schedule']} aesthetic. ${_composition['season-schedule']}`,
+    'player-spotlight':`Design a PLAYER SPOTLIGHT BANNER GRAPHIC around ${subject}. ${isTeam ? `All ${playerCount} athletes are featured prominently — each given their own spotlight area.` : 'They are the singular hero — full portrait treatment.'} ${_typeVocab['player-spotlight']} aesthetic. ${_composition['player-spotlight']}`,
+    'recruit-offer':   `Design a RECRUIT OFFER GRAPHIC around ${subject}. ${isTeam ? 'All athletes are prominently featured.' : 'They are prominently featured.'} School logo, OFFER EXTENDED label, and prestige elements surround them. ${_typeVocab['recruit-offer']} aesthetic. ${_composition['recruit-offer']}`,
+    'other':           `Design a professional sports graphic around ${subject}, built entirely from the brief below. ${isTeam ? `All ${playerCount} athletes are visual heroes` : 'The athlete is the visual hero'} with strong design elements surrounding them. ${_formatGuidance}`
+  };
+  const openingDirective = typeDirectives[type] || typeDirectives['other'];
   const detectedColors = extractColors(raw);
   const colorBlock = detectedColors.length > 0
     ? `COLOR PALETTE — use ONLY these colors: ${detectedColors.join(', ')}. No other colors.`
@@ -3465,14 +3548,21 @@ async function generate(raw) {
     let finalUrl, finalEngine;
 
     if (hasPhotos) {
-      // ── REAL-PHOTO COMPOSITE — guarantees the actual uploaded person + correct text ──
-      // Cuts the real athlete out of their photo (bg removal already ran on upload),
-      // generates an AI background with no person in it (zero identity risk there), then
-      // composites the real cutout on top and draws name/number/stats with real canvas
-      // fillText. Neither the face nor the text goes through AI regeneration, so both are
-      // guaranteed correct instead of probabilistic — this is what AI image editing alone
-      // could never reliably do across this entire build.
+      // ── AI PHOTO EDIT — primary. This is the actual engine (gpt-image) behind the
+      // reference-quality results this app is being held to — the Design Type category
+      // (S.type) drives per-category art direction the same way it did for the original
+      // "Kyrie" design. Falls back to the deterministic real-photo composite below (still
+      // a guaranteed real photo + correct text, just less visually rich) only if every AI
+      // engine fails or times out — safety net, not the default experience.
       try {
+        setStatus('Designing your graphic…');
+        const playerCount = S.athleteOriginals.length;
+        const prompt = buildVisionPrompt(enriched, sport, S.style, S.type, playerCount, referenceAnalysis);
+        const result = await callGenerateWithImage(S.athleteOriginals, prompt, S.referenceImage);
+        finalUrl    = result.url;
+        finalEngine = result.engine;
+      } catch(e) {
+        console.warn('AI photo edit failed, falling back to real-photo composite:', e.message);
         setStatus('Reading your brief…');
         const teamName      = extractTeamName(enriched) || extractTeamName(raw);
         let   teamColors    = getTeamAccentColors(enriched) || getTeamAccentColors(raw);
@@ -3492,15 +3582,9 @@ async function generate(raw) {
           try {
             const sampled = await sampleDominantColors(S.athleteCutouts[0]);
             if (sampled.length) teamColors = sampled;
-          } catch(e) { console.warn('Color sampling failed:', e.message); }
+          } catch(e2) { console.warn('Color sampling failed:', e2.message); }
         }
 
-        // Deterministic canvas background, not an AI-generated one. Tried constraining the
-        // AI background prompt to "zero humans, zero text" (twice) and it kept ignoring that
-        // instruction anyway — models weight thematic association ("final score", "athlete")
-        // over an explicit negative instruction, so wording alone can't guarantee compliance.
-        // Same fix philosophy as the real photo/real text: don't hope the AI complies with
-        // something that has to be guaranteed, generate it with code that can't get it wrong.
         setStatus('Generating your background…');
         const bgUrl = generateCanvasTeamBackground(enriched, S.style, bigLabel, teamColors);
 
@@ -3513,17 +3597,10 @@ async function generate(raw) {
         };
         finalUrl    = await compositeLayers(bgUrl, S.athleteCutouts, designOpts);
         finalEngine = 'photo-composite';
-      } catch(e) {
-        console.warn('Composite pipeline failed, falling back to AI vision edit:', e.message);
-        const playerCount = S.athleteOriginals.length;
-        const prompt = buildVisionPrompt(enriched, sport, S.style, playerCount, referenceAnalysis);
-        const result = await callGenerateWithImage(S.athleteOriginals, prompt, S.referenceImage);
-        finalUrl    = result.url;
-        finalEngine = result.engine;
       }
     } else if (S.referenceImage) {
       // ── Reference image only, no athlete photo — nothing to composite ──────
-      const prompt = buildVisionPrompt(enriched, sport, S.style, 1, referenceAnalysis);
+      const prompt = buildVisionPrompt(enriched, sport, S.style, S.type, 1, referenceAnalysis);
       const result = await callGenerateWithImage([], prompt, S.referenceImage);
       finalUrl    = result.url;
       finalEngine = result.engine;
