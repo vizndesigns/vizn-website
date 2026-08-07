@@ -30,13 +30,18 @@ export default async function handler(req, res) {
     try {
       let res;
       if (images.length > 0) {
-        const match = images[0].match(/^data:([^;]+);base64,(.+)$/);
-        if (!match) throw new Error('Invalid image format');
-        const [, mimeType, b64data] = match;
-        const buffer = Buffer.from(b64data, 'base64');
-        const ext    = mimeType.includes('png') ? 'png' : 'jpg';
-        const form   = new FormData();
-        form.append('image', new File([buffer], `image.${ext}`, { type: mimeType }));
+        const form = new FormData();
+        // Append every image, not just images[0] — gpt-image-2's edits endpoint accepts
+        // multiple reference images via repeated image[] fields, which swap-athlete relies
+        // on (design to preserve + new athlete photo, both needed in the same edit call).
+        images.forEach((img, i) => {
+          const match = img.match(/^data:([^;]+);base64,(.+)$/);
+          if (!match) throw new Error('Invalid image format');
+          const [, mimeType, b64data] = match;
+          const buffer = Buffer.from(b64data, 'base64');
+          const ext    = mimeType.includes('png') ? 'png' : 'jpg';
+          form.append('image[]', new File([buffer], `image${i}.${ext}`, { type: mimeType }));
+        });
         form.append('prompt', promptText);
         form.append('model', 'gpt-image-2');
         form.append('size', size);
@@ -613,6 +618,85 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
 
       console.warn('All vision paths failed for an uploaded photo — erroring instead of silently generating a generic image that ignores it');
       return res.status(502).json({ error: 'Could not generate from your photo — every image engine failed or timed out. Please try again.' });
+    }
+
+    // ── Swap athlete — reuse an existing design's background/graphics, replace the person ──
+    // "Same template, different player" — takes the already-generated design image plus a
+    // NEW real athlete photo and edits ONLY the person, preserving everything else (background,
+    // graphics, colors, layout, logos) pixel-for-pixel. Optionally also updates the name/number
+    // text if a new player's info is given, since a swapped-in player usually isn't the same
+    // person as whichever name/number is already on the design.
+    if (action === 'swap-athlete' && req.body.imageDataUrl && req.body.athleteImage) {
+      const { imageDataUrl, athleteImage: newAthleteImage, newName, newNumber } = req.body;
+      const nameNumberInstruction = (newName || newNumber)
+        ? `Also update the player identity text in the design: ${newName ? `change the player name text to read exactly "${newName.toUpperCase()}"` : 'keep the existing player name text'}${newNumber ? `, and change the jersey number text to exactly "${newNumber.replace(/^#/, '')}"` : ''} — replacing whichever name/number is currently shown, in the same font, size, style, and position as the original text. Do not change any other text (team name, school, headline, dates, stats).`
+        : `Keep all existing text — player name, number, team, headline, everything — exactly as it already appears. Do not change any text.`;
+      const swapPrompt = `SUBJECT SWAP — a precision edit, not a new design.
+IMAGE 1 is a finished sports graphic design. IMAGE 2 is a photo of a different real athlete.
+Replace ONLY the person shown in IMAGE 1 with the real person shown in IMAGE 2 — their actual face, body, and appearance, accurately and faithfully depicted, not a generic or invented likeness. Match their pose/framing to roughly where the original athlete was positioned.
+Keep every other element of IMAGE 1 pixel-for-pixel identical: background, graphics, colors, composition, logos, layout, lighting — do not redesign, restyle, or regenerate anything else.
+${nameNumberInstruction}
+All text must remain pixel-sharp and fully legible.`;
+
+      // PRIMARY: gpt-image-2, both images in one edit call, raced twice for reliability —
+      // same reliability lever used for the main generate-with-image path.
+      if (OPENAI_KEY) {
+        try {
+          const imageUrl = await Promise.any([
+            callGptImage({ promptText: swapPrompt, images: [imageDataUrl, newAthleteImage], size: 'auto', quality: 'high', timeoutMs: 150000 }),
+            callGptImage({ promptText: swapPrompt, images: [imageDataUrl, newAthleteImage], size: 'auto', quality: 'high', timeoutMs: 150000 })
+          ]);
+          return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
+        } catch(e) {
+          const detail = e?.errors ? e.errors.map(err => err.message).join(' | ') : e.message;
+          console.warn('swap-athlete gpt-image-2 failed (both parallel attempts):', detail);
+        }
+      }
+
+      // SECONDARY: Gemini 3 Pro Image multimodal — also accepts multiple input images in one
+      // request, unlike FLUX Kontext's single-image edit model, which can't take a design AND
+      // a separate new-athlete photo in the same call and so isn't usable for this operation.
+      if (GOOGLE_KEY) {
+        try {
+          const designMatch  = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          const athleteMatch = newAthleteImage.match(/^data:([^;]+);base64,(.+)$/);
+          if (designMatch && athleteMatch) {
+            const gCtrl  = new AbortController();
+            const gTimer = setTimeout(() => gCtrl.abort(), 60000);
+            const gRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent?key=${GOOGLE_KEY}`,
+              {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: gCtrl.signal,
+                body: JSON.stringify({
+                  contents: [{ parts: [
+                    { text: 'IMAGE 1 — the existing design:' },
+                    { inline_data: { mime_type: designMatch[1], data: designMatch[2] } },
+                    { text: 'IMAGE 2 — the new athlete to swap in:' },
+                    { inline_data: { mime_type: athleteMatch[1], data: athleteMatch[2] } },
+                    { text: swapPrompt }
+                  ] }],
+                  generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+                })
+              }
+            );
+            clearTimeout(gTimer);
+            if (gRes.ok) {
+              const gData   = await gRes.json();
+              const parts   = gData.candidates?.[0]?.content?.parts || [];
+              const imgPart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+              if (imgPart?.inlineData) {
+                const { mimeType: mt, data } = imgPart.inlineData;
+                return res.status(200).json({ status: 'succeeded', imageUrl: `data:${mt};base64,${data}`, engine: 'gemini-vision' });
+              }
+            } else {
+              const gerr = await gRes.json().catch(() => ({}));
+              console.warn('swap-athlete Gemini error:', gerr.error?.message || gRes.status);
+            }
+          }
+        } catch(e) { console.warn('swap-athlete Gemini failed:', e.message); }
+      }
+
+      return res.status(502).json({ error: 'Could not swap the athlete — every image engine failed or timed out. Please try again.' });
     }
 
     // ── Prompt expansion — lightweight Gemini text call ────────

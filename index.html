@@ -804,6 +804,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
           <div class="result-acts" id="resultActs">
             <button class="ra ra-lime" id="downloadBtn">⬇ Download</button>
             <button class="ra ra-ghost" id="openExport">⬇ Export</button>
+            <button class="ra ra-ghost" id="openSwapPlayer">🔄 Swap Player</button>
           </div>
         </div>
         <div class="gen-stats-bar" id="genStatsBar">
@@ -1136,6 +1137,24 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <button id="photoSearchUse" class="modal-close" disabled style="margin-top:10px;opacity:0.4">Use This Photo</button>
     </div>
     <button class="modal-close" id="closePhotoSearch">Cancel</button>
+  </div>
+</div>
+
+<!-- SWAP PLAYER MODAL -->
+<div class="modal-bg" id="swapPlayerModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">Swap Player</div>
+    <div class="modal-sub">Keep this exact background and design, replace the athlete. Upload the new player's photo — their name/number below only if this design should show a different player's info.</div>
+    <label class="upz" for="swapPhotoInput" style="display:block;margin-bottom:14px">
+      <input type="file" id="swapPhotoInput" accept="image/*" style="display:none">
+      <div class="upz-icon">⬆</div>
+      <div class="upz-text" id="swapPhotoLabel">New player's photo</div>
+      <div class="upz-sub">PNG · JPG — one photo</div>
+    </label>
+    <input type="text" id="swapNameInput" class="fin" placeholder="New player's name (optional — leave blank to keep existing)" style="margin-bottom:8px">
+    <input type="text" id="swapNumberInput" class="fin" placeholder="New jersey number (optional)" style="margin-bottom:14px">
+    <button id="swapPlayerGo" class="modal-close" disabled style="opacity:0.4">Swap Player</button>
+    <button class="modal-close" id="closeSwapPlayer" style="margin-top:8px">Cancel</button>
   </div>
 </div>
 
@@ -3936,6 +3955,97 @@ if (useBtnEl) useBtnEl.addEventListener('click', async () => {
   } catch(e) {
     toast('Could not add photo: ' + (e.message || 'unknown error'), 'err');
     useBtnEl.disabled = false;
+  }
+});
+
+// S.lastImage can be a data: URI or a remote URL depending on which engine produced it —
+// swap-athlete's backend needs a base64 data URI to pair with the new athlete photo.
+async function ensureBase64(url) {
+  if (!url || url.startsWith('data:')) return url;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('Could not load design image (HTTP ' + resp.status + ')');
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Image read failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ── Swap Player — reuse the current design's background/graphics, replace only the
+// athlete (and optionally their name/number) via a targeted AI edit rather than a full
+// regeneration. Requires a real uploaded photo, same as every other generation path —
+// never fabricates a person.
+let _swapPhotoDataUri = null;
+
+function closeSwapPlayerModal() {
+  const modal = el('swapPlayerModal');
+  if (modal) modal.classList.remove('show');
+  _swapPhotoDataUri = null;
+  const label = el('swapPhotoLabel');
+  if (label) label.textContent = "New player's photo";
+  const nameInp = el('swapNameInput');
+  if (nameInp) nameInp.value = '';
+  const numInp = el('swapNumberInput');
+  if (numInp) numInp.value = '';
+  const goBtn = el('swapPlayerGo');
+  if (goBtn) { goBtn.disabled = true; goBtn.style.opacity = '0.4'; }
+}
+
+const openSwapBtn = el('openSwapPlayer');
+if (openSwapBtn) openSwapBtn.addEventListener('click', () => {
+  if (!S.lastImage) { toast('Generate a design first', 'err'); return; }
+  const modal = el('swapPlayerModal');
+  if (modal) modal.classList.add('show');
+});
+
+const closeSwapBtn = el('closeSwapPlayer');
+if (closeSwapBtn) closeSwapBtn.addEventListener('click', closeSwapPlayerModal);
+
+const swapPhotoInput = el('swapPhotoInput');
+if (swapPhotoInput) swapPhotoInput.addEventListener('change', async function() {
+  const file = this.files?.[0];
+  if (!file) return;
+  _swapPhotoDataUri = await compressImageAsPng(file, 900);
+  const label = el('swapPhotoLabel');
+  if (label) label.textContent = '✓ ' + (file.name.length > 22 ? file.name.slice(0, 20) + '…' : file.name);
+  const goBtn = el('swapPlayerGo');
+  if (goBtn) { goBtn.disabled = false; goBtn.style.opacity = '1'; }
+});
+
+const swapGoBtn = el('swapPlayerGo');
+if (swapGoBtn) swapGoBtn.addEventListener('click', async () => {
+  if (!_swapPhotoDataUri || swapGoBtn.disabled || !S.lastImage) return;
+  swapGoBtn.disabled = true;
+  startGenOverlay(true);
+  setStatus('Swapping player…');
+  try {
+    const imageDataUrl = await ensureBase64(S.lastImage);
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'swap-athlete',
+        imageDataUrl,
+        athleteImage: _swapPhotoDataUri,
+        newName: (el('swapNameInput')?.value || '').trim(),
+        newNumber: (el('swapNumberInput')?.value || '').trim()
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Swap failed (' + res.status + ')');
+    if (!data.imageUrl) throw new Error('No image returned from swap');
+    S.lastImage = data.imageUrl;
+    showResult(data.imageUrl, data.engine);
+    toast('Player swapped ✓', 'ok');
+    closeSwapPlayerModal();
+  } catch(e) {
+    clearGenOverlay();
+    setStatus('Swap failed: ' + e.message);
+    toast('Swap failed: ' + e.message, 'err');
+  } finally {
+    swapGoBtn.disabled = false;
   }
 });
 
