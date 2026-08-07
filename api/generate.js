@@ -632,9 +632,8 @@ ESPN / Nike / Jordan Brand quality. All text pixel-sharp and fully legible. Noth
         ? `Also update the player identity text in the design: ${newName ? `change the player name text to read exactly "${newName.toUpperCase()}"` : 'keep the existing player name text'}${newNumber ? `, and change the jersey number text to exactly "${newNumber.replace(/^#/, '')}"` : ''} — replacing whichever name/number is currently shown, in the same font, size, style, and position as the original text. Do not change any other text (team name, school, headline, dates, stats).`
         : `Keep all existing text — player name, number, team, headline, everything — exactly as it already appears. Do not change any text.`;
       const swapPrompt = `SUBJECT SWAP — a precision edit, not a new design.
-IMAGE 1 is a finished sports graphic design. IMAGE 2 is a photo of a different real athlete.
-Replace ONLY the person shown in IMAGE 1 with the real person shown in IMAGE 2 — their actual face, body, and appearance, accurately and faithfully depicted, not a generic or invented likeness. Match their pose/framing to roughly where the original athlete was positioned.
-Keep every other element of IMAGE 1 pixel-for-pixel identical: background, graphics, colors, composition, logos, layout, lighting — do not redesign, restyle, or regenerate anything else.
+IMAGE 1 is a finished sports graphic design — this is the reference for the BACKGROUND ONLY: its graphics, colors, composition, logos, layout, and lighting. Keep all of that pixel-for-pixel identical — do not redesign, restyle, or regenerate any of it.
+IMAGE 2 is a photo of a different real athlete — this is the reference for the ATHLETE: use their real face, body, POSE, and framing EXACTLY as shown in IMAGE 2. Do not force them into the pose the previous athlete was in — their pose must match IMAGE 2, not IMAGE 1. Composite them into IMAGE 1's background naturally (scale/position as needed to fit the composition), but their actual pose and appearance come from IMAGE 2, faithfully and accurately, not a generic or invented likeness.
 ${nameNumberInstruction}
 All text must remain pixel-sharp and fully legible.`;
 
