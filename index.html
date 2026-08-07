@@ -1915,13 +1915,18 @@ function extractTeamName(prompt) {
 function getTeamAccentColors(prompt) {
   if (!prompt) return null;
   const lo = prompt.toLowerCase();
+  // Deliberately NOT matching on bare mascot words that are shared by many unrelated programs
+  // (e.g. "bulldogs" alone used to match Georgia's colors for ANY school called the Bulldogs,
+  // including small/other schools not in this table at all) — a false match here is worse than
+  // no match, since it blocks the sampleDominantColors() photo-based fallback below from ever
+  // running. Only match on names/phrases distinctive enough to a single entry in this table.
   const teams = [
     // NCAA
     [/\b(alabama|crimson tide)\b/,         '#9E1B32','#FFFFFF'],
     [/\b(lsu)\b/,                          '#461D7C','#FDD023'],
     [/\b(ohio state|buckeyes)\b/,          '#BB0000','#BBBBBB'],
     [/\b(michigan|wolverines)\b/,          '#00274C','#FFCB05'],
-    [/\b(georgia|bulldogs)\b/,             '#BA0C2F','#000000'],
+    [/\b(georgia)\b/,                      '#BA0C2F','#000000'],
     [/\b(clemson)\b/,                      '#F56600','#522D80'],
     [/\b(oklahoma|sooners)\b/,             '#841617','#FDF9D8'],
     [/\b(texas|longhorns)\b/,              '#BF5700','#FFFFFF'],
@@ -1933,13 +1938,13 @@ function getTeamAccentColors(prompt) {
     [/\b(miami hurricanes|the u)\b/,       '#005030','#F47321'],
     [/\b(rutgers|scarlet knights)\b/,      '#CC0033','#FFFFFF'],
     [/\b(duke|blue devils)\b/,             '#003087','#FFFFFF'],
-    [/\b(kentucky|wildcats)\b/,            '#0033A0','#FFFFFF'],
+    [/\b(kentucky)\b/,                     '#0033A0','#FFFFFF'],
     [/\b(north carolina|tar heels)\b/,     '#4B9CD3','#FFFFFF'],
     [/\b(kansas|jayhawks)\b/,              '#0051A5','#E8000D'],
     [/\b(florida state|seminoles)\b/,      '#782F40','#CEB888'],
     [/\b(tennessee|volunteers|vols)\b/,    '#FF8200','#FFFFFF'],
     [/\b(arkansas|razorbacks)\b/,          '#9D2235','#FFFFFF'],
-    [/\b(baylor|bears)\b/,                 '#154734','#FFB81C'],
+    [/\b(baylor)\b/,                       '#154734','#FFB81C'],
     [/\b(texas a&m|aggies)\b/,             '#500000','#FFFFFF'],
     [/\b(mississippi|ole miss|rebels)\b/,  '#CE1126','#00205B'],
     [/\b(penn|quakers)\b/,                 '#011F5B','#990000'],
@@ -1947,7 +1952,7 @@ function getTeamAccentColors(prompt) {
     // NBA
     [/\b(lakers)\b/,                       '#552583','#FDB927'],
     [/\b(celtics)\b/,                      '#007A33','#BA9653'],
-    [/\b(bulls)\b/,                        '#CE1141','#000000'],
+    [/\b(chicago bulls)\b/,                '#CE1141','#000000'],
     [/\b(nets|brooklyn)\b/,                '#000000','#FFFFFF'],
     [/\b(heat|miami heat)\b/,              '#98002E','#F9A01B'],
     [/\b(warriors|golden state)\b/,        '#1D428A','#FFC72C'],
@@ -1960,12 +1965,12 @@ function getTeamAccentColors(prompt) {
     [/\b(patriots|new england)\b/,         '#002244','#C60C30'],
     [/\b(cowboys|dallas)\b/,               '#003594','#869397'],
     [/\b(chiefs|kansas city)\b/,           '#E31837','#FFB81C'],
-    [/\b(eagles|philadelphia eagles)\b/,   '#004C54','#A5ACAF'],
+    [/\b(philadelphia eagles)\b/,          '#004C54','#A5ACAF'],
     [/\b(steelers|pittsburgh)\b/,          '#101820','#FFB612'],
     [/\b(ravens|baltimore)\b/,             '#241773','#9E7C0C'],
     [/\b(49ers|niners|san francisco)\b/,   '#AA0000','#B3995D'],
     [/\b(packers|green bay)\b/,            '#203731','#FFB612'],
-    [/\b(bears|chicago bears)\b/,          '#0B1623','#C83803'],
+    [/\b(chicago bears)\b/,                '#0B1623','#C83803'],
     [/\b(giants|new york giants)\b/,       '#0B2265','#A71930'],
   ];
   for (const [regex, primary, secondary] of teams) {
@@ -2102,7 +2107,12 @@ function drawTypeLayer(ctx, canvas, opts) {
 }
 
 // ── Sports graphic overlay — fully style-differentiated ─────────────────
-function drawSportsOverlay(ctx, canvas, opts) {
+// phase: 'pre' draws opaque backdrop shapes/dividers (called before the athlete photo is
+// composited, so her body naturally occludes them instead of them slicing across her — a
+// single full-body player's height can reach 88% of the canvas, well past where these
+// dividers sit). phase: 'post' (default) draws the photo-grade vignette/gradient effects,
+// team-name text, and athlete info badges, which are meant to sit on top of the photo.
+function drawSportsOverlay(ctx, canvas, opts, phase = 'post') {
   const { teamName, style, prompt, type, teamColors } = opts;
   const cw = canvas.width, ch = canvas.height;
 
@@ -2217,18 +2227,22 @@ function drawSportsOverlay(ctx, canvas, opts) {
   const styles = {
 
     aggressive() {
+      if (phase !== 'post') {
+        // Red diagonal slash top-left
+        ctx.save(); ctx.globalAlpha=.72; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(cw*.52,0); ctx.lineTo(cw*.38,ch*.13); ctx.lineTo(0,ch*.13); ctx.fill();
+        ctx.restore();
+        // Second slash (thinner)
+        ctx.save(); ctx.globalAlpha=.45; ctx.fillStyle=colorRgba(ac2,1);
+        ctx.beginPath(); ctx.moveTo(0,ch*.14); ctx.lineTo(cw*.28,ch*.14); ctx.lineTo(cw*.18,ch*.20); ctx.lineTo(0,ch*.20); ctx.fill();
+        ctx.restore();
+        ground(ac1, 0.30);
+        accentLine(ch*.71, cw, Math.max(4,ch*.006), ac1, 1.0);
+        accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, .9);
+        return;
+      }
       vignette(0.80);
-      // Red diagonal slash top-left
-      ctx.save(); ctx.globalAlpha=.72; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(cw*.52,0); ctx.lineTo(cw*.38,ch*.13); ctx.lineTo(0,ch*.13); ctx.fill();
-      ctx.restore();
-      // Second slash (thinner)
-      ctx.save(); ctx.globalAlpha=.45; ctx.fillStyle=colorRgba(ac2,1);
-      ctx.beginPath(); ctx.moveTo(0,ch*.14); ctx.lineTo(cw*.28,ch*.14); ctx.lineTo(cw*.18,ch*.20); ctx.lineTo(0,ch*.20); ctx.fill();
-      ctx.restore();
-      ground(ac1, 0.30);
       botBand(0.94);
-      accentLine(ch*.71, cw, Math.max(4,ch*.006), ac1, 1.0);
       if (teamName) {
         const fs=Math.round(ch*.088);
         // Italic skew for aggressive
@@ -2238,64 +2252,73 @@ function drawSportsOverlay(ctx, canvas, opts) {
           '#FFFFFF', 'rgba(0,0,0,1)', Math.round(fs*.13));
         ctx.restore();
       }
-      accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, .9);
     },
 
     modern() {
+      if (phase !== 'post') {
+        // Clean geometric block top-right
+        ctx.save(); ctx.globalAlpha=.15; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.fillRect(cw*.5,0,cw*.5,ch*.35); ctx.restore();
+        // Razor lines
+        ctx.save(); ctx.globalAlpha=.8;
+        ctx.fillStyle=colorRgba(ac1,1);
+        ctx.fillRect(0,ch*.35,cw,Math.max(2,ch*.003));
+        ctx.fillRect(cw*.5,0,Math.max(2,cw*.003),ch*.35);
+        ctx.restore();
+        ground(ac1, 0.22);
+        accentLine(ch*.70, cw*.84, Math.max(2,ch*.003), ac1, 0.9);
+        accentLine(ch-Math.max(4,ch*.005), cw, Math.max(4,ch*.005), ac1, .8);
+        return;
+      }
       vignette(0.72);
-      // Clean geometric block top-right
-      ctx.save(); ctx.globalAlpha=.15; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.fillRect(cw*.5,0,cw*.5,ch*.35); ctx.restore();
-      // Razor lines
-      ctx.save(); ctx.globalAlpha=.8;
-      ctx.fillStyle=colorRgba(ac1,1);
-      ctx.fillRect(0,ch*.35,cw,Math.max(2,ch*.003));
-      ctx.fillRect(cw*.5,0,Math.max(2,cw*.003),ch*.35);
-      ctx.restore();
-      ground(ac1, 0.22);
       botBand(0.90);
-      accentLine(ch*.70, cw*.84, Math.max(2,ch*.003), ac1, 0.9);
       if (teamName) {
         const fs=Math.round(ch*.078);
         drawText(teamName, cw*.5, ch-Math.round(ch*.018),
           `900 ${fs}px 'Arial Black', Arial`, colorRgba(ac1,1), 'rgba(0,0,0,1)', Math.round(fs*.10));
       }
-      accentLine(ch-Math.max(4,ch*.005), cw, Math.max(4,ch*.005), ac1, .8);
     },
 
     collegiate() {
+      if (phase !== 'post') {
+        // Left gold bar
+        ctx.save(); ctx.globalAlpha=.7; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.fillRect(0,0,Math.max(8,cw*.01),ch); ctx.restore();
+        // Right gold bar
+        ctx.save(); ctx.globalAlpha=.4; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.fillRect(cw-Math.max(4,cw*.005),0,Math.max(4,cw*.005),ch); ctx.restore();
+        // Horizontal band near top
+        ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.fillRect(0,ch*.18,cw,ch*.04); ctx.restore();
+        ground(ac1, 0.20);
+        // Full-width separator
+        accentLine(ch*.72, cw*.86, Math.max(3,ch*.004), ac1, 0.9);
+        accentLine(ch-Math.max(4,ch*.005), cw, Math.max(4,ch*.005), ac1, .75);
+        return;
+      }
       vignette(0.75);
-      // Left gold bar
-      ctx.save(); ctx.globalAlpha=.7; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.fillRect(0,0,Math.max(8,cw*.01),ch); ctx.restore();
-      // Right gold bar
-      ctx.save(); ctx.globalAlpha=.4; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.fillRect(cw-Math.max(4,cw*.005),0,Math.max(4,cw*.005),ch); ctx.restore();
-      // Horizontal band near top
-      ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.fillRect(0,ch*.18,cw,ch*.04); ctx.restore();
-      ground(ac1, 0.20);
       botBand(0.92);
-      // Full-width separator
-      accentLine(ch*.72, cw*.86, Math.max(3,ch*.004), ac1, 0.9);
       if (teamName) {
         const fs=Math.round(ch*.082);
         drawText(teamName, cw*.5, ch-Math.round(ch*.014),
           `900 ${fs}px 'Arial Black', Georgia, Arial`, '#FFFFFF', 'rgba(0,0,0,1)', Math.round(fs*.10));
       }
-      accentLine(ch-Math.max(4,ch*.005), cw, Math.max(4,ch*.005), ac1, .75);
     },
 
     minimal() {
+      if (phase !== 'post') {
+        // Single thin vertical line
+        ctx.save(); ctx.globalAlpha=.5; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.fillRect((cw-Math.max(2,cw*.003))/2,ch*.05,Math.max(2,cw*.003),ch*.10); ctx.restore();
+        // Top horizontal rule (full width, very thin)
+        accentLine(ch*.08, cw*.76, Math.max(1,ch*.0015), ac1, 0.5);
+        ground(ac1, 0.14);
+        accentLine(ch*.72, cw*.6, Math.max(1,ch*.002), ac1, 0.45);
+        accentLine(ch-Math.max(2,ch*.003), cw*.6, Math.max(2,ch*.003), ac1, .4);
+        return;
+      }
       vignette(0.65);
-      // Single thin vertical line
-      ctx.save(); ctx.globalAlpha=.5; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.fillRect((cw-Math.max(2,cw*.003))/2,ch*.05,Math.max(2,cw*.003),ch*.10); ctx.restore();
-      // Top horizontal rule (full width, very thin)
-      accentLine(ch*.08, cw*.76, Math.max(1,ch*.0015), ac1, 0.5);
-      ground(ac1, 0.14);
       botBand(0.85);
-      accentLine(ch*.72, cw*.6, Math.max(1,ch*.002), ac1, 0.45);
       if (teamName) {
         const fs=Math.round(ch*.064);
         ctx.save();
@@ -2305,22 +2328,25 @@ function drawSportsOverlay(ctx, canvas, opts) {
         ctx.fillText(teamName, cw*.5, ch-Math.round(ch*.022));
         ctx.restore();
       }
-      accentLine(ch-Math.max(2,ch*.003), cw*.6, Math.max(2,ch*.003), ac1, .4);
     },
 
     hype() {
+      if (phase !== 'post') {
+        // Neon glow shape top-left
+        ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(cw*.55,0); ctx.lineTo(cw*.40,ch*.12); ctx.lineTo(0,ch*.12); ctx.fill();
+        ctx.restore();
+        // Secondary neon top-right
+        ctx.save(); ctx.globalAlpha=.35; ctx.fillStyle=colorRgba(ac2,1);
+        ctx.beginPath(); ctx.moveTo(cw,0); ctx.lineTo(cw*.55,0); ctx.lineTo(cw*.68,ch*.07); ctx.lineTo(cw,ch*.07); ctx.fill();
+        ctx.restore();
+        ground(ac1, 0.32);
+        accentLine(ch*.70, cw, Math.max(3,ch*.005), ac1, .9);
+        accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, 1.0);
+        return;
+      }
       vignette(0.78);
-      // Neon glow shape top-left
-      ctx.save(); ctx.globalAlpha=.55; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(cw*.55,0); ctx.lineTo(cw*.40,ch*.12); ctx.lineTo(0,ch*.12); ctx.fill();
-      ctx.restore();
-      // Secondary neon top-right
-      ctx.save(); ctx.globalAlpha=.35; ctx.fillStyle=colorRgba(ac2,1);
-      ctx.beginPath(); ctx.moveTo(cw,0); ctx.lineTo(cw*.55,0); ctx.lineTo(cw*.68,ch*.07); ctx.lineTo(cw,ch*.07); ctx.fill();
-      ctx.restore();
-      ground(ac1, 0.32);
       botBand(0.93);
-      accentLine(ch*.70, cw, Math.max(3,ch*.005), ac1, .9);
       if (teamName) {
         const fs=Math.round(ch*.085);
         ctx.save();
@@ -2333,21 +2359,24 @@ function drawSportsOverlay(ctx, canvas, opts) {
         ctx.fillText(teamName, cw*.5, ch-Math.round(ch*.018));
         ctx.restore();
       }
-      accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, 1.0);
     },
 
     retro() {
+      if (phase !== 'post') {
+        // Retro color block top — vintage card style
+        ctx.save(); ctx.globalAlpha=.6; ctx.fillStyle=colorRgba(ac1,1);
+        ctx.fillRect(0,0,cw,ch*.08); ctx.restore();
+        ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac2,1);
+        ctx.fillRect(0,ch*.08,cw,ch*.03); ctx.restore();
+        ground(ac1, 0.22);
+        // Double-line border treatment
+        accentLine(ch*.70, cw*.90, Math.max(4,ch*.006), ac1, .85);
+        accentLine(ch*.70+Math.max(7,ch*.009), cw*.90, Math.max(2,ch*.003), ac2, .55);
+        accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, .8);
+        return;
+      }
       vignette(0.72);
-      // Retro color block top — vintage card style
-      ctx.save(); ctx.globalAlpha=.6; ctx.fillStyle=colorRgba(ac1,1);
-      ctx.fillRect(0,0,cw,ch*.08); ctx.restore();
-      ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=colorRgba(ac2,1);
-      ctx.fillRect(0,ch*.08,cw,ch*.03); ctx.restore();
-      ground(ac1, 0.22);
       botBand(0.90);
-      // Double-line border treatment
-      accentLine(ch*.70, cw*.90, Math.max(4,ch*.006), ac1, .85);
-      accentLine(ch*.70+Math.max(7,ch*.009), cw*.90, Math.max(2,ch*.003), ac2, .55);
       if (teamName) {
         const fs=Math.round(ch*.080);
         drawText(teamName, cw*.5, ch-Math.round(ch*.016),
@@ -2359,11 +2388,12 @@ function drawSportsOverlay(ctx, canvas, opts) {
         ctx.fillText(teamName, cw*.5-Math.round(fs*.02), ch-Math.round(ch*.018)-Math.round(fs*.02));
         ctx.restore();
       }
-      accentLine(ch-Math.max(5,ch*.006), cw, Math.max(5,ch*.006), ac1, .8);
     }
   };
 
   (styles[style] || styles.aggressive)();
+
+  if (phase !== 'post') return; // pre-phase only draws the backdrop above — nothing below applies
 
   // ── Athlete info — real fillText, not AI-rendered, so it's always spelled/numbered
   // correctly. Number as a corner badge (never collides with the bottom band); subtitle
@@ -2698,9 +2728,9 @@ SAFE ZONE — NON-NEGOTIABLE: The outermost 10% of the image on all four sides i
 
 ${poseInstruction}
 BACKGROUND — build this in layers, the way college athletic departments and ESPN/Nike production actually do it, not a flat backdrop:
-• Foreground: ${isTeam ? 'the athletes' : 'the athlete'} tack-sharp, rim-lit at the edges to separate cleanly from the background.
+• Foreground: ${isTeam ? 'the athletes' : 'the athlete'} tack-sharp, rim-lit at the edges to separate cleanly from the background, with a soft dark contact shadow grounding ${isTeam ? 'them' : 'the athlete'} to the surface below — never floating.
 • Midground: arena/stadium atmosphere in shallow depth-of-field — blurred crowd energy, structural lighting rigs, motion-blurred banners or confetti consistent with the sport and moment.
-• Background: team-color atmospheric gradient or grade (not a flat fill) — deep shadow tones blending into one or two accent-color light sources, subtle city skyline or venue silhouette where it fits the brief.
+• Background: team-color atmospheric gradient or grade (not a flat fill) — deep shadow tones blending into one or two accent-color light sources, subtle city skyline or venue silhouette where it fits the brief. Bold diagonal color-blocking in the team's primary/secondary colors is a stronger, more premium choice than a soft gradient alone when the brief's energy calls for it.
 • Lighting: 2-3 hard directional spotlight beams or volumetric light shafts cutting through the scene, driving the eye toward the subject; deep contrast, not evenly lit.
 • Graphic layer: thin geometric accent lines, a subtle color-block panel, or light halftone/grain texture ONLY — these are abstract shapes and textures, never logos, badges, crests, seals, emblems, or any circular/shield mark of any kind. The only logos allowed anywhere in the image are ones explicitly named in the brief below (e.g. the team's actual logo, an actual sponsor named in the brief) — do not invent any additional badge, seal, or emblem.
 Add these elements behind, beside, and around ${isTeam ? 'all athletes' : 'the athlete'} — never on top of them.
@@ -2878,6 +2908,9 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
         // GCU/ESPN style: massive type text renders as background element
         // Athletes will composite on top — they appear to "burst through" the words
         if (designOpts) drawTypeLayer(ctx, canvas, designOpts);
+        // Opaque backdrop shapes/dividers also need to sit behind the athlete, same reasoning
+        // as drawTypeLayer above — drawn now so her body naturally occludes them.
+        if (designOpts) drawSportsOverlay(ctx, canvas, designOpts, 'pre');
 
         // Draw from back to front so front rows paint over back rows (z-depth)
         for (let ri = rowGroups.length - 1; ri >= 0; ri--) {
@@ -2915,7 +2948,7 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
         }
 
         sharpenCanvas(ctx, cw, ch);
-        if (designOpts) drawSportsOverlay(ctx, canvas, designOpts);
+        if (designOpts) drawSportsOverlay(ctx, canvas, designOpts, 'post');
         resolve(canvas.toDataURL('image/jpeg', 0.96));
       }
     };
@@ -3258,7 +3291,12 @@ async function generate(raw) {
         let   teamColors    = getTeamAccentColors(enriched) || getTeamAccentColors(raw);
         const headlineWord  = detectHeadlineWord(enriched) || detectHeadlineWord(raw);
         const athleteInfo   = await extractAthleteText(enriched);
-        const bigLabel      = headlineWord || (athleteInfo.headline || teamName || '').toUpperCase() || null;
+        // Never fall back to teamName here — it's already drawn separately in the bottom band
+        // by drawSportsOverlay, so falling back to it would show the team name twice (once as
+        // this giant background word, once in the band) any time the headline extraction comes
+        // back empty. Fall back to the detected sport instead — still relevant, never redundant.
+        const bigLabel      = headlineWord || (athleteInfo.headline || '').toUpperCase()
+                             || (sport && sport !== 'sports' ? sport.toUpperCase() : null);
 
         // No known team in the color lookup table AND no color words named in the brief —
         // fall back to sampling the real jersey colors from the uploaded photo itself, so

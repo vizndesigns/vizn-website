@@ -751,10 +751,13 @@ Return ONLY this exact JSON, no markdown:
       ];
       if (!GOOGLE_KEY) return res.status(200).json({ texts: fallback });
       try {
+        const ctrl  = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
         const r = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_KEY}`,
           {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
+            signal: ctrl.signal,
             body: JSON.stringify({
               contents: [{ parts: [{ text:
 `Extract every text element from this sports graphic design prompt. Assign each a role.
@@ -797,6 +800,7 @@ Return ONLY a raw JSON array, no markdown, no explanation:
             })
           }
         );
+        clearTimeout(timer);
         if (r.ok) {
           const d = await r.json();
           const raw = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '[]';
