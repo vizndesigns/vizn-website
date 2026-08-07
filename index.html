@@ -6,7 +6,7 @@
 <title>VIZN — AI-Powered Sports Media Platform</title>
 <meta name="description" content="Create professional sports graphics with AI. Generate athlete posters, recruiting graphics, team media, and social content in minutes. For athletes, photographers, coaches, and sports organizations.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&family=Permanent+Marker&display=swap" rel="stylesheet">
 <style>
 :root {
   --lime:  #CCFF00;
@@ -2033,6 +2033,18 @@ function sampleDominantColors(dataUri) {
   });
 }
 
+// Web-sourced photo disclaimer — real fillText (never left to an AI model to remember or word
+// correctly), shared by every composite layout that can end up using a web-searched photo.
+function drawWebPhotoDisclaimer(ctx, cw, ch) {
+  ctx.save();
+  const fs = Math.max(10, Math.round(ch * 0.016));
+  ctx.font = `500 ${fs}px Arial, sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText('Photo sourced from the web — verify usage rights before commercial use', cw * 0.03, ch * 0.018);
+  ctx.restore();
+}
+
 // ── Type-as-background layer — GCU/ESPN style: huge type BEHIND athletes ──
 // Called from compositeLayers BEFORE players are composited, so athletes
 // appear in front of the large words (they "burst through" the typography).
@@ -2454,18 +2466,8 @@ function drawSportsOverlay(ctx, canvas, opts, phase = 'post') {
     drawText(info.detail.toUpperCase(), cw * 0.5, infoRowY + ch * 0.032,
       `600 ${Math.round(ch * 0.020)}px Arial, sans-serif`, '#FFFFFF', 'rgba(0,0,0,0.85)', Math.round(ch * 0.0025));
   }
-  // Web-sourced photo disclaimer — real fillText (never left to an AI model to remember
-  // or word correctly), tucked in a top corner that's clear of the headline/badge/team-name
-  // areas the rest of this function draws into.
-  if (opts.hasWebPhoto) {
-    ctx.save();
-    const fs = Math.max(10, Math.round(ch * 0.016));
-    ctx.font = `500 ${fs}px Arial, sans-serif`;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.fillText('Photo sourced from the web — verify usage rights before commercial use', cw * 0.03, ch * 0.018);
-    ctx.restore();
-  }
+  // Tucked in a top corner that's clear of the headline/badge/team-name areas above.
+  if (opts.hasWebPhoto) drawWebPhotoDisclaimer(ctx, cw, ch);
 }
 
 // ── Fast team background — FLUX → gpt-image-2 → Gemini → canvas fallback ──
@@ -2780,6 +2782,171 @@ function sharpenCanvas(ctx, w, h) {
 }
 
 // ── Composite real athlete cutouts onto AI background ────────
+// ── Landscape single-athlete "banner" composite — double-exposure ghost portrait, a huge
+// ghost jersey number as a background watermark, stacked team typography, and a script+bold
+// name treatment. Only used for one athlete on a landscape canvas (see the branch point in
+// compositeLayers below) — portrait formats and multi-athlete team shots keep the pyramid
+// layout below untouched. Self-contained: does not call drawTypeLayer/drawSportsOverlay,
+// since this layout has its own background decoration and team-name/number treatment.
+async function drawBannerComposite(ctx, canvas, img, designOpts) {
+  const cw = canvas.width, ch = canvas.height;
+  const info       = designOpts.athleteInfo || {};
+  const teamColors = designOpts.teamColors;
+  const accentMap  = { aggressive:'#FF2238', modern:'#CCFF00', collegiate:'#CFB53B', minimal:'#FFFFFF', hype:'#CC00FF', retro:'#FF8800' };
+  const ac1 = (teamColors && teamColors[0]) || accentMap[designOpts.style] || '#CFB53B';
+
+  // Shrinks a font size so `text` never exceeds `maxW` — same auto-fit principle already
+  // used in drawTypeLayer's measureWord(), applied here so long team/player names can never
+  // collide with the athlete or overflow the canvas, regardless of how long they are.
+  function autoFitSize(text, targetSize, maxW, weight, family) {
+    ctx.save();
+    ctx.font = `${weight} ${targetSize}px ${family}`;
+    const w = ctx.measureText(text).width;
+    ctx.restore();
+    return (w > maxW && w > 0) ? Math.max(18, Math.round(targetSize * maxW / w)) : targetSize;
+  }
+
+  // ── Ghost double-exposure portrait — left half, desaturated, faded into the background ──
+  if (designOpts.originalPhoto) {
+    try {
+      const ghost = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload  = () => resolve(im);
+        im.onerror = () => reject(new Error('ghost portrait failed to load'));
+        im.src = designOpts.originalPhoto;
+      });
+      const off = document.createElement('canvas');
+      off.width = cw; off.height = ch;
+      const offCtx = off.getContext('2d');
+      const bandW = cw * 0.50;
+      const scale = Math.max(bandW / ghost.width, ch / ghost.height);
+      const gw = ghost.width * scale, gh = ghost.height * scale;
+      offCtx.filter = 'grayscale(1) contrast(1.15) brightness(0.95)';
+      offCtx.drawImage(ghost, bandW / 2 - gw / 2, ch * 0.5 - gh * 0.42, gw, gh);
+      // Fade to transparent past the band — same destination-compositing gradient-mask
+      // technique used for player-row fades in the pyramid layout's drawPlayer() below.
+      const grad = offCtx.createLinearGradient(bandW * 0.55, 0, bandW * 1.05, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+      offCtx.globalCompositeOperation = 'destination-in';
+      offCtx.fillStyle = grad;
+      offCtx.fillRect(0, 0, cw, ch);
+      ctx.save();
+      ctx.globalAlpha = 0.30;
+      ctx.drawImage(off, 0, 0);
+      ctx.restore();
+    } catch(e) { console.warn('Ghost portrait skipped:', e.message); }
+  }
+
+  // ── Ghost jersey number — huge, outlined, low-alpha, behind the athlete and name text ──
+  if (info.number) {
+    const num = info.number.replace(/^#/, '').trim();
+    const fs  = Math.round(ch * 0.58);
+    ctx.save();
+    ctx.font = `900 ${fs}px Impact,'Arial Black',Arial`;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.16;
+    ctx.strokeStyle = colorRgba(ac1, 1);
+    ctx.lineWidth = Math.max(3, Math.round(fs * 0.02));
+    ctx.strokeText(num, cw * 0.97, ch * 0.56);
+    ctx.globalAlpha = 0.10;
+    ctx.fillStyle = colorRgba(ac1, 1);
+    ctx.fillText(num, cw * 0.97, ch * 0.56);
+    ctx.restore();
+  }
+
+  // ── Athlete cutout — sharp, left-of-center, same single-player treatment (height/shadow)
+  // as the pyramid layout's single-player case below.
+  const fh = ch * 0.86;
+  const fw = img.width * (fh / img.height);
+  const x  = cw * 0.44 - fw / 2;
+  const y  = ch - fh;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.80)';
+  ctx.shadowBlur  = 48;
+  ctx.drawImage(img, x, y, fw, fh);
+  ctx.restore();
+
+  // ── Stacked team typography — top-right: thin school / bold mascot / medium sport ──
+  const teamWords  = (designOpts.teamName || '').trim().split(/\s+/).filter(Boolean);
+  const school     = teamWords.length > 1 ? teamWords.slice(0, -1).join(' ') : '';
+  const mascot     = teamWords.length > 1 ? teamWords[teamWords.length - 1] : (designOpts.teamName || '');
+  const sportLabel = (info.subtitle || '').toUpperCase();
+  const textMaxW   = cw * 0.46; // right column only — must never reach the athlete on the left
+  ctx.save();
+  ctx.textAlign = 'right';
+  if (school) {
+    const fs1 = autoFitSize(school.toUpperCase(), Math.round(ch * 0.036), textMaxW, 500, 'Arial, sans-serif');
+    ctx.font = `500 ${fs1}px Arial, sans-serif`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.letterSpacing = `${Math.round(fs1 * 0.35)}px`;
+    ctx.fillText(school.toUpperCase(), cw * 0.965, ch * 0.10);
+    ctx.letterSpacing = '0px';
+  }
+  if (mascot) {
+    const fs2 = autoFitSize(mascot.toUpperCase(), Math.round(ch * 0.11), textMaxW, 900, "Impact,'Arial Black',Arial");
+    ctx.font = `900 ${fs2}px Impact,'Arial Black',Arial`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.lineWidth = Math.round(fs2 * 0.06);
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.strokeText(mascot.toUpperCase(), cw * 0.965, ch * 0.20);
+    ctx.fillStyle = colorRgba(ac1, 1);
+    ctx.fillText(mascot.toUpperCase(), cw * 0.965, ch * 0.20);
+  }
+  if (sportLabel) {
+    const fs3 = autoFitSize(sportLabel, Math.round(ch * 0.040), textMaxW, 500, 'Arial, sans-serif');
+    ctx.font = `500 ${fs3}px Arial, sans-serif`;
+    ctx.letterSpacing = `${Math.round(fs3 * 0.30)}px`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(sportLabel, cw * 0.965, ch * 0.255);
+    ctx.letterSpacing = '0px';
+  }
+  ctx.restore();
+
+  // ── Player name — script first name + bold last name + white jersey number ──
+  const rawName = (info.headline || '').trim();
+  if (rawName) {
+    const nameParts = rawName.split(/\s+/);
+    const first = nameParts[0] || '';
+    const last  = nameParts.slice(1).join(' ') || '';
+    // Canvas text drawn before a freshly-added web font finishes downloading silently falls
+    // back to a default font (unlike CSS, canvas raster draws don't reflow on font load) —
+    // must await it before the first-ever draw, not just rely on it being cached later.
+    try { await document.fonts.load('700 100px "Permanent Marker"'); } catch(e) {}
+    ctx.save();
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'alphabetic';
+    let ny = ch * 0.72;
+    if (first) {
+      const fs = autoFitSize(first, Math.round(ch * 0.09), textMaxW, 400, '"Permanent Marker", cursive');
+      ctx.font = `400 ${fs}px "Permanent Marker", cursive`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = Math.round(fs * 0.1);
+      ctx.fillText(first, cw * 0.965, ny);
+      ny += fs * 0.90;
+      ctx.shadowBlur = 0;
+    }
+    if (last) {
+      const fs = autoFitSize(last.toUpperCase(), Math.round(ch * 0.13), textMaxW, 900, "Impact,'Arial Black',Arial");
+      ctx.font = `900 ${fs}px Impact,'Arial Black',Arial`;
+      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = Math.round(fs * 0.08);
+      ctx.fillStyle = colorRgba(ac1, 1);
+      ctx.fillText(last.toUpperCase(), cw * 0.965, ny);
+      ny += fs * 0.62;
+      ctx.shadowBlur = 0;
+    }
+    if (info.number) {
+      const fs = Math.round(ch * 0.045);
+      ctx.font = `700 ${fs}px Arial, sans-serif`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('#' + info.number.replace(/^#/, ''), cw * 0.965, ny);
+    }
+    ctx.restore();
+  }
+
+  if (designOpts.hasWebPhoto) drawWebPhotoDisclaimer(ctx, cw, ch);
+}
+
 function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
   return new Promise(resolve => {
     const canvas = document.createElement('canvas');
@@ -2811,6 +2978,19 @@ function compositeLayers(bgUrl, cutoutDataUrls, designOpts) {
 
         const n  = valid.length;
         const cw = canvas.width, ch = canvas.height;
+
+        // Single athlete on a landscape canvas gets the dedicated banner layout instead of
+        // the pyramid poster below. Multi-athlete composites and portrait formats are
+        // unaffected — this only intercepts the one case the banner layout was built for.
+        if (n === 1 && cw > ch * 1.3) {
+          drawBannerComposite(ctx, canvas, valid[0], designOpts || {})
+            .then(() => resolve(canvas.toDataURL('image/jpeg', 0.96)))
+            .catch(e => {
+              console.error('Banner composite failed:', e);
+              resolve(canvas.toDataURL('image/jpeg', 0.95));
+            });
+          return;
+        }
 
         // ── Pyramid cascade layout — Georgia Tech / ESPN composite style ──────
         // Rows go from FRONT (index 0, biggest, at bottom) to BACK (last, smallest, highest)
@@ -3328,7 +3508,8 @@ async function generate(raw) {
         const designOpts = {
           type: bigLabel, style: S.style, prompt: enriched,
           teamName, teamColors, isSinglePlayer: S.athleteOriginals.length === 1, athleteInfo,
-          hasWebPhoto: S.webPhotoSources.some(Boolean)
+          hasWebPhoto: S.webPhotoSources.some(Boolean),
+          originalPhoto: S.athleteOriginals[0] || null
         };
         finalUrl    = await compositeLayers(bgUrl, S.athleteCutouts, designOpts);
         finalEngine = 'photo-composite';
