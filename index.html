@@ -700,6 +700,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
             <div class="ti" data-type="player-spotlight"><div class="ti-radio"></div><span class="ti-lbl">🎯 Player Spotlight Banner</span></div>
             <div class="ti" data-type="recruit-offer"><div class="ti-radio"></div><span class="ti-lbl">📨 Recruit Offer Graphic</span></div>
             <div class="ti" data-type="other"><div class="ti-radio"></div><span class="ti-lbl">✨ Other</span></div>
+            <div class="ti" data-type="freeform"><div class="ti-radio"></div><span class="ti-lbl">🖋 Freeform — Just My Prompt</span></div>
           </div>
         </div>
         <div class="cg"><div class="clabel">Upload Assets</div>
@@ -2785,7 +2786,12 @@ function buildVisionPrompt(raw, sport, style, type, playerCount = 1, referenceAn
     'season-schedule': `Design a SEASON SCHEDULE GRAPHIC featuring ${subject} as ${isTeam ? 'the faces of the season' : 'the face of the season'}. Schedule grid is primary content; ${isTeam ? 'athletes as' : 'athlete as'} supporting visuals. ${_typeVocab['season-schedule']} aesthetic. ${_composition['season-schedule']}`,
     'player-spotlight':`Design a PLAYER SPOTLIGHT BANNER GRAPHIC around ${subject}. ${isTeam ? `All ${playerCount} athletes are featured prominently — each given their own spotlight area.` : 'They are the singular hero — full portrait treatment.'} ${_typeVocab['player-spotlight']} aesthetic. ${_composition['player-spotlight']}`,
     'recruit-offer':   `Design a RECRUIT OFFER GRAPHIC around ${subject}. ${isTeam ? 'All athletes are prominently featured.' : 'They are prominently featured.'} School logo, OFFER EXTENDED label, and prestige elements surround them. ${_typeVocab['recruit-offer']} aesthetic. ${_composition['recruit-offer']}`,
-    'other':           `Design a professional sports graphic around ${subject}, built entirely from the brief below. ${isTeam ? `All ${playerCount} athletes are visual heroes` : 'The athlete is the visual hero'} with strong design elements surrounding them. ${_formatGuidance}`
+    'other':           `Design a professional sports graphic around ${subject}, built entirely from the brief below. ${isTeam ? `All ${playerCount} athletes are visual heroes` : 'The athlete is the visual hero'} with strong design elements surrounding them. ${_formatGuidance}`,
+    // No imposed category, layout, or headline convention — unlike every option above (which
+    // steers toward a specific template via _composition/_typeVocab) and unlike "Other" (which
+    // still auto-matches the brief to one of those templates via _formatGuidance). This is the
+    // one option where nothing beyond the brief itself shapes the design.
+    'freeform':        `Design a sports graphic around ${subject}, based EXCLUSIVELY on what the brief below actually describes. Do not default to any particular category's layout, headline convention, or composition template, and do not assume a format the brief doesn't call for — whatever the brief describes is exactly what should be built, nothing more, nothing less.`
   };
   const openingDirective = typeDirectives[type] || typeDirectives['other'];
   const detectedColors = extractColors(raw);
