@@ -3391,7 +3391,7 @@ function generateCollageDesign(originalDataUrls, designOpts) {
 }
 
 // ── Vision-based generation: sends athlete photo + prompt to AI ──────────────
-async function callGenerateWithImage(athleteImages, prompt, referenceImage = null) {
+async function callGenerateWithImage(athleteImages, prompt, referenceImage = null, opts = {}) {
   const imgsArr = Array.isArray(athleteImages) ? athleteImages : [athleteImages];
   const {w, h} = getDims();
 
@@ -3417,7 +3417,9 @@ async function callGenerateWithImage(athleteImages, prompt, referenceImage = nul
       playerCount:    imgsArr.length,
       prompt,
       width:  w,
-      height: h
+      height: h,
+      primaryOnly:    opts.primaryOnly  || undefined,
+      skipGptImage:   opts.skipGptImage || undefined
     })
   });
 
@@ -3554,55 +3556,66 @@ async function generate(raw) {
     let finalUrl, finalEngine;
 
     if (hasPhotos) {
-      // ── AI PHOTO EDIT — primary. This is the actual engine (gpt-image) behind the
-      // reference-quality results this app is being held to — the Design Type category
-      // (S.type) drives per-category art direction the same way it did for the original
-      // "Kyrie" design. Falls back to the deterministic real-photo composite below (still
-      // a guaranteed real photo + correct text, just less visually rich) only if every AI
-      // engine fails or times out — safety net, not the default experience.
+      // ── Three-tier fallback, ordered by how much each engine can be trusted to render
+      // TEXT correctly (identity is solid across all of them; text accuracy is what varies):
+      // 1) gpt-image-2 edit — the actual engine behind the reference-quality results this
+      //    app is being held to, and the best of the bunch at rendering legible text.
+      // 2) Deterministic real-photo composite — not AI-generated at all, so its text is
+      //    100% guaranteed correct (real canvas fillText). Visually plainer than gpt-image-2,
+      //    but infinitely better than an AI hallucinating garbled pseudo-text.
+      // 3) FLUX Kontext Pro / Gemini — true last resort. These are demonstrably the weakest
+      //    at text (logs showed FLUX inventing illegible stat lines) — only reached if BOTH
+      //    of the above fail, not offered as a mid-tier option a customer could actually see.
+      const playerCount = S.athleteOriginals.length;
+      const prompt = buildVisionPrompt(enriched, sport, S.style, S.type, playerCount, referenceAnalysis);
       try {
         setStatus('Designing your graphic…');
-        const playerCount = S.athleteOriginals.length;
-        const prompt = buildVisionPrompt(enriched, sport, S.style, S.type, playerCount, referenceAnalysis);
-        const result = await callGenerateWithImage(S.athleteOriginals, prompt, S.referenceImage);
+        const result = await callGenerateWithImage(S.athleteOriginals, prompt, S.referenceImage, { primaryOnly: true });
         finalUrl    = result.url;
         finalEngine = result.engine;
       } catch(e) {
-        console.warn('AI photo edit failed, falling back to real-photo composite:', e.message);
-        setStatus('Reading your brief…');
-        const teamName      = extractTeamName(enriched) || extractTeamName(raw);
-        let   teamColors    = getTeamAccentColors(enriched) || getTeamAccentColors(raw);
-        const headlineWord  = detectHeadlineWord(enriched) || detectHeadlineWord(raw);
-        const athleteInfo   = await extractAthleteText(enriched);
-        // Never fall back to teamName here — it's already drawn separately in the bottom band
-        // by drawSportsOverlay, so falling back to it would show the team name twice (once as
-        // this giant background word, once in the band) any time the headline extraction comes
-        // back empty. Fall back to the detected sport instead — still relevant, never redundant.
-        const bigLabel      = headlineWord || (athleteInfo.headline || '').toUpperCase()
-                             || (sport && sport !== 'sports' ? sport.toUpperCase() : null);
+        console.warn('gpt-image-2 failed, falling back to real-photo composite:', e.message);
+        try {
+          setStatus('Reading your brief…');
+          const teamName      = extractTeamName(enriched) || extractTeamName(raw);
+          let   teamColors    = getTeamAccentColors(enriched) || getTeamAccentColors(raw);
+          const headlineWord  = detectHeadlineWord(enriched) || detectHeadlineWord(raw);
+          const athleteInfo   = await extractAthleteText(enriched);
+          // Never fall back to teamName here — it's already drawn separately in the bottom
+          // band by drawSportsOverlay, so falling back to it would show the team name twice
+          // (once as this giant background word, once in the band) any time the headline
+          // extraction comes back empty. Fall back to the detected sport instead.
+          const bigLabel      = headlineWord || (athleteInfo.headline || '').toUpperCase()
+                               || (sport && sport !== 'sports' ? sport.toUpperCase() : null);
 
-        // No known team in the color lookup table AND no color words named in the brief —
-        // fall back to sampling the real jersey colors from the uploaded photo itself, so
-        // the background actually matches the athlete instead of a generic style default.
-        if (!teamColors && !extractColors(enriched).length && !extractColors(raw).length) {
-          try {
-            const sampled = await sampleDominantColors(S.athleteCutouts[0]);
-            if (sampled.length) teamColors = sampled;
-          } catch(e2) { console.warn('Color sampling failed:', e2.message); }
+          // No known team in the color lookup table AND no color words named in the brief —
+          // fall back to sampling the real jersey colors from the uploaded photo itself, so
+          // the background actually matches the athlete instead of a generic style default.
+          if (!teamColors && !extractColors(enriched).length && !extractColors(raw).length) {
+            try {
+              const sampled = await sampleDominantColors(S.athleteCutouts[0]);
+              if (sampled.length) teamColors = sampled;
+            } catch(e2) { console.warn('Color sampling failed:', e2.message); }
+          }
+
+          setStatus('Generating your background…');
+          const bgUrl = generateCanvasTeamBackground(enriched, S.style, bigLabel, teamColors);
+
+          setStatus('Compositing your photo…');
+          const designOpts = {
+            type: bigLabel, style: S.style, prompt: enriched,
+            teamName, teamColors, isSinglePlayer: S.athleteOriginals.length === 1, athleteInfo,
+            hasWebPhoto: S.webPhotoSources.some(Boolean),
+            originalPhoto: S.athleteOriginals[0] || null
+          };
+          finalUrl    = await compositeLayers(bgUrl, S.athleteCutouts, designOpts);
+          finalEngine = 'photo-composite';
+        } catch(e2) {
+          console.warn('Composite pipeline also failed, falling back to FLUX/Gemini as last resort:', e2.message);
+          const result = await callGenerateWithImage(S.athleteOriginals, prompt, S.referenceImage, { skipGptImage: true });
+          finalUrl    = result.url;
+          finalEngine = result.engine;
         }
-
-        setStatus('Generating your background…');
-        const bgUrl = generateCanvasTeamBackground(enriched, S.style, bigLabel, teamColors);
-
-        setStatus('Compositing your photo…');
-        const designOpts = {
-          type: bigLabel, style: S.style, prompt: enriched,
-          teamName, teamColors, isSinglePlayer: S.athleteOriginals.length === 1, athleteInfo,
-          hasWebPhoto: S.webPhotoSources.some(Boolean),
-          originalPhoto: S.athleteOriginals[0] || null
-        };
-        finalUrl    = await compositeLayers(bgUrl, S.athleteCutouts, designOpts);
-        finalEngine = 'photo-composite';
       }
     } else if (S.referenceImage) {
       // ── Reference image only, no athlete photo — nothing to composite ──────

@@ -490,6 +490,14 @@ Pure atmosphere and lighting only.`;
         return putR.ok ? file_url : null;
       }
 
+      // primaryOnly: return immediately after gpt-image-2 fails instead of cascading to
+      // FLUX/Gemini — used by the client to try the deterministic composite (guaranteed
+      // text) before ever risking FLUX's much weaker text rendering. skipGptImage: go
+      // straight to FLUX/Gemini — used for the client's true last-resort call, so it isn't
+      // wasted re-waiting on gpt-image-2 a second time when it already failed once.
+      const primaryOnly   = !!req.body.primaryOnly;
+      const skipGptImage  = !!req.body.skipGptImage;
+
       // ── PRIMARY: gpt-image-2 edits — best text rendering, best identity, when it finishes ──
       // Runs whenever either image is present, passing both when both exist. Fires TWO
       // independent gpt-image-2 requests in parallel and uses whichever succeeds first —
@@ -497,17 +505,23 @@ Pure atmosphere and lighting only.`;
       // odds of getting gpt-image-2's quality instead of falling to a weaker fallback, at
       // the cost of ~2x OpenAI spend per generation. Chosen deliberately for a paid product
       // where a customer seeing FLUX Kontext's garbled text is worse than the extra cost.
-      if (OPENAI_KEY && (athleteImage || refImage)) {
+      // Timeout raised from 90s to 150s after logs showed BOTH parallel attempts hitting
+      // "This operation was aborted" — a timeout, not a real API error — meaning legitimate
+      // "high" quality edits were being killed before they finished, not actually failing.
+      if (!skipGptImage && OPENAI_KEY && (athleteImage || refImage)) {
         const images = [athleteImage, refImage].filter(Boolean);
         try {
           const imageUrl = await Promise.any([
-            callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs: 90000 }),
-            callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs: 90000 })
+            callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs: 150000 }),
+            callGptImage({ promptText: prompt, images, size, quality: 'high', timeoutMs: 150000 })
           ]);
           return res.status(200).json({ status: 'succeeded', imageUrl, engine: 'gpt-image-2-edit' });
         } catch(e) {
           const detail = e?.errors ? e.errors.map(err => err.message).join(' | ') : e.message;
           console.warn('gpt-image-2 edit failed (both parallel attempts):', detail);
+          if (primaryOnly) {
+            return res.status(502).json({ error: 'gpt-image-2 failed or timed out: ' + detail });
+          }
         }
       }
 
