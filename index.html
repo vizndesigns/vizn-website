@@ -898,7 +898,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     <div class="tplcard"><div class="tpl-thumb tt5"><div class="tpl-hl" style="color:var(--white)">PLAYOFFS<br>OR BUST</div></div><div class="tpl-info"><div><div class="tpl-name">Playoff Push</div><div class="tpl-sport">🏒 Hockey</div></div><span class="tpl-use" data-prompt="Hockey playoffs banner, ice texture, black background, cold blue and white tones, raw intensity, dramatic arena lighting">Use →</span></div></div>
     <div class="tplcard"><div class="tpl-thumb tt6"><div class="tpl-hl" style="color:var(--lime)">HOME<br>OPENER</div></div><div class="tpl-info"><div><div class="tpl-name">Home Opener</div><div class="tpl-sport">⚾ Baseball</div></div><span class="tpl-use" data-prompt="Baseball home opener banner, classic stadium feel, black background, lime green athletic typography, celebratory energy">Use →</span></div></div>
   </div>
-  <div style="text-align:center;margin-top:32px"><button class="btn-outline" style="margin:0 auto">Browse All 600+ Templates →</button></div>
+  <div style="text-align:center;margin-top:32px"><button class="btn-outline" id="browseAllTemplates" style="margin:0 auto">Browse All 600+ Templates →</button></div>
 </section>
 
 <!-- PRICING -->
@@ -4178,6 +4178,26 @@ const heroDesigner = el('btnHeroDesigner');
 if (heroDesigner) heroDesigner.addEventListener('click', () => {
   window.location.href = 'vizn-templates.html';
 });
+
+const browseAllBtn = el('browseAllTemplates');
+if (browseAllBtn) browseAllBtn.addEventListener('click', () => {
+  window.location.href = 'vizn-templates.html';
+});
+
+// ── Cross-page template handoff — vizn-templates.html stores a prompt here before
+// navigating back, since it doesn't have the studio or this page's JS to fill it directly.
+// Mirrors the same-page .tpl-use handler below, just bridged across a page load instead
+// of a click.
+(function loadPendingTemplatePrompt() {
+  const pending = localStorage.getItem('vizn_pending_prompt');
+  if (!pending) return;
+  localStorage.removeItem('vizn_pending_prompt');
+  const inp = el('promptInput');
+  if (inp) inp.value = pending;
+  const studio = el('studio');
+  if (studio) studio.scrollIntoView({behavior:'smooth'});
+  toast('Template loaded — click Generate ⚡', 'ok');
+})();
 
 const loginBtn = el('btnLogin');
 if (loginBtn) loginBtn.addEventListener('click', () => toast('Login coming soon', ''));
