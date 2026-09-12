@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VIZN — Template Library</title>
-<meta name="description" content="Browse ready-to-use sports graphic templates — commitment announcements, game day hype, final scores, recruiting offers, and more. Pick one, customize it in the AI studio.">
+<meta name="description" content="Browse ready-to-use sports graphic designs — commitment announcements, game day hype, final scores, recruiting offers, and more. Pick one as a reference for your order.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -120,22 +120,21 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   </div>
   <ul class="nav-links">
     <li><a href="index.html#hero">Home</a></li>
-    <li><a href="index.html#studio">AI Generator</a></li>
     <li><a href="vizn-templates.html" class="current">Templates</a></li>
     <li><a href="index.html#pricing">Pricing</a></li>
-    <li><a href="index.html#custom">Services</a></li>
+    <li><a href="index.html#custom">Order</a></li>
     <li><a href="index.html#about">About</a></li>
     <li><a href="index.html#contact">Contact</a></li>
   </ul>
   <div class="nav-right">
-    <a href="index.html#studio" class="btn-lime">Start Free →</a>
+    <a href="index.html#custom" class="btn-lime">Place an Order →</a>
   </div>
 </nav>
 
 <div class="page-head">
   <div class="ey">Template Library</div>
   <h1 class="sh">Start From A <em>Winning Design</em></h1>
-  <p class="page-sub">Pick a template, and it drops the prompt straight into the AI studio — customize the team, colors, and details from there. New templates added regularly.</p>
+  <p class="page-sub">Pick a design as a reference, then submit your order — mention it in your brief and we will build it for you. New designs added regularly.</p>
   <div class="filter-row" id="filterRow">
     <div class="fpill on" data-sport="all">All Sports</div>
     <div class="fpill" data-sport="football">🏈 Football</div>
@@ -163,7 +162,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       </div>
       <p class="ftagline">AI-powered sports design for teams, leagues, schools, and organizers. Digital graphics only — no apparel. AI-fast or designer-built.</p>
     </div>
-    <div><div class="fcol-title">Platform</div><ul class="flinks"><li><a href="index.html#studio">AI Generator</a></li><li><a href="vizn-templates.html">Templates</a></li><li><a href="index.html#pricing">Pricing</a></li><li><a href="index.html#custom">Custom Design Services</a></li></ul></div>
+    <div><div class="fcol-title">Platform</div><ul class="flinks"><li><a href="vizn-templates.html">Templates</a></li><li><a href="index.html#pricing">Pricing</a></li><li><a href="index.html#custom">Place an Order</a></li></ul></div>
     <div><div class="fcol-title">Who It's For</div><ul class="flinks"><li><a href="index.html#how-it-works">Athletes</a></li><li><a href="index.html#how-it-works">Sports Photographers</a></li><li><a href="index.html#how-it-works">Coaches &amp; Teams</a></li><li><a href="index.html#how-it-works">Youth Sports Orgs</a></li></ul></div>
     <div><div class="fcol-title">Company</div><ul class="flinks"><li><a href="index.html#about">About VIZN</a></li><li><a href="index.html#custom">Services</a></li><li><a href="index.html#contact">Contact</a></li><li><a href="mailto:2deucesdesigns@gmail.com">Email Us</a></li></ul></div>
   </div>
@@ -269,8 +268,8 @@ TEMPLATES.forEach(t => {
     '<div class="tpl-thumb ' + t.grad + '"><div class="tpl-hl" style="color:' + t.color + '">' + t.hl + '</div></div>' +
     '<div class="tpl-info"><div><div class="tpl-name">' + t.name + '</div><div class="tpl-sport">' + t.emoji + ' ' + t.sport.charAt(0).toUpperCase() + t.sport.slice(1) + '</div></div><span class="tpl-use">Use →</span></div>';
   card.querySelector('.tpl-use').addEventListener('click', () => {
-    localStorage.setItem('vizn_pending_prompt', t.prompt);
-    window.location.href = 'index.html#studio';
+    localStorage.setItem('vizn_order_note', t.name + ' — ' + t.prompt);
+    window.location.href = 'index.html#custom';
   });
   grid.appendChild(card);
 });

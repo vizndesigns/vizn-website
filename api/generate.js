@@ -8,10 +8,19 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Studio-Password');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
+
+  // Gates the entire generator behind a shared password once STUDIO_PASSWORD is set in
+  // Vercel's env vars — fails OPEN (no check at all) until then, so nothing breaks on
+  // deploy before it's configured. The private studio page sends this on every call via
+  // a window.fetch patch, so no individual action below needs its own check.
+  const STUDIO_PASSWORD = process.env.STUDIO_PASSWORD;
+  if (STUDIO_PASSWORD && req.headers['x-studio-password'] !== STUDIO_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
 
   const REPLICATE_KEY = process.env.REPLICATE_API_KEY;
   const OPENAI_KEY    = process.env.OPENAI_API_KEY;
