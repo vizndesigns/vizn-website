@@ -93,9 +93,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 .showcase-track-wrap{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
 .showcase-track{display:flex;gap:28px;width:max-content;animation:showcaseScroll 26s linear infinite}
 .showcase-track:hover{animation-play-state:paused}
-.showcase-card{width:340px;height:453px;flex-shrink:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;background:var(--panel);transition:border-color 0.25s,box-shadow 0.25s}
+.showcase-card{width:302px;height:453px;flex-shrink:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;background:var(--panel);transition:border-color 0.25s,box-shadow 0.25s}
 .showcase-card:hover{border-color:var(--lime);box-shadow:0 0 0 1px rgba(204,255,0,0.15),0 12px 28px rgba(0,0,0,0.5)}
-.showcase-card img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.showcase-card img{width:100%;height:100%;object-fit:contain;object-position:center;display:block}
 @keyframes showcaseScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 /* SECTION SHARED */
