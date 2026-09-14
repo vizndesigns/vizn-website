@@ -48,32 +48,23 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 .btn-lime:hover{background:#DDFF33;transform:translateY(-1px)}
 
 /* HERO */
-.hero{min-height:90vh;display:grid;grid-template-columns:1.15fr 0.85fr;align-items:center;padding-top:64px;position:relative;overflow:hidden;background:var(--black)}
+.hero{min-height:90vh;display:flex;align-items:center;padding-top:64px;position:relative;overflow:hidden;background:var(--black)}
 .hero::before{content:'';position:absolute;top:-10%;left:-8%;width:55%;height:75%;background:radial-gradient(ellipse,rgba(204,255,0,0.06) 0%,transparent 65%);pointer-events:none;z-index:0}
-.hero-left{padding:90px 40px 80px 48px;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
-.hero-scroll-cue{position:absolute;bottom:26px;left:48px;display:flex;align-items:center;gap:10px;z-index:3;opacity:0.55;animation:cueBounce 2.2s ease-in-out infinite}
+.hero-left{padding:90px 64px 80px 64px;width:100%;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
+.hero-scroll-cue{position:absolute;bottom:26px;left:64px;display:flex;align-items:center;gap:10px;z-index:3;opacity:0.55;animation:cueBounce 2.2s ease-in-out infinite}
 .hero-scroll-cue span{font-family:var(--fm);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted)}
 .hero-scroll-cue-arrow{color:var(--lime);font-size:14px;line-height:1}
 @keyframes cueBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
 @media(max-width:1100px){.hero-scroll-cue{display:none}}
-.hero-right{position:relative;height:100%;min-height:560px;display:flex;align-items:center;justify-content:center;padding:40px 32px;overflow:hidden;border-left:1px solid var(--border)}
-.hero-right::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(204,255,0,0.07) 0%,transparent 60%);pointer-events:none}
-.vcarousel-wrap{width:100%;max-width:300px;height:100%;position:relative;z-index:2;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(180deg,transparent,#000 10%,#000 90%,transparent)}
-.vcarousel-track{display:flex;flex-direction:column;gap:18px;animation:vcarouselScroll 14s linear infinite}
-.vcarousel-track:hover{animation-play-state:paused}
-.vcarousel-card{width:100%;aspect-ratio:3/4;flex-shrink:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:var(--panel);transition:border-color 0.25s,box-shadow 0.25s}
-.vcarousel-card:hover{border-color:var(--lime);box-shadow:0 0 0 1px rgba(204,255,0,0.15),0 12px 28px rgba(0,0,0,0.5)}
-.vcarousel-card img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
-@keyframes vcarouselScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
 .eyebrow-row{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .eyebrow-line{width:28px;height:2px;background:var(--lime)}
 .eyebrow-text{font-family:var(--fm);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--lime)}
 .live-dot{width:5px;height:5px;background:var(--lime);border-radius:50%;animation:blink 1.4s ease-in-out infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.15}}
-.hero-h1{font-family:var(--fa);font-size:clamp(74px,9vw,148px);line-height:1.03;text-transform:uppercase;color:var(--white);margin-bottom:18px}
+.hero-h1{font-family:var(--fa);font-size:clamp(80px,11vw,180px);line-height:1.02;text-transform:uppercase;color:var(--white);margin-bottom:18px}
 .hero-h1 .hl{color:var(--lime);display:block}
 .hero-h1 .ol{-webkit-text-stroke:1.5px var(--border);color:transparent;display:block}
-.hero-sub{font-size:17px;color:var(--muted);line-height:1.75;max-width:480px;margin-bottom:40px}
+.hero-sub{font-size:17px;color:var(--muted);line-height:1.75;max-width:620px;margin-bottom:40px}
 .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
 .btn-primary{font-family:var(--fa);font-size:17px;letter-spacing:0.1em;text-transform:uppercase;color:#000;background:var(--lime);border:none;padding:17px 42px;cursor:pointer;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);transition:all 0.25s;display:inline-flex;align-items:center;gap:10px}
 .btn-primary:hover{background:#DDFF33;transform:translateY(-2px);box-shadow:0 8px 32px rgba(204,255,0,0.28)}
@@ -95,14 +86,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 /* SHOWCASE CAROUSEL */
-.showcase-strip{padding:56px 0;background:var(--black);overflow:hidden;border-bottom:1px solid var(--border)}
+.showcase-strip{padding:72px 0;background:var(--black);overflow:hidden;border-bottom:1px solid var(--border)}
 .showcase-head{text-align:center;margin-bottom:28px;padding:0 24px}
 .showcase-eyebrow{font-family:var(--fm);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--lime);margin-bottom:8px}
 .showcase-title{font-family:var(--fa);font-size:clamp(26px,3.4vw,40px);text-transform:uppercase;color:var(--white)}
 .showcase-track-wrap{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
-.showcase-track{display:flex;gap:20px;width:max-content;animation:showcaseScroll 11s linear infinite}
+.showcase-track{display:flex;gap:28px;width:max-content;animation:showcaseScroll 16s linear infinite}
 .showcase-track:hover{animation-play-state:paused}
-.showcase-card{width:200px;height:266px;flex-shrink:0;border-radius:10px;overflow:hidden;border:1px solid var(--border);position:relative;background:var(--panel);transition:border-color 0.25s,box-shadow 0.25s}
+.showcase-card{width:340px;height:453px;flex-shrink:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;background:var(--panel);transition:border-color 0.25s,box-shadow 0.25s}
 .showcase-card:hover{border-color:var(--lime);box-shadow:0 0 0 1px rgba(204,255,0,0.15),0 12px 28px rgba(0,0,0,0.5)}
 .showcase-card img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
 @keyframes showcaseScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -476,8 +467,6 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 
 /* RESPONSIVE */
 @media(max-width:1100px){
-  .hero{grid-template-columns:1fr}
-  .hero-right{min-height:380px;border-left:none;border-top:1px solid var(--border)}
   .price-grid{grid-template-columns:repeat(2,1fr);max-width:700px}
   .price-grid-6{grid-template-columns:repeat(2,1fr)}
   .prcard.feat{margin:0}
@@ -545,18 +534,6 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="hstat"><div class="hstat-num">12<span>+</span></div><div class="hstat-lbl">Sports Covered</div></div>
       <div class="hstat"><div class="hstat-num">24-72<span>hr</span></div><div class="hstat-lbl">Turnaround</div></div>
       <div class="hstat"><div class="hstat-num">4<span>K</span></div><div class="hstat-lbl">Max Resolution</div></div>
-    </div>
-  </div>
-  <div class="hero-right">
-    <div class="vcarousel-wrap">
-      <div class="vcarousel-track">
-        <div class="vcarousel-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-        <div class="vcarousel-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-        <div class="vcarousel-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-        <div class="vcarousel-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-        <div class="vcarousel-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-        <div class="vcarousel-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-      </div>
     </div>
   </div>
   <div class="hero-scroll-cue"><span>Scroll</span><span class="hero-scroll-cue-arrow">↓</span></div>
