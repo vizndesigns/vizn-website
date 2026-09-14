@@ -692,12 +692,12 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   <div class="ey">Design Menu</div>
   <h2 class="sh">Every Graphic. <em>Every Occasion.</em></h2>
   <div class="types-grid" style="grid-template-columns:repeat(3,1fr)">
-    <div class="tcard"><div class="tcard-bg tcb1"><div class="tcard-icon">🏟</div></div><div class="tcard-body"><div class="tcard-name">Game Day Graphic</div><div class="tcard-count">Custom social design — $40</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard"><div class="tcard-bg tcb2"><div class="tcard-icon">⭐</div></div><div class="tcard-body"><div class="tcard-name">Player Spotlight</div><div class="tcard-count">Highlight your performance — $50</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard"><div class="tcard-bg tcb3"><div class="tcard-icon">🏫</div></div><div class="tcard-body"><div class="tcard-name">Commitment Graphic</div><div class="tcard-count">Announce your decision — $60</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard"><div class="tcard-bg tcb4"><div class="tcard-icon">🔄</div></div><div class="tcard-body"><div class="tcard-name">Jersey Swap Commitment</div><div class="tcard-count">Full college jersey swap — $85</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard"><div class="tcard-bg tcb5"><div class="tcard-icon">🎓</div></div><div class="tcard-body"><div class="tcard-name">Senior Graphic</div><div class="tcard-count">Celebrate your senior year — $65</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard"><div class="tcard-bg tcb1"><div class="tcard-icon">🖼</div></div><div class="tcard-body"><div class="tcard-name">Premium Poster Design</div><div class="tcard-count">Print-ready, multi-photo — $85</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
+    <div class="tcard" data-cat="Game Day Graphic ($40)"><div class="tcard-bg tcb1"><div class="tcard-icon">🏟</div></div><div class="tcard-body"><div class="tcard-name">Game Day Graphic</div><div class="tcard-count">Custom social design — $40</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
+    <div class="tcard" data-cat="Player Spotlight ($50)"><div class="tcard-bg tcb2"><div class="tcard-icon">⭐</div></div><div class="tcard-body"><div class="tcard-name">Player Spotlight</div><div class="tcard-count">Highlight your performance — $50</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
+    <div class="tcard" data-cat="Commitment Graphic ($60)"><div class="tcard-bg tcb3"><div class="tcard-icon">🏫</div></div><div class="tcard-body"><div class="tcard-name">Commitment Graphic</div><div class="tcard-count">Announce your decision — $60</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
+    <div class="tcard" data-cat="Jersey Swap Commitment Graphic ($85)"><div class="tcard-bg tcb4"><div class="tcard-icon">🔄</div></div><div class="tcard-body"><div class="tcard-name">Jersey Swap Commitment</div><div class="tcard-count">Full college jersey swap — $85</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
+    <div class="tcard" data-cat="Senior Graphic ($65)"><div class="tcard-bg tcb5"><div class="tcard-icon">🎓</div></div><div class="tcard-body"><div class="tcard-name">Senior Graphic</div><div class="tcard-count">Celebrate your senior year — $65</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
+    <div class="tcard" data-cat="Premium Poster Design ($85)"><div class="tcard-bg tcb1"><div class="tcard-icon">🖼</div></div><div class="tcard-body"><div class="tcard-name">Premium Poster Design</div><div class="tcard-count">Print-ready, multi-photo — $85</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
   </div>
 </section>
 
@@ -735,38 +735,38 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="pname">Game Day Graphic</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">40</span></div>
       <ul class="pfl"><li>Custom social media design</li><li>Team or individual</li><li>Instagram-ready</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Game Day Graphic — $40')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Game Day Graphic — $40','Game Day Graphic ($40)')">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Player Spotlight</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">50</span></div>
       <ul class="pfl"><li>Highlight performance</li><li>Custom design</li><li>Social media ready</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Player Spotlight — $50')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Player Spotlight — $50','Player Spotlight ($50)')">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Commitment Graphic (HS Uniform)</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">60</span></div>
       <ul class="pfl"><li>Athlete in current HS uniform</li><li>College announcement</li><li>Custom branding</li><li>Social media ready</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Commitment Graphic (HS Uniform) — $60')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Commitment Graphic (HS Uniform) — $60','Commitment Graphic ($60)')">Order This →</button>
     </div>
     <div class="prcard feat">
       <div class="feat-flag">Popular</div>
       <div class="pname">Jersey Swap Commitment</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">85</span></div>
       <ul class="pfl"><li>Full college jersey swap</li><li>College branding</li><li>Custom design</li><li>Advanced editing</li><li>Social media ready</li></ul>
-      <button class="pbtn pbtn-lime" onclick="goToOrderForm('Jersey Swap Commitment — $85')">Order This →</button>
+      <button class="pbtn pbtn-lime" onclick="goToOrderForm('Jersey Swap Commitment — $85','Jersey Swap Commitment Graphic ($85)')">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Senior Graphic</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">65</span></div>
       <ul class="pfl"><li>Premium senior design</li><li>Personalized concept</li><li>Social media ready</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Senior Graphic — $65')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Senior Graphic — $65','Senior Graphic ($65)')">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Premium Poster Design</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">85</span></div>
       <ul class="pfl"><li>Detailed concept</li><li>Multiple photos</li><li>Advanced effects</li><li>Print-ready + social</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Premium Poster Design — $85')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Premium Poster Design — $85','Premium Poster Design ($85)')">Order This →</button>
     </div>
   </div>
 
@@ -778,7 +778,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="pdesc" style="margin-bottom:8px">10–15 players</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">350</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Small Team Package (10–15 players) — $350')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Small Team Package (10–15 players) — $350','Small/Standard/Large Team Package')">Order This →</button>
     </div>
     <div class="prcard feat">
       <div class="feat-flag">Most Popular</div>
@@ -786,21 +786,21 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="pdesc" style="margin-bottom:8px">16–30 players</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">650</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-lime" onclick="goToOrderForm('Standard Team Package (16–30 players) — $650')">Order This →</button>
+      <button class="pbtn pbtn-lime" onclick="goToOrderForm('Standard Team Package (16–30 players) — $650','Small/Standard/Large Team Package')">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Large Team</div>
       <div class="pdesc" style="margin-bottom:8px">31–50 players</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">950</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Large Team Package (31–50 players) — $950')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Large Team Package (31–50 players) — $950','Small/Standard/Large Team Package')">Order This →</button>
     </div>
     <div class="prcard designer-card">
       <div class="pname red">Program Package</div>
       <div class="pdesc" style="margin-bottom:8px">50–100 players</div>
       <div class="pamount"><span class="pdol red">$</span><span class="pnum">1,750</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-red" onclick="goToOrderForm('Program Package (50–100 players) — $1,750')">Order This →</button>
+      <button class="pbtn pbtn-red" onclick="goToOrderForm('Program Package (50–100 players) — $1,750','Program Package')">Order This →</button>
     </div>
   </div>
 
@@ -811,7 +811,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   <div class="price-note" style="border-color:rgba(204,255,0,0.35);background:rgba(204,255,0,0.04);max-width:1100px;margin:16px auto 0;flex-direction:column;align-items:flex-start;gap:10px">
     <div style="font-family:var(--fa);font-size:20px;text-transform:uppercase;color:var(--white)">🖨 Want It Printed?</div>
     <div style="color:var(--muted);line-height:1.7">Any design — including a <strong style="color:var(--white)">Senior Graphic</strong> — can be delivered as a real, physical banner, not just a digital file. Perfect for senior night, graduation, tailgates, or hanging at the field. Available in <strong style="color:var(--white)">2'×4', 3'×6', 4'×8'</strong>, with custom sizes on request.</div>
-    <button class="pbtn pbtn-lime" style="width:auto;padding:11px 22px" onclick="goToOrderForm('Printed Banner — request pricing &amp; delivery details')">Ask About Printing →</button>
+    <button class="pbtn pbtn-lime" style="width:auto;padding:11px 22px" onclick="goToOrderForm('Printed Banner — request pricing &amp; delivery details','Something Else / Custom Quote')">Ask About Printing →</button>
   </div>
 
 </section>
@@ -981,8 +981,16 @@ window.addEventListener('scroll', () => {
 // ── Order form handoff — every CTA on this page funnels to the single request form
 // (#custom) instead of a live generator. Templates/quick-banner picks aren't generated
 // directly; they're just a starting reference the customer's brief can point back to.
-function goToOrderForm(note) {
+const TALLY_BASE_SRC = 'https://tally.so/embed/pbQRyb?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1';
+const TALLY_CATEGORY_FIELD = '338e6e84-f629-4b98-911c-5088511f00e5';
+function goToOrderForm(note, category) {
   if (note) localStorage.setItem('vizn_order_note', note);
+  if (category) {
+    const iframe = el('tallyFormIframe');
+    if (iframe && !iframe.src.includes('TALLY_FORM_ID')) {
+      iframe.src = TALLY_BASE_SRC + '&' + TALLY_CATEGORY_FIELD + '=' + encodeURIComponent(category);
+    }
+  }
   const custom = el('custom');
   if (custom) custom.scrollIntoView({behavior:'smooth'});
 }
@@ -1048,7 +1056,7 @@ qsa('.pcta-ai').forEach(b => { b.addEventListener('click', () => goToOrderForm()
 qsa('.pcta-h').forEach(b => { b.addEventListener('click', () => goToOrderForm()); });
 
 // ── Type cards → scroll to order form ────
-qsa('.tcard').forEach(c => { c.addEventListener('click', () => goToOrderForm()); });
+qsa('.tcard').forEach(c => { c.addEventListener('click', () => goToOrderForm(c.querySelector('.tcard-name').textContent, c.dataset.cat)); });
 // ── Scroll reveal ─────────────────────────────────────
 const revObs = new IntersectionObserver(entries => {
   entries.forEach(e => {
