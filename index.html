@@ -47,9 +47,26 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 /* HERO */
 .hero{min-height:90vh;display:grid;grid-template-columns:1.1fr 0.9fr;align-items:center;padding-top:64px;position:relative;overflow:hidden;background:var(--black)}
 .hero-left{padding:90px 40px 80px 48px;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
-.hero-right{position:relative;height:100%;min-height:520px;overflow:hidden;border-left:1px solid var(--border)}
-.hero-right::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,var(--black) 0%,transparent 12%);pointer-events:none}
-.hero-showcase-img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block;opacity:0.92}
+.hero-right{position:relative;height:100%;min-height:520px;display:flex;align-items:center;justify-content:center;padding:40px 24px;overflow:hidden;border-left:1px solid var(--border)}
+.hero-right::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(204,255,0,0.08) 0%,transparent 60%);pointer-events:none}
+.phone-mock{width:280px;max-width:100%;aspect-ratio:9/19.5;position:relative;z-index:2;border-radius:48px;background:linear-gradient(155deg,#3a3a3d,#1c1c1e 45%,#000 100%);padding:10px;box-shadow:0 40px 80px rgba(0,0,0,0.65),inset 0 0 0 1px rgba(255,255,255,0.08)}
+.phone-mock::before{content:'';position:absolute;top:22px;left:50%;transform:translateX(-50%);width:80px;height:24px;background:#000;border-radius:16px;z-index:5}
+.phone-btn{position:absolute;background:#2b2b2d;border-radius:2px}
+.phone-btn-mute{left:-3px;top:95px;width:3px;height:20px}
+.phone-btn-vol1{left:-3px;top:130px;width:3px;height:38px}
+.phone-btn-vol2{left:-3px;top:174px;width:3px;height:38px}
+.phone-btn-power{right:-3px;top:150px;width:3px;height:56px}
+.phone-screen{width:100%;height:100%;background:#000;border-radius:38px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.ig-header{display:flex;align-items:center;gap:8px;padding:32px 12px 8px}
+.ig-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.25)}
+.ig-username{font-size:12px;font-weight:700;color:#fff;line-height:1.3}
+.ig-sub{font-size:9px;color:#8e8e8e;line-height:1.3}
+.ig-image-wrap{flex:1;position:relative;overflow:hidden;background:#000}
+.ig-post-img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.ig-actions{display:flex;align-items:center;gap:12px;padding:9px 12px 3px;font-size:16px;color:#fff}
+.ig-bookmark{margin-left:auto}
+.ig-caption{font-size:10px;color:#ddd;padding:0 12px 16px;line-height:1.5}
+.ig-caption strong{color:#fff}
 .eyebrow-row{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .eyebrow-line{width:28px;height:2px;background:var(--lime)}
 .eyebrow-text{font-family:var(--fm);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--lime)}
@@ -520,7 +537,28 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     </div>
   </div>
   <div class="hero-right">
-    <img class="hero-showcase-img" src="hero-showcase.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets custom sports graphic by VIZN">
+    <div class="phone-mock">
+      <span class="phone-btn phone-btn-mute"></span>
+      <span class="phone-btn phone-btn-vol1"></span>
+      <span class="phone-btn phone-btn-vol2"></span>
+      <span class="phone-btn phone-btn-power"></span>
+      <div class="phone-screen">
+        <div class="ig-header">
+          <img class="ig-avatar" src="vizn-logo.png" alt="VIZN">
+          <div>
+            <div class="ig-username">vizn_designs</div>
+            <div class="ig-sub">♫ Original Audio</div>
+          </div>
+        </div>
+        <div class="ig-image-wrap">
+          <img class="ig-post-img" src="hero-showcase.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets custom sports graphic by VIZN">
+        </div>
+        <div class="ig-actions">
+          <span>♡</span><span>💬</span><span>↗</span><span class="ig-bookmark">🔖</span>
+        </div>
+        <div class="ig-caption"><strong>vizn_designs</strong> PROTECT THE HIVE. 🐝</div>
+      </div>
+    </div>
   </div>
 </section>
 
