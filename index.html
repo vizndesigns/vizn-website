@@ -93,7 +93,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 .showcase-track-wrap{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
 .showcase-track{display:flex;gap:28px;width:max-content;animation:showcaseScroll 44s linear infinite}
 .showcase-track:hover{animation-play-state:paused}
-.showcase-card{width:302px;height:453px;flex-shrink:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;background:var(--panel);transition:border-color 0.25s,box-shadow 0.25s}
+.showcase-card{width:302px;height:453px;flex-shrink:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);position:relative;background:var(--panel);transition:border-color 0.25s,box-shadow 0.25s;cursor:zoom-in}
+.lightbox-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:1000;display:none;align-items:center;justify-content:center;padding:60px 40px;cursor:zoom-out}
+.lightbox-overlay.show{display:flex}
+.lightbox-overlay img{max-width:90vw;max-height:88vh;object-fit:contain;border-radius:6px;box-shadow:0 30px 80px rgba(0,0,0,0.8);cursor:default}
+.lightbox-close{position:absolute;top:24px;right:32px;font-family:var(--fa);font-size:32px;color:var(--white);cursor:pointer;line-height:1;opacity:0.6;transition:opacity 0.2s;z-index:2}
+.lightbox-close:hover{opacity:1}
+@media(max-width:700px){.lightbox-overlay{padding:20px}}
 .showcase-card:hover{border-color:var(--lime);box-shadow:0 0 0 1px rgba(204,255,0,0.15),0 12px 28px rgba(0,0,0,0.5)}
 .showcase-card img{width:100%;height:100%;object-fit:contain;object-position:center;display:block}
 @keyframes showcaseScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -555,22 +561,27 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   </div>
   <div class="showcase-track-wrap">
     <div class="showcase-track">
-      <div class="showcase-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-02.jpg" alt="Danica Burnett #19 — Addison Bulldogs Volleyball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-03.jpg" alt="Ava Bartlett #32 — Addison Bulldogs Volleyball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-04.jpg" alt="Cooper Fuller #1 — Thompson Warriors Baseball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-05.jpg" alt="Harris Anderson #7 — Thompson Warriors Baseball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-06.jpg" alt="Oak Mountain Lacrosse 12U Blue team design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-07.jpg" alt="Addison Bulldogs Softball 10U team design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-02.jpg" alt="Danica Burnett #19 — Addison Bulldogs Volleyball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-03.jpg" alt="Ava Bartlett #32 — Addison Bulldogs Volleyball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-04.jpg" alt="Cooper Fuller #1 — Thompson Warriors Baseball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-05.jpg" alt="Harris Anderson #7 — Thompson Warriors Baseball sports design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-06.jpg" alt="Oak Mountain Lacrosse 12U Blue team design by VIZN"></div>
-      <div class="showcase-card"><img src="showcase-07.jpg" alt="Addison Bulldogs Softball 10U team design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-01-full.jpg','Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN')"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-02-full.jpg','Danica Burnett #19 — Addison Bulldogs Volleyball sports design by VIZN')"><img src="showcase-02.jpg" alt="Danica Burnett #19 — Addison Bulldogs Volleyball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-03-full.jpg','Ava Bartlett #32 — Addison Bulldogs Volleyball sports design by VIZN')"><img src="showcase-03.jpg" alt="Ava Bartlett #32 — Addison Bulldogs Volleyball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-04-full.jpg','Cooper Fuller #1 — Thompson Warriors Baseball sports design by VIZN')"><img src="showcase-04.jpg" alt="Cooper Fuller #1 — Thompson Warriors Baseball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-05-full.jpg','Harris Anderson #7 — Thompson Warriors Baseball sports design by VIZN')"><img src="showcase-05.jpg" alt="Harris Anderson #7 — Thompson Warriors Baseball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-06-full.jpg','Oak Mountain Lacrosse 12U Blue team design by VIZN')"><img src="showcase-06.jpg" alt="Oak Mountain Lacrosse 12U Blue team design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-07-full.jpg','Addison Bulldogs Softball 10U team design by VIZN')"><img src="showcase-07.jpg" alt="Addison Bulldogs Softball 10U team design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-01-full.jpg','Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN')"><img src="showcase-01.jpg" alt="Allister Akins #70 — Winston County Yellow Jackets sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-02-full.jpg','Danica Burnett #19 — Addison Bulldogs Volleyball sports design by VIZN')"><img src="showcase-02.jpg" alt="Danica Burnett #19 — Addison Bulldogs Volleyball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-03-full.jpg','Ava Bartlett #32 — Addison Bulldogs Volleyball sports design by VIZN')"><img src="showcase-03.jpg" alt="Ava Bartlett #32 — Addison Bulldogs Volleyball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-04-full.jpg','Cooper Fuller #1 — Thompson Warriors Baseball sports design by VIZN')"><img src="showcase-04.jpg" alt="Cooper Fuller #1 — Thompson Warriors Baseball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-05-full.jpg','Harris Anderson #7 — Thompson Warriors Baseball sports design by VIZN')"><img src="showcase-05.jpg" alt="Harris Anderson #7 — Thompson Warriors Baseball sports design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-06-full.jpg','Oak Mountain Lacrosse 12U Blue team design by VIZN')"><img src="showcase-06.jpg" alt="Oak Mountain Lacrosse 12U Blue team design by VIZN"></div>
+      <div class="showcase-card" onclick="openLightbox('showcase-07-full.jpg','Addison Bulldogs Softball 10U team design by VIZN')"><img src="showcase-07.jpg" alt="Addison Bulldogs Softball 10U team design by VIZN"></div>
     </div>
   </div>
+</div>
+
+<div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
+  <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+  <img id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
 </div>
 
 <!-- WHO VIZN IS FOR -->
@@ -970,6 +981,23 @@ function goToOrderForm(note) {
   const custom = el('custom');
   if (custom) custom.scrollIntoView({behavior:'smooth'});
 }
+
+function openLightbox(src, alt) {
+  const overlay = el('lightboxOverlay');
+  const img = el('lightboxImg');
+  if (!overlay || !img) return;
+  img.src = src;
+  img.alt = alt || '';
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  const overlay = el('lightboxOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  document.body.style.overflow = '';
+}
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
 function showPendingOrderNote() {
   const note = localStorage.getItem('vizn_order_note');
