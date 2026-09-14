@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VIZN — Template Library</title>
-<meta name="description" content="Browse ready-to-use sports graphic designs — commitment announcements, game day hype, final scores, recruiting offers, and more. Pick one as a reference for your order.">
+<title>VIZN — Design Examples</title>
+<meta name="description" content="Browse real examples from our sports design menu — game day graphics, player spotlights, commitment graphics, senior graphics, and more. Pick one as a reference for your order.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -133,8 +133,8 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 
 <div class="page-head">
   <div class="ey">Template Library</div>
-  <h1 class="sh">Start From A <em>Winning Design</em></h1>
-  <p class="page-sub">Pick a design as a reference, then submit your order — mention it in your brief and we will build it for you. New designs added regularly.</p>
+  <h1 class="sh">Every Design. <em>Real Examples.</em></h1>
+  <p class="page-sub">Browse examples of every design in the menu, then submit your order — mention which one caught your eye in your brief.</p>
   <div class="filter-row" id="filterRow">
     <div class="fpill on" data-sport="all">All Sports</div>
     <div class="fpill" data-sport="football">🏈 Football</div>
@@ -150,7 +150,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 </div>
 
 <div class="tpl-grid" id="tplGrid"></div>
-<div class="tpl-empty" id="tplEmpty">No templates in this sport yet — try "All Sports"</div>
+<div class="tpl-empty" id="tplEmpty">No examples in this sport yet — try "All Sports"</div>
 
 <!-- FOOTER — copied from index.html -->
 <footer id="contact">
@@ -164,7 +164,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     </div>
     <div><div class="fcol-title">Platform</div><ul class="flinks"><li><a href="vizn-templates.html">Templates</a></li><li><a href="index.html#pricing">Pricing</a></li><li><a href="index.html#custom">Place an Order</a></li></ul></div>
     <div><div class="fcol-title">Who It's For</div><ul class="flinks"><li><a href="index.html#how-it-works">Athletes</a></li><li><a href="index.html#how-it-works">Sports Photographers</a></li><li><a href="index.html#how-it-works">Coaches &amp; Teams</a></li><li><a href="index.html#how-it-works">Youth Sports Orgs</a></li></ul></div>
-    <div><div class="fcol-title">Company</div><ul class="flinks"><li><a href="index.html#about">About VIZN</a></li><li><a href="index.html#custom">Services</a></li><li><a href="index.html#contact">Contact</a></li><li><a href="mailto:2deucesdesigns@gmail.com">Email Us</a></li></ul></div>
+    <div><div class="fcol-title">Company</div><ul class="flinks"><li><a href="index.html#about">About VIZN</a></li><li><a href="index.html#contact">Contact</a></li><li><a href="mailto:2deucesdesigns@gmail.com">Email Us</a></li></ul></div>
   </div>
   <div class="fbot">
     <div class="fcopy">© 2026 VIZN — Sports Media Design Studio</div>
@@ -173,89 +173,40 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 </footer>
 
 <script>
-// ── Template data — 6 match the homepage preview row exactly (same name/prompt), plus
-// 24 more spanning the generator's Design Type categories across more sports, so this
-// page reads as a real library rather than a repeat of the homepage teaser.
+// ── Template data — the 6 real menu items (name + price match Pricing exactly), each
+// shown across 5 different sports, so this page reads as a real example gallery instead
+// of a repeat of the homepage teaser.
 const TEMPLATES = [
-  // Homepage-matching 6 — keep prompt text identical to index.html's #templates row
-  {name:'Championship',    sport:'football',   emoji:'🏈', grad:'tt1', color:'var(--lime)', hl:'CHAMPIONSHIP<br>BOUND', pro:false,
-    prompt:'Championship football banner, bold celebratory, pure black background, lime green accents, aggressive typography, dramatic lighting'},
-  {name:'Game Night Hype',  sport:'basketball', emoji:'🏀', grad:'tt2', color:'var(--red)',  hl:'GAME<br>NIGHT', pro:true,
-    prompt:'Basketball game night hype, neon arena lighting, electric energy, bold modern typography, black background, red accents'},
-  {name:'Tournament Series',sport:'soccer',     emoji:'⚽', grad:'tt3', color:'var(--cyan)', hl:'TOURNAMENT<br>2025', pro:false,
-    prompt:'Soccer tournament 2025 banner, modern minimal, black background, cyan accents, clean bold athletic layout'},
-  {name:'Rivalry Showdown', sport:'football',   emoji:'🏈', grad:'tt4', color:'#FF6B00',     hl:'RIVALRY<br>WEEK', pro:true,
-    prompt:'Football rivalry week, dramatic split composition, black background, aggressive orange and white typography, collision energy'},
-  {name:'Playoff Push',     sport:'hockey',     emoji:'🏒', grad:'tt5', color:'var(--white)',hl:'PLAYOFFS<br>OR BUST', pro:false,
-    prompt:'Hockey playoffs banner, ice texture, black background, cold blue and white tones, raw intensity, dramatic arena lighting'},
-  {name:'Home Opener',      sport:'baseball',   emoji:'⚾', grad:'tt6', color:'var(--lime)', hl:'HOME<br>OPENER', pro:false,
-    prompt:'Baseball home opener banner, classic stadium feel, black background, lime green athletic typography, celebratory energy'},
-
-  // Commitment
-  {name:'Signing Day',      sport:'football',   emoji:'🏈', grad:'tt1', color:'var(--lime)', hl:'COMMITTED', pro:false,
-    prompt:'Football commitment announcement, school colors navy and gold, cinematic name treatment, confetti particles, bold celebratory typography, black background'},
-  {name:'Future Bulldog',   sport:'basketball', emoji:'🏀', grad:'tt2', color:'var(--red)',  hl:'FUTURE<br>BULLDOG', pro:true,
-    prompt:'Basketball commitment graphic, school logo above head, bilateral symmetry, red and black accents, light burst particles, black background'},
-  {name:'Decision Day',     sport:'volleyball', emoji:'🏐', grad:'tt3', color:'var(--cyan)', hl:'DECISION<br>DAY', pro:false,
-    prompt:'Volleyball commitment announcement, blue and gold team colors, elegant modern typography, clean black background'},
-
-  // Halftime / Final Score
-  {name:'Halftime Score',   sport:'basketball', emoji:'🏀', grad:'tt4', color:'#FF6B00',     hl:'HALFTIME', pro:false,
-    prompt:'Basketball halftime score graphic, network broadcast scoreboard style, team logos flanking score, orange and black accents'},
-  {name:'Second Half',      sport:'football',   emoji:'🏈', grad:'tt5', color:'var(--white)',hl:'HALFTIME', pro:true,
-    prompt:'Football halftime score card, network scoreboard aesthetic, red and white accents, period indicator, black background'},
-  {name:'Final Buzzer',     sport:'basketball', emoji:'🏀', grad:'tt6', color:'var(--lime)', hl:'FINAL', pro:false,
-    prompt:'Basketball final score graphic, postgame broadcast tone, massive centered score type, purple and gold accents'},
-  {name:'Full Time',        sport:'soccer',     emoji:'⚽', grad:'tt1', color:'var(--lime)', hl:'FULL<br>TIME', pro:false,
-    prompt:'Soccer final score graphic, clean broadcast result card, green and white accents, team marks flanking'},
-
-  // Player of the Game / MVP
-  {name:'Player of the Game',sport:'football',  emoji:'🏈', grad:'tt2', color:'var(--red)',  hl:'PLAYER OF<br>THE GAME', pro:true,
-    prompt:'Football player of the game spotlight, hero portrait treatment, stat callouts, award-presentation energy, black and gold accents'},
-  {name:'MVP Spotlight',    sport:'basketball', emoji:'🏀', grad:'tt3', color:'var(--cyan)', hl:'MVP', pro:false,
-    prompt:'Basketball MVP spotlight graphic, centered hero portrait with halo light, red and black accents, stat callouts'},
-
-  // Game Recap
-  {name:'Game Recap',       sport:'baseball',   emoji:'⚾', grad:'tt4', color:'#FF6B00',     hl:'GAME<br>RECAP', pro:false,
-    prompt:'Baseball game recap graphic, score and key stats upper half, highlights lower half, classic stadium blue and white tones'},
-  {name:'Weekly Recap',     sport:'football',   emoji:'🏈', grad:'tt5', color:'var(--white)',hl:'GAME<br>RECAP', pro:true,
-    prompt:'Football game recap broadcast summary, key stats and highlights, black background, orange accents'},
-
-  // Starting Lineup
-  {name:'Starting Five',    sport:'basketball', emoji:'🏀', grad:'tt6', color:'var(--lime)', hl:'STARTING<br>FIVE', pro:false,
-    prompt:'Basketball starting lineup reveal, bold vertical player list, team colors purple and gold, authoritative broadcast layout'},
-  {name:'Starting Nine',    sport:'baseball',   emoji:'⚾', grad:'tt1', color:'var(--lime)', hl:'STARTING<br>NINE', pro:false,
-    prompt:'Baseball starting lineup graphic, clean vertical roster list, navy and red accents, classic ballpark energy'},
-
-  // Schedule
-  {name:'Season Schedule',  sport:'volleyball', emoji:'🏐', grad:'tt2', color:'var(--red)',  hl:'2025<br>SCHEDULE', pro:true,
-    prompt:'Volleyball season schedule graphic, full season grid, blue and silver team colors, clean modular layout'},
-  {name:'Home Slate',       sport:'soccer',     emoji:'⚽', grad:'tt3', color:'var(--cyan)', hl:'HOME<br>SCHEDULE', pro:false,
-    prompt:'Soccer home schedule graphic, date and opponent rows, green and white accents, team mark anchor'},
-
-  // Player Spotlight / Senior Night
-  {name:'Player Spotlight', sport:'track',      emoji:'🏃', grad:'tt4', color:'#FF6B00',     hl:'SPOTLIGHT', pro:false,
-    prompt:'Track and field player spotlight banner, tall vertical hero portrait, name in massive horizontal type band, orange and black accents'},
-  {name:'Feature Banner',   sport:'wrestling',  emoji:'🤼', grad:'tt5', color:'var(--white)',hl:'SPOTLIGHT', pro:true,
-    prompt:'Wrestling player spotlight feature banner, intense hero portrait, red and black grunge texture accents'},
-  {name:'Senior Night',     sport:'volleyball', emoji:'🏐', grad:'tt6', color:'var(--lime)', hl:'SENIOR<br>NIGHT', pro:false,
-    prompt:'Volleyball senior night celebration graphic, elegant warm gold tones, celebratory particle effects, black background'},
-  {name:'Senior Salute',    sport:'football',   emoji:'🏈', grad:'tt1', color:'var(--lime)', hl:'SENIOR<br>NIGHT', pro:true,
-    prompt:'Football senior night graphic, dramatic stadium lighting, maroon and gold accents, celebratory energy'},
-
-  // Recruit Offer
-  {name:'Offer Extended',   sport:'football',   emoji:'🏈', grad:'tt2', color:'var(--red)',  hl:'OFFER<br>EXTENDED', pro:false,
-    prompt:'Football recruiting offer graphic, school logo prominent, cinematic name treatment, prestige energy, navy and gold accents'},
-  {name:'Scholarship Offer',sport:'softball',   emoji:'🥎', grad:'tt3', color:'var(--cyan)', hl:'OFFER<br>EXTENDED', pro:true,
-    prompt:'Softball recruiting offer announcement, program logo upper zone, bold accent treatment, purple and white colors'},
-
-  // Championship / Hype variants
-  {name:'Champions',        sport:'wrestling',  emoji:'🤼', grad:'tt4', color:'#FF6B00',     hl:'CHAMPIONS', pro:false,
-    prompt:'Wrestling championship celebration banner, bold victorious energy, black background, red and gold accents, dramatic lighting'},
-  {name:'Title Town',       sport:'track',      emoji:'🏃', grad:'tt5', color:'var(--white)',hl:'TITLE<br>TOWN', pro:true,
-    prompt:'Track and field championship banner, celebratory bold typography, black background, cyan and white accents'},
-  {name:'Undefeated',       sport:'softball',   emoji:'🥎', grad:'tt6', color:'var(--lime)', hl:'UNDEFEATED', pro:false,
-    prompt:'Softball hype banner, bold aggressive typography, pure black background, purple accents, dramatic stadium lighting'}
+  {name:'Game Day Graphic', price:40, sport:'football', emoji:'🏈', grad:'tt1', color:'var(--lime)', hl:'GAME<br>DAY'},
+  {name:'Game Day Graphic', price:40, sport:'basketball', emoji:'🏀', grad:'tt2', color:'var(--red)', hl:'GAME<br>DAY'},
+  {name:'Game Day Graphic', price:40, sport:'volleyball', emoji:'🏐', grad:'tt3', color:'var(--cyan)', hl:'GAME<br>DAY'},
+  {name:'Game Day Graphic', price:40, sport:'soccer', emoji:'⚽', grad:'tt4', color:'#FF6B00', hl:'GAME<br>DAY'},
+  {name:'Game Day Graphic', price:40, sport:'hockey', emoji:'🏒', grad:'tt5', color:'var(--white)', hl:'GAME<br>DAY'},
+  {name:'Player Spotlight', price:50, sport:'basketball', emoji:'🏀', grad:'tt6', color:'var(--lime)', hl:'SPOT<br>LIGHT'},
+  {name:'Player Spotlight', price:50, sport:'track', emoji:'🏃', grad:'tt1', color:'var(--lime)', hl:'SPOT<br>LIGHT'},
+  {name:'Player Spotlight', price:50, sport:'wrestling', emoji:'🤼', grad:'tt2', color:'var(--red)', hl:'SPOT<br>LIGHT'},
+  {name:'Player Spotlight', price:50, sport:'softball', emoji:'🥎', grad:'tt3', color:'var(--cyan)', hl:'SPOT<br>LIGHT'},
+  {name:'Player Spotlight', price:50, sport:'baseball', emoji:'⚾', grad:'tt4', color:'#FF6B00', hl:'SPOT<br>LIGHT'},
+  {name:'Commitment Graphic', price:60, sport:'football', emoji:'🏈', grad:'tt5', color:'var(--white)', hl:'COMMIT<br>TED'},
+  {name:'Commitment Graphic', price:60, sport:'volleyball', emoji:'🏐', grad:'tt6', color:'var(--lime)', hl:'COMMIT<br>TED'},
+  {name:'Commitment Graphic', price:60, sport:'basketball', emoji:'🏀', grad:'tt1', color:'var(--lime)', hl:'COMMIT<br>TED'},
+  {name:'Commitment Graphic', price:60, sport:'soccer', emoji:'⚽', grad:'tt2', color:'var(--red)', hl:'COMMIT<br>TED'},
+  {name:'Commitment Graphic', price:60, sport:'baseball', emoji:'⚾', grad:'tt3', color:'var(--cyan)', hl:'COMMIT<br>TED'},
+  {name:'Jersey Swap Commitment', price:85, sport:'football', emoji:'🏈', grad:'tt4', color:'#FF6B00', hl:'JERSEY<br>SWAP'},
+  {name:'Jersey Swap Commitment', price:85, sport:'basketball', emoji:'🏀', grad:'tt5', color:'var(--white)', hl:'JERSEY<br>SWAP'},
+  {name:'Jersey Swap Commitment', price:85, sport:'volleyball', emoji:'🏐', grad:'tt6', color:'var(--lime)', hl:'JERSEY<br>SWAP'},
+  {name:'Jersey Swap Commitment', price:85, sport:'baseball', emoji:'⚾', grad:'tt1', color:'var(--lime)', hl:'JERSEY<br>SWAP'},
+  {name:'Jersey Swap Commitment', price:85, sport:'softball', emoji:'🥎', grad:'tt2', color:'var(--red)', hl:'JERSEY<br>SWAP'},
+  {name:'Senior Graphic', price:65, sport:'volleyball', emoji:'🏐', grad:'tt3', color:'var(--cyan)', hl:'SENIOR<br>YEAR'},
+  {name:'Senior Graphic', price:65, sport:'football', emoji:'🏈', grad:'tt4', color:'#FF6B00', hl:'SENIOR<br>YEAR'},
+  {name:'Senior Graphic', price:65, sport:'basketball', emoji:'🏀', grad:'tt5', color:'var(--white)', hl:'SENIOR<br>YEAR'},
+  {name:'Senior Graphic', price:65, sport:'softball', emoji:'🥎', grad:'tt6', color:'var(--lime)', hl:'SENIOR<br>YEAR'},
+  {name:'Senior Graphic', price:65, sport:'track', emoji:'🏃', grad:'tt1', color:'var(--lime)', hl:'SENIOR<br>YEAR'},
+  {name:'Premium Poster Design', price:85, sport:'football', emoji:'🏈', grad:'tt2', color:'var(--red)', hl:'PREMIUM<br>POSTER'},
+  {name:'Premium Poster Design', price:85, sport:'basketball', emoji:'🏀', grad:'tt3', color:'var(--cyan)', hl:'PREMIUM<br>POSTER'},
+  {name:'Premium Poster Design', price:85, sport:'wrestling', emoji:'🤼', grad:'tt4', color:'#FF6B00', hl:'PREMIUM<br>POSTER'},
+  {name:'Premium Poster Design', price:85, sport:'hockey', emoji:'🏒', grad:'tt5', color:'var(--white)', hl:'PREMIUM<br>POSTER'},
+  {name:'Premium Poster Design', price:85, sport:'soccer', emoji:'⚽', grad:'tt6', color:'var(--lime)', hl:'PREMIUM<br>POSTER'}
 ];
 
 const grid = document.getElementById('tplGrid');
@@ -263,12 +214,12 @@ TEMPLATES.forEach(t => {
   const card = document.createElement('div');
   card.className = 'tplcard';
   card.dataset.sport = t.sport;
+  const sportLabel = t.sport.charAt(0).toUpperCase() + t.sport.slice(1);
   card.innerHTML =
-    (t.pro ? '<div class="pro-tag">PRO</div>' : '') +
     '<div class="tpl-thumb ' + t.grad + '"><div class="tpl-hl" style="color:' + t.color + '">' + t.hl + '</div></div>' +
-    '<div class="tpl-info"><div><div class="tpl-name">' + t.name + '</div><div class="tpl-sport">' + t.emoji + ' ' + t.sport.charAt(0).toUpperCase() + t.sport.slice(1) + '</div></div><span class="tpl-use">Use →</span></div>';
+    '<div class="tpl-info"><div><div class="tpl-name">' + t.name + '</div><div class="tpl-sport">' + t.emoji + ' ' + sportLabel + ' — $' + t.price + '</div></div><span class="tpl-use">Order →</span></div>';
   card.querySelector('.tpl-use').addEventListener('click', () => {
-    localStorage.setItem('vizn_order_note', t.name + ' — ' + t.prompt);
+    localStorage.setItem('vizn_order_note', t.name + ' — $' + t.price);
     window.location.href = 'index.html#custom';
   });
   grid.appendChild(card);
