@@ -332,26 +332,6 @@ select.fin{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .qgen{width:100%;background:var(--lime);border:none;padding:15px;font-family:var(--fa);font-size:18px;letter-spacing:0.1em;text-transform:uppercase;color:#000;cursor:pointer;transition:all 0.2s;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)}
 .qgen:hover{background:#DDFF33;box-shadow:0 4px 20px rgba(204,255,0,0.28)}
 
-/* TEMPLATES */
-.tpl-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
-.tpl-row::-webkit-scrollbar{height:3px}
-.tpl-row::-webkit-scrollbar-thumb{background:var(--border)}
-.tplcard{flex-shrink:0;width:260px;border:1px solid var(--border);background:var(--panel);cursor:pointer;transition:border-color 0.2s;position:relative}
-.tplcard:hover{border-color:var(--lime)}
-.tpl-thumb{height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.tt1{background:linear-gradient(135deg,#000008,#080010)}
-.tt2{background:linear-gradient(135deg,#100000,#1A0000)}
-.tt3{background:linear-gradient(135deg,#001000,#001800)}
-.tt4{background:linear-gradient(135deg,#100800,#180C00)}
-.tt5{background:linear-gradient(135deg,#080808,#121212)}
-.tt6{background:linear-gradient(135deg,#000010,#000820)}
-.tpl-hl{font-family:var(--fa);font-size:32px;text-transform:uppercase;text-align:center;line-height:1;padding:0 14px}
-.tpl-info{padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.tpl-name{font-family:var(--fa);font-size:13px;text-transform:uppercase;color:var(--white)}
-.tpl-sport{font-family:var(--fm);font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:2px}
-.tpl-use{font-family:var(--fm);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);cursor:pointer;transition:color 0.2s}
-.tpl-use:hover{color:#DDFF33}
-.pro-tag{position:absolute;top:8px;right:8px;background:var(--lime);color:#000;font-family:var(--fa);font-size:9px;letter-spacing:0.1em;padding:3px 7px;text-transform:uppercase}
 
 /* PRICING */
 .price-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);max-width:1100px;margin:0 auto}
@@ -735,38 +715,38 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="pname">Game Day Graphic</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">40</span></div>
       <ul class="pfl"><li>Custom social media design</li><li>Team or individual</li><li>Instagram-ready</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Game Day Graphic — $40','Game Day Graphic ($40)')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Player Spotlight</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">50</span></div>
       <ul class="pfl"><li>Highlight performance</li><li>Custom design</li><li>Social media ready</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Player Spotlight — $50','Player Spotlight ($50)')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Commitment Graphic (HS Uniform)</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">60</span></div>
       <ul class="pfl"><li>Athlete in current HS uniform</li><li>College announcement</li><li>Custom branding</li><li>Social media ready</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Commitment Graphic (HS Uniform) — $60','Commitment Graphic ($60)')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard feat">
       <div class="feat-flag">Popular</div>
       <div class="pname">Jersey Swap Commitment</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">85</span></div>
       <ul class="pfl"><li>Full college jersey swap</li><li>College branding</li><li>Custom design</li><li>Advanced editing</li><li>Social media ready</li></ul>
-      <button class="pbtn pbtn-lime" onclick="goToOrderForm('Jersey Swap Commitment — $85','Jersey Swap Commitment Graphic ($85)')">Order This →</button>
+      <button class="pbtn pbtn-lime" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Senior Graphic</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">65</span></div>
       <ul class="pfl"><li>Premium senior design</li><li>Personalized concept</li><li>Social media ready</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Senior Graphic — $65','Senior Graphic ($65)')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Premium Poster Design</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">85</span></div>
       <ul class="pfl"><li>Detailed concept</li><li>Multiple photos</li><li>Advanced effects</li><li>Print-ready + social</li><li>All sports</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Premium Poster Design — $85','Premium Poster Design ($85)')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm()">Order This →</button>
     </div>
   </div>
 
@@ -778,7 +758,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="pdesc" style="margin-bottom:8px">10–15 players</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">350</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Small Team Package (10–15 players) — $350','Small/Standard/Large Team Package')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard feat">
       <div class="feat-flag">Most Popular</div>
@@ -786,21 +766,21 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div class="pdesc" style="margin-bottom:8px">16–30 players</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">650</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-lime" onclick="goToOrderForm('Standard Team Package (16–30 players) — $650','Small/Standard/Large Team Package')">Order This →</button>
+      <button class="pbtn pbtn-lime" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard">
       <div class="pname">Large Team</div>
       <div class="pdesc" style="margin-bottom:8px">31–50 players</div>
       <div class="pamount"><span class="pdol">$</span><span class="pnum">950</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-ghost" onclick="goToOrderForm('Large Team Package (31–50 players) — $950','Small/Standard/Large Team Package')">Order This →</button>
+      <button class="pbtn pbtn-ghost" onclick="goToOrderForm()">Order This →</button>
     </div>
     <div class="prcard designer-card">
       <div class="pname red">Program Package</div>
       <div class="pdesc" style="margin-bottom:8px">50–100 players</div>
       <div class="pamount"><span class="pdol red">$</span><span class="pnum">1,750</span></div>
       <ul class="pfl"><li>Individual player graphics</li><li>Team graphic</li><li>Social media ready</li><li>Consistent branding</li></ul>
-      <button class="pbtn pbtn-red" onclick="goToOrderForm('Program Package (50–100 players) — $1,750','Program Package')">Order This →</button>
+      <button class="pbtn pbtn-red" onclick="goToOrderForm()">Order This →</button>
     </div>
   </div>
 
@@ -811,7 +791,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   <div class="price-note" style="border-color:rgba(204,255,0,0.35);background:rgba(204,255,0,0.04);max-width:1100px;margin:16px auto 0;flex-direction:column;align-items:flex-start;gap:10px">
     <div style="font-family:var(--fa);font-size:20px;text-transform:uppercase;color:var(--white)">🖨 Want It Printed?</div>
     <div style="color:var(--muted);line-height:1.7">Any design — including a <strong style="color:var(--white)">Senior Graphic</strong> — can be delivered as a real, physical banner, not just a digital file. Perfect for senior night, graduation, tailgates, or hanging at the field. Available in <strong style="color:var(--white)">2'×4', 3'×6', 4'×8'</strong>, with custom sizes on request.</div>
-    <button class="pbtn pbtn-lime" style="width:auto;padding:11px 22px" onclick="goToOrderForm('Printed Banner — request pricing &amp; delivery details','Something Else / Custom Quote')">Ask About Printing →</button>
+    <button class="pbtn pbtn-lime" style="width:auto;padding:11px 22px" onclick="goToOrderForm()">Ask About Printing →</button>
   </div>
 
 </section>
@@ -844,10 +824,8 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div style="padding:24px 28px 0">
         <div style="font-family:var(--fa);font-size:28px;text-transform:uppercase;color:var(--white)">Submit Your Order</div>
         <div style="font-size:13px;color:var(--muted);margin-top:4px;padding-bottom:12px">
-          Fill out the brief below — we'll get back to you within 2 hours.
-          No payment until you approve the first concept.
+          Fill out the brief below.
         </div>
-        <div id="orderReferenceNote" style="display:none;font-size:12px;color:var(--lime);background:rgba(204,255,0,0.06);border:1px solid rgba(204,255,0,0.2);padding:10px 12px;margin-bottom:16px"></div>
         <div style="border-bottom:1px solid var(--border)"></div>
       </div>
 
@@ -981,16 +959,7 @@ window.addEventListener('scroll', () => {
 // ── Order form handoff — every CTA on this page funnels to the single request form
 // (#custom) instead of a live generator. Templates/quick-banner picks aren't generated
 // directly; they're just a starting reference the customer's brief can point back to.
-const TALLY_BASE_SRC = 'https://tally.so/embed/pbQRyb?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1';
-const TALLY_CATEGORY_FIELD = '338e6e84-f629-4b98-911c-5088511f00e5';
-function goToOrderForm(note, category) {
-  if (note) localStorage.setItem('vizn_order_note', note);
-  if (category) {
-    const iframe = el('tallyFormIframe');
-    if (iframe && !iframe.src.includes('TALLY_FORM_ID')) {
-      iframe.src = TALLY_BASE_SRC + '&' + TALLY_CATEGORY_FIELD + '=' + encodeURIComponent(category);
-    }
-  }
+function goToOrderForm() {
   const custom = el('custom');
   if (custom) custom.scrollIntoView({behavior:'smooth'});
 }
@@ -1024,26 +993,9 @@ function closeLightbox() {
 }
 window.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
-function showPendingOrderNote() {
-  const note = localStorage.getItem('vizn_order_note');
-  const box = el('orderReferenceNote');
-  if (!note || !box) return;
-  box.textContent = '💡 Reference: "' + note + '" — mention this in your design brief below.';
-  box.style.display = 'block';
-}
-showPendingOrderNote();
-
 // ── Quick Banner — a single CTA into the order form, not a live generator ────
 const quickBtn = el('quickGenBtn');
 if (quickBtn) quickBtn.addEventListener('click', () => goToOrderForm());
-
-// ── Template use buttons (homepage preview row) ───
-qsa('.tpl-use').forEach(t => {
-  t.addEventListener('click', () => {
-    goToOrderForm(t.dataset.prompt || '');
-    toast('Reference added — scroll down to submit your order', 'ok');
-  });
-});
 
 // ── CTA / hero scroll buttons ─────────────
 ['btnStart', 'btnHeroAI'].forEach(id => {
@@ -1056,7 +1008,7 @@ qsa('.pcta-ai').forEach(b => { b.addEventListener('click', () => goToOrderForm()
 qsa('.pcta-h').forEach(b => { b.addEventListener('click', () => goToOrderForm()); });
 
 // ── Type cards → scroll to order form ────
-qsa('.tcard').forEach(c => { c.addEventListener('click', () => goToOrderForm(c.querySelector('.tcard-name').textContent, c.dataset.cat)); });
+qsa('.tcard').forEach(c => { c.addEventListener('click', () => goToOrderForm()); });
 // ── Scroll reveal ─────────────────────────────────────
 const revObs = new IntersectionObserver(entries => {
   entries.forEach(e => {
