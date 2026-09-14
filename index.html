@@ -988,9 +988,19 @@ async function startCheckout(name, amount, btn) {
   btn.disabled = false;
 }
 
-if (new URLSearchParams(location.search).get('paid') === '1') {
+const paidParams = new URLSearchParams(location.search);
+if (paidParams.get('paid') === '1') {
   const banner = el('paidBanner');
-  if (banner) banner.style.display = 'block';
+  if (banner) {
+    const item = paidParams.get('item');
+    const amount = paidParams.get('amount');
+    banner.textContent = item
+      ? `✅ Payment received for ${item}${amount ? ' ($' + amount + ')' : ''}! Now tell us about your design below.`
+      : '✅ Payment received! Now tell us about your design below.';
+    banner.style.display = 'block';
+  }
+  const custom = el('custom');
+  if (custom) custom.scrollIntoView({behavior:'smooth'});
 }
 
 const SHOWCASE_FULL_IMAGES = ['showcase-01-full.jpg','showcase-02-full.jpg','showcase-03-full.jpg','showcase-04-full.jpg','showcase-05-full.jpg','showcase-06-full.jpg','showcase-07-full.jpg'];

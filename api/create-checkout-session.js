@@ -24,10 +24,11 @@ export default async function handler(req, res) {
   }
 
   const origin = req.headers.origin || `https://${req.headers.host}`;
+  const successUrl = `${origin}/?paid=1&item=${encodeURIComponent(name)}&amount=${Math.round(amount)}#custom`;
 
   const params = new URLSearchParams();
   params.append('mode', 'payment');
-  params.append('success_url', `${origin}/#custom?paid=1`);
+  params.append('success_url', successUrl);
   params.append('cancel_url', `${origin}/#pricing`);
   params.append('line_items[0][price_data][currency]', 'usd');
   params.append('line_items[0][price_data][product_data][name]', name);
