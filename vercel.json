@@ -8,5 +8,19 @@
   "rewrites": [
     { "source": "/vizn-templates", "destination": "/vizn-templates.html" },
     { "source": "/vizn-admin", "destination": "/vizn-admin.html" }
+  ],
+  "headers": [
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*).html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
   ]
 }
