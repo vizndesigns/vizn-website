@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
   const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
   if (!STRIPE_SECRET_KEY) {
-    return res.status(503).json({ error: 'Online payment isn’t set up yet — email design@vizn.studio to order this.' });
+    return res.status(503).json({ error: 'Online payment isn’t set up yet — email vizndigitalsolutions@gmail.com to order this.' });
   }
 
   const { name, amount } = req.body || {};

@@ -874,14 +874,14 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
           <div style="font-family:var(--fa);font-size:18px;text-transform:uppercase;color:var(--white);margin-bottom:8px">Brief Received ✓</div>
           <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Last step — complete payment and we'll get started.</p>
           <button id="payNowBtn" class="btn-primary" style="width:auto"></button>
-          <p id="payFallback" style="display:none;font-size:13px;color:var(--muted);margin-top:12px">We'll follow up with a payment link shortly, or email <strong style="color:var(--white)">design@vizn.studio</strong> to pay now.</p>
+          <p id="payFallback" style="display:none;font-size:13px;color:var(--muted);margin-top:12px">We'll follow up with a payment link shortly, or email <strong style="color:var(--white)">vizndigitalsolutions@gmail.com</strong> to pay now.</p>
         </div>
       </div>
 
       <!-- Shown only if Tally hasn't been configured -->
       <div id="tallyFallback" style="padding:32px;display:none;flex-direction:column;gap:14px">
         <div style="font-family:var(--fm);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime)">Form Not Yet Connected</div>
-        <p style="font-size:13px;color:var(--muted);line-height:1.65">To receive orders: set up your free <a href="https://tally.so" target="_blank" style="color:var(--lime)">Tally form →</a> and replace TALLY_FORM_ID in this file with your form ID. In the meantime, email orders to <strong style="color:var(--white)">design@vizn.studio</strong></p>
+        <p style="font-size:13px;color:var(--muted);line-height:1.65">To receive orders: set up your free <a href="https://tally.so" target="_blank" style="color:var(--lime)">Tally form →</a> and replace TALLY_FORM_ID in this file with your form ID. In the meantime, email orders to <strong style="color:var(--white)">vizndigitalsolutions@gmail.com</strong></p>
         <a href="vizn-admin.html" target="_blank" style="font-family:var(--fa);font-size:14px;letter-spacing:0.1em;text-transform:uppercase;color:#000;background:var(--lime);padding:12px 24px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);width:fit-content">View Admin Dashboard →</a>
       </div>
 
@@ -941,7 +941,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     </div>
     <div><div class="fcol-title">Platform</div><ul class="flinks"><li><a href="#pricing">Pricing</a></li><li><a href="#custom">Place an Order</a></li></ul></div>
     <div><div class="fcol-title">Who It's For</div><ul class="flinks"><li><a href="#how-it-works">Athletes</a></li><li><a href="#how-it-works">Sports Photographers</a></li><li><a href="#how-it-works">Coaches &amp; Teams</a></li><li><a href="#how-it-works">Youth Sports Orgs</a></li></ul></div>
-    <div><div class="fcol-title">Company</div><ul class="flinks"><li><a href="#about">About VIZN</a></li><li><a href="#custom">Services</a></li><li><a href="#contact">Contact</a></li><li><a href="mailto:2deucesdesigns@gmail.com">Email Us</a></li></ul></div>
+    <div><div class="fcol-title">Company</div><ul class="flinks"><li><a href="#about">About VIZN</a></li><li><a href="#custom">Services</a></li><li><a href="#contact">Contact</a></li><li><a href="mailto:vizndigitalsolutions@gmail.com">Email Us</a></li></ul></div>
   </div>
   <div class="fbot">
     <div class="fcopy">© 2026 VIZN — Sports Media Design Studio</div>
@@ -990,9 +990,9 @@ async function startCheckout(name, amount, btn) {
       window.location.href = data.url;
       return;
     }
-    toast(data.error || 'Something went wrong — please try again or email design@vizn.studio', 'err');
+    toast(data.error || 'Something went wrong — please try again or email vizndigitalsolutions@gmail.com', 'err');
   } catch (err) {
-    toast('Something went wrong — please try again or email design@vizn.studio', 'err');
+    toast('Something went wrong — please try again or email vizndigitalsolutions@gmail.com', 'err');
   }
   btn.textContent = original;
   btn.disabled = false;
