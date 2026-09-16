@@ -804,10 +804,15 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     <div><strong>Additional Services:</strong> Schedule Graphics, Event Graphics, Social Media Content, Business Branding, and more — contact for a custom quote.</div>
   </div>
 
-  <div class="price-note" style="border-color:rgba(204,255,0,0.35);background:rgba(204,255,0,0.04);max-width:1100px;margin:16px auto 0;flex-direction:column;align-items:flex-start;gap:10px">
+  <div class="price-note" style="border-color:rgba(204,255,0,0.35);background:rgba(204,255,0,0.04);max-width:1100px;margin:16px auto 0;flex-direction:column;align-items:flex-start;gap:14px">
     <div style="font-family:var(--fa);font-size:20px;text-transform:uppercase;color:var(--white)">🖨 Want It Printed?</div>
-    <div style="color:var(--muted);line-height:1.7">Any design — including a <strong style="color:var(--white)">Senior Graphic</strong> — can be delivered as a real, physical banner, not just a digital file. Perfect for senior night, graduation, tailgates, or hanging at the field. Available in <strong style="color:var(--white)">2'×4', 3'×6', 4'×8'</strong>, with custom sizes on request.</div>
-    <button class="pbtn pbtn-lime" style="width:auto;padding:11px 22px" onclick="goToOrderForm()">Ask About Printing →</button>
+    <div style="color:var(--muted);line-height:1.7">Any design — including a <strong style="color:var(--white)">Senior Graphic</strong> — can be delivered as a real, physical banner, not just a digital file. Perfect for senior night, graduation, tailgates, or hanging at the field. Ordering more than one? You can adjust quantity right at checkout.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="pbtn pbtn-ghost" style="width:auto;padding:11px 22px" onclick="selectOrder('Printed Banner — 2ft x 4ft',65,true)">2'×4' Banner — $65 →</button>
+      <button class="pbtn pbtn-ghost" style="width:auto;padding:11px 22px" onclick="selectOrder('Printed Banner — 3ft x 6ft',110,true)">3'×6' Banner — $110 →</button>
+      <button class="pbtn pbtn-ghost" style="width:auto;padding:11px 22px" onclick="selectOrder('Printed Banner — 4ft x 8ft',170,true)">4'×8' Banner — $170 →</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">Need a bigger size? <a href="javascript:void(0)" onclick="goToOrderForm()" style="color:var(--lime)">Contact us for a custom quote →</a></div>
   </div>
 
 </section>
@@ -991,7 +996,7 @@ function goToOrderForm() {
   if (custom) custom.scrollIntoView({behavior:'smooth'});
 }
 
-async function startCheckout(name, amount, btn) {
+async function startCheckout(name, amount, btn, allowQuantity) {
   const original = btn.textContent;
   btn.textContent = 'Loading…';
   btn.disabled = true;
@@ -999,7 +1004,7 @@ async function startCheckout(name, amount, btn) {
     const res = await fetch('/api/create-checkout-session', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, amount }),
+      body: JSON.stringify({ name, amount, allowQuantity: !!allowQuantity }),
     });
     const data = await res.json();
     if (data.url) {
@@ -1019,11 +1024,11 @@ function getSelectedOrder() {
   try { return JSON.parse(localStorage.getItem('vizn_selected_order') || 'null'); }
   catch (e) { return null; }
 }
-function selectOrder(name, amount) {
-  localStorage.setItem('vizn_selected_order', JSON.stringify({name, amount}));
+function selectOrder(name, amount, allowQuantity) {
+  localStorage.setItem('vizn_selected_order', JSON.stringify({name, amount, allowQuantity: !!allowQuantity}));
   const chip = el('selectedOrderChip');
   if (chip) {
-    chip.textContent = `Ordering: ${name} — $${amount}`;
+    chip.textContent = `Ordering: ${name} — $${amount}` + (allowQuantity ? ' each (adjust quantity at checkout)' : '');
     chip.style.display = 'block';
   }
   const custom = el('custom');
@@ -1033,7 +1038,7 @@ function selectOrder(name, amount) {
   const sel = getSelectedOrder();
   const chip = el('selectedOrderChip');
   if (sel && chip) {
-    chip.textContent = `Ordering: ${sel.name} — $${sel.amount}`;
+    chip.textContent = `Ordering: ${sel.name} — $${sel.amount}` + (sel.allowQuantity ? ' each (adjust quantity at checkout)' : '');
     chip.style.display = 'block';
   }
 })();
@@ -1050,8 +1055,8 @@ window.addEventListener('message', e => {
   const payBtn = el('payNowBtn');
   const fallback = el('payFallback');
   if (sel && payBtn) {
-    payBtn.textContent = `💳 Pay Now — $${sel.amount}`;
-    payBtn.onclick = () => startCheckout(sel.name, sel.amount, payBtn);
+    payBtn.textContent = `💳 Pay Now — $${sel.amount}` + (sel.allowQuantity ? ' each' : '');
+    payBtn.onclick = () => startCheckout(sel.name, sel.amount, payBtn, sel.allowQuantity);
   } else if (payBtn) {
     payBtn.style.display = 'none';
     if (fallback) fallback.style.display = 'block';

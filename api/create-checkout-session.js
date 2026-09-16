@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'Online payment isn’t set up yet — email vizndigitalsolutions@gmail.com to order this.' });
   }
 
-  const { name, amount } = req.body || {};
+  const { name, amount, allowQuantity } = req.body || {};
   if (!name || typeof amount !== 'number' || !(amount > 0)) {
     return res.status(400).json({ error: 'Invalid order' });
   }
@@ -34,6 +34,11 @@ export default async function handler(req, res) {
   params.append('line_items[0][price_data][product_data][name]', name);
   params.append('line_items[0][price_data][unit_amount]', String(Math.round(amount * 100)));
   params.append('line_items[0][quantity]', '1');
+  if (allowQuantity) {
+    params.append('line_items[0][adjustable_quantity][enabled]', 'true');
+    params.append('line_items[0][adjustable_quantity][minimum]', '1');
+    params.append('line_items[0][adjustable_quantity][maximum]', '50');
+  }
 
   try {
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
