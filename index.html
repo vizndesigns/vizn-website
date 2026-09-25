@@ -807,30 +807,29 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
     <div style="font-size:12px;color:var(--muted)">Need a bigger size? <a href="javascript:void(0)" onclick="goToOrderForm()" style="color:var(--lime)">Contact us for a custom quote →</a></div>
   </div>
 
-  <div style="max-width:700px;margin:28px auto 0;text-align:center">
-    <svg width="70" height="90" viewBox="0 0 70 90" style="display:block;margin:0 auto" aria-hidden="true">
-      <path class="flow-arrow" d="M 35 4 C 20 30, 50 55, 35 78" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
-      <path d="M 35 78 L 26 68 M 35 78 L 46 70" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    </svg>
-    <div style="font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);margin-top:4px">See It As A Real Banner</div>
-  </div>
-
-  <div style="max-width:900px;margin:16px auto 0;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in" onmouseenter="preloadImage('banner-example.jpg')" onclick="openLightbox('banner-example.jpg','Addison Bulldogs Volleyball 2026 — printed on a 3x6 team banner example by VIZN')">
-    <img src="banner-example.jpg" alt="Addison Bulldogs Volleyball 2026 — 3x6 team banner example by VIZN" style="width:100%;display:block">
-    <div style="padding:12px 20px;background:var(--panel);font-family:var(--fm);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Team Design — Printed On A 3'×6' Banner</div>
-  </div>
-
-  <div class="pop-reveal" id="popReveal1" style="max-width:700px;margin:36px auto 0;text-align:center">
-    <svg width="70" height="90" viewBox="0 0 70 90" style="display:block;margin:0 auto" aria-hidden="true">
-      <path class="flow-arrow" d="M 35 4 C 20 30, 50 55, 35 78" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
-      <path d="M 35 78 L 26 68 M 35 78 L 46 70" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    </svg>
-    <div style="font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);margin-top:4px">See It As A Real Banner</div>
-  </div>
-
-  <div class="pop-reveal" id="popReveal2" style="max-width:420px;margin:16px auto 0;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;transition-delay:0.35s" onmouseenter="preloadImage('banner-example-2.jpg')" onclick="openLightbox('banner-example-2.jpg','Davis Stallworth #3 — Thompson Warriors Baseball, printed on a 2x4 banner example by VIZN')">
-    <img src="banner-example-2.jpg" alt="Davis Stallworth #3 — Thompson Warriors Baseball, 2x4 banner example by VIZN" style="width:100%;display:block">
-    <div style="padding:12px 20px;background:var(--panel);font-family:var(--fm);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Player Design — Printed On A 2'×4' Banner</div>
+  <div id="bannerShowcase" style="margin:36px auto 0;min-height:800px">
+    <div class="banner-slide pop-reveal" style="text-align:center">
+      <svg width="70" height="90" viewBox="0 0 70 90" style="display:block;margin:0 auto" aria-hidden="true">
+        <path class="flow-arrow" d="M 35 4 C 20 30, 50 55, 35 78" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
+        <path d="M 35 78 L 26 68 M 35 78 L 46 70" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div style="font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);margin-top:4px;margin-bottom:16px">See It As A Real Banner</div>
+      <div style="max-width:900px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in" onmouseenter="preloadImage('banner-example.jpg')" onclick="openLightbox('banner-example.jpg','Addison Bulldogs Volleyball 2026 — printed on a 3x6 team banner example by VIZN')">
+        <img src="banner-example.jpg" alt="Addison Bulldogs Volleyball 2026 — 3x6 team banner example by VIZN" style="width:100%;display:block">
+        <div style="padding:12px 20px;background:var(--panel);font-family:var(--fm);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Team Design — Printed On A 3'×6' Banner</div>
+      </div>
+    </div>
+    <div class="banner-slide pop-reveal" style="text-align:center;display:none">
+      <svg width="70" height="90" viewBox="0 0 70 90" style="display:block;margin:0 auto" aria-hidden="true">
+        <path class="flow-arrow" d="M 35 4 C 20 30, 50 55, 35 78" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
+        <path d="M 35 78 L 26 68 M 35 78 L 46 70" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div style="font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);margin-top:4px;margin-bottom:16px">See It As A Real Banner</div>
+      <div style="max-width:420px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in" onmouseenter="preloadImage('banner-example-2.jpg')" onclick="openLightbox('banner-example-2.jpg','Davis Stallworth #3 — Thompson Warriors Baseball, printed on a 2x4 banner example by VIZN')">
+        <img src="banner-example-2.jpg" alt="Davis Stallworth #3 — Thompson Warriors Baseball, 2x4 banner example by VIZN" style="width:100%;display:block">
+        <div style="padding:12px 20px;background:var(--panel);font-family:var(--fm);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Player Design — Printed On A 2'×4' Banner</div>
+      </div>
+    </div>
   </div>
 
 </section>
@@ -1164,14 +1163,42 @@ const revObs = new IntersectionObserver(entries => {
 
 qsa('.feat-grid, .fmt-cards, .price-grid, .dperks').forEach(g => revObs.observe(g));
 
-const popObs = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
-    e.target.classList.add('pop-in');
-    popObs.unobserve(e.target);
-  });
-}, {threshold: 0.2});
-qsa('.pop-reveal').forEach(el => popObs.observe(el));
+// ── Banner showcase: cycle between examples, pop in/out ──
+(function() {
+  const wrap = el('bannerShowcase');
+  if (!wrap) return;
+  const slides = Array.from(wrap.querySelectorAll('.banner-slide'));
+  if (slides.length < 2) return;
+  let idx = 0;
+  let started = false;
+
+  function showSlide(i) {
+    const s = slides[i];
+    s.style.display = 'block';
+    requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('pop-in')));
+  }
+  function hideSlide(i) {
+    const s = slides[i];
+    s.classList.remove('pop-in');
+    setTimeout(() => { s.style.display = 'none'; }, 650);
+  }
+  function startCycle() {
+    if (started) return;
+    started = true;
+    showSlide(idx);
+    setInterval(() => {
+      const prev = idx;
+      idx = (idx + 1) % slides.length;
+      hideSlide(prev);
+      setTimeout(() => showSlide(idx), 650);
+    }, 5000);
+  }
+
+  const cycleObs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { startCycle(); cycleObs.unobserve(e.target); } });
+  }, {threshold: 0.2});
+  cycleObs.observe(wrap);
+})();
 
 // ── Tally / Stripe setup checks ───────────────────────
 // Show fallback if Tally not configured
