@@ -303,25 +303,6 @@ select.fin{cursor:pointer;appearance:none;background-image:url("data:image/svg+x
 .fc-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:14px}
 .fc-tag{font-family:var(--fm);font-size:9px;letter-spacing:0.07em;color:var(--lime);background:rgba(204,255,0,0.06);border:1px solid rgba(204,255,0,0.14);padding:3px 7px}
 
-/* TYPES */
-.types-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.tcard{aspect-ratio:3/4;position:relative;overflow:hidden;cursor:pointer;border:1px solid var(--border);transition:border-color 0.3s}
-.tcard:hover{border-color:var(--lime)}
-.tcard-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:transform 0.4s ease}
-.tcard:hover .tcard-bg{transform:scale(1.06)}
-.tcb1{background:linear-gradient(160deg,#000008,#000010)}
-.tcb2{background:linear-gradient(160deg,#080000,#100000)}
-.tcb3{background:linear-gradient(160deg,#000800,#001000)}
-.tcb4{background:linear-gradient(160deg,#000008,#000018)}
-.tcb5{background:linear-gradient(160deg,#080400,#100800)}
-.tcard-icon{font-size:44px;opacity:0.25}
-.tcard-body{position:absolute;bottom:0;left:0;right:0;padding:16px 14px;background:linear-gradient(transparent,rgba(0,0,0,0.92))}
-.tcard-name{font-family:var(--fa);font-size:16px;text-transform:uppercase;letter-spacing:0.06em;color:var(--white)}
-.tcard-count{font-family:var(--fm);font-size:9px;color:var(--muted);margin-top:3px}
-.tcard-hover{position:absolute;inset:0;background:rgba(204,255,0,0.06);border:2px solid var(--lime);opacity:0;transition:opacity 0.3s;display:flex;align-items:center;justify-content:center}
-.tcard:hover .tcard-hover{opacity:1}
-.tcard-hover-lbl{font-family:var(--fa);font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:var(--lime);background:rgba(0,0,0,0.8);padding:8px 16px}
-
 /* QUICK BANNER */
 .qgrid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
 .qsteps{display:flex;flex-direction:column}
@@ -477,7 +458,6 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   .price-grid-6{grid-template-columns:repeat(2,1fr)}
   .prcard.feat{margin:0}
   .feat-grid{grid-template-columns:repeat(2,1fr)}
-  .types-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:820px){
   nav{padding:0 20px}
@@ -493,7 +473,6 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   .fg{grid-template-columns:1fr 1fr}
   .hero-stats{flex-wrap:wrap}
   .hstat{min-width:50%}
-  .types-grid{grid-template-columns:repeat(2,1fr)}
   .price-grid{grid-template-columns:1fr;max-width:380px}
   .price-grid-6{grid-template-columns:1fr;max-width:380px;margin-left:auto;margin-right:auto}
 }
@@ -685,20 +664,6 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   </div>
 </section>
 
-<!-- DESIGN TYPES -->
-<section class="sec" id="types">
-  <div class="ey">Design Menu</div>
-  <h2 class="sh">Every Graphic. <em>Every Occasion.</em></h2>
-  <div class="types-grid" style="grid-template-columns:repeat(3,1fr)">
-    <div class="tcard" data-cat="Game Day Graphic ($40)"><div class="tcard-bg tcb1"><div class="tcard-icon">🏟</div></div><div class="tcard-body"><div class="tcard-name">Game Day Graphic</div><div class="tcard-count">Custom social design — $40</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard" data-cat="Player Spotlight ($50)"><div class="tcard-bg tcb2"><div class="tcard-icon">⭐</div></div><div class="tcard-body"><div class="tcard-name">Player Spotlight</div><div class="tcard-count">Highlight your performance — $50</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard" data-cat="Commitment Graphic ($60)"><div class="tcard-bg tcb3"><div class="tcard-icon">🏫</div></div><div class="tcard-body"><div class="tcard-name">Commitment Graphic</div><div class="tcard-count">Announce your decision — $60</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard" data-cat="Offer Graphic ($60)"><div class="tcard-bg tcb3"><div class="tcard-icon">🏫</div></div><div class="tcard-body"><div class="tcard-name">Offer Graphic</div><div class="tcard-count">Announce your offer — $60</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard" data-cat="Jersey Swap Commitment Graphic ($85)"><div class="tcard-bg tcb4"><div class="tcard-icon">🔄</div></div><div class="tcard-body"><div class="tcard-name">Jersey Swap Commitment</div><div class="tcard-count">Full college jersey swap — $85</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard" data-cat="Senior Graphic ($65)"><div class="tcard-bg tcb5"><div class="tcard-icon">🎓</div></div><div class="tcard-body"><div class="tcard-name">Senior Graphic</div><div class="tcard-count">Celebrate your senior year — $65</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-    <div class="tcard" data-cat="Premium Poster Design ($85)"><div class="tcard-bg tcb1"><div class="tcard-icon">🖼</div></div><div class="tcard-body"><div class="tcard-name">Premium Poster Design</div><div class="tcard-count">Print-ready, multi-photo — $85</div></div><div class="tcard-hover"><div class="tcard-hover-lbl">Order →</div></div></div>
-  </div>
-</section>
 
 <!-- QUICK BANNER -->
 <section class="sec" id="quick">
@@ -1136,8 +1101,6 @@ if (quickBtn) quickBtn.addEventListener('click', () => goToOrderForm());
 qsa('.pcta-ai').forEach(b => { b.addEventListener('click', () => goToOrderForm()); });
 qsa('.pcta-h').forEach(b => { b.addEventListener('click', () => goToOrderForm()); });
 
-// ── Type cards → scroll to order form ────
-qsa('.tcard').forEach(c => { c.addEventListener('click', () => goToOrderForm()); });
 // ── Scroll reveal ─────────────────────────────────────
 const revObs = new IntersectionObserver(entries => {
   entries.forEach(e => {
@@ -1155,7 +1118,7 @@ const revObs = new IntersectionObserver(entries => {
   });
 }, {threshold: 0.07});
 
-qsa('.feat-grid, .types-grid, .fmt-cards, .price-grid, .dperks').forEach(g => revObs.observe(g));
+qsa('.feat-grid, .fmt-cards, .price-grid, .dperks').forEach(g => revObs.observe(g));
 
 // ── Tally / Stripe setup checks ───────────────────────
 // Show fallback if Tally not configured
