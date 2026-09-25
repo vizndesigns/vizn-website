@@ -117,6 +117,10 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 .lb-spinner{display:none;position:absolute;width:44px;height:44px;border:3px solid rgba(255,255,255,0.15);border-top-color:var(--lime);border-radius:50%;animation:lbspin 0.8s linear infinite}
 .lightbox-overlay.loading .lb-spinner{display:block}
 @keyframes lbspin{to{transform:rotate(360deg)}}
+.flow-arrow{animation:arrowFlow 0.9s linear infinite}
+@keyframes arrowFlow{to{stroke-dashoffset:-22}}
+.pop-reveal{opacity:0;transform:scale(0.88) translateY(10px);transition:opacity 0.6s ease,transform 0.6s ease}
+.pop-reveal.pop-in{opacity:1;transform:scale(1) translateY(0)}
 .lightbox-close{position:absolute;top:24px;right:32px;font-family:var(--fa);font-size:32px;color:var(--white);cursor:pointer;line-height:1;opacity:0.6;transition:opacity 0.2s;z-index:2}
 .lightbox-close:hover{opacity:1}
 @media(max-width:700px){.lightbox-overlay{padding:20px}}
@@ -746,7 +750,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6">Every school logo, custom lighting, your name in lights — this is exactly what you get with an Offer Graphic.</div>
     </div>
     <svg width="90" height="60" viewBox="0 0 90 60" style="flex-shrink:0" aria-hidden="true">
-      <path d="M 4 10 C 30 4, 55 46, 78 32" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
+      <path class="flow-arrow" d="M 4 10 C 30 4, 55 46, 78 32" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
       <path d="M 78 32 L 66 30 M 78 32 L 71 43" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
     </svg>
     <div style="width:440px;max-width:100%;flex-shrink:0;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in" onmouseenter="preloadImage('offer-example.jpg')" onclick="openLightbox('offer-example.jpg','Zion Cogen — Offer Graphic example by VIZN')">
@@ -805,7 +809,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 
   <div style="max-width:700px;margin:28px auto 0;text-align:center">
     <svg width="70" height="90" viewBox="0 0 70 90" style="display:block;margin:0 auto" aria-hidden="true">
-      <path d="M 35 4 C 20 30, 50 55, 35 78" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
+      <path class="flow-arrow" d="M 35 4 C 20 30, 50 55, 35 78" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
       <path d="M 35 78 L 26 68 M 35 78 L 46 70" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
     </svg>
     <div style="font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);margin-top:4px">See It As A Real Banner</div>
@@ -814,6 +818,19 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
   <div style="max-width:900px;margin:16px auto 0;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in" onmouseenter="preloadImage('banner-example.jpg')" onclick="openLightbox('banner-example.jpg','Addison Bulldogs Volleyball 2026 — printed on a 3x6 team banner example by VIZN')">
     <img src="banner-example.jpg" alt="Addison Bulldogs Volleyball 2026 — 3x6 team banner example by VIZN" style="width:100%;display:block">
     <div style="padding:12px 20px;background:var(--panel);font-family:var(--fm);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Team Design — Printed On A 3'×6' Banner</div>
+  </div>
+
+  <div class="pop-reveal" id="popReveal1" style="max-width:700px;margin:36px auto 0;text-align:center">
+    <svg width="70" height="90" viewBox="0 0 70 90" style="display:block;margin:0 auto" aria-hidden="true">
+      <path class="flow-arrow" d="M 35 4 C 20 30, 50 55, 35 78" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
+      <path d="M 35 78 L 26 68 M 35 78 L 46 70" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div style="font-family:var(--fm);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--lime);margin-top:4px">See It As A Real Banner</div>
+  </div>
+
+  <div class="pop-reveal" id="popReveal2" style="max-width:420px;margin:16px auto 0;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:zoom-in;transition-delay:0.35s" onmouseenter="preloadImage('banner-example-2.jpg')" onclick="openLightbox('banner-example-2.jpg','Davis Stallworth #3 — Thompson Warriors Baseball, printed on a 2x4 banner example by VIZN')">
+    <img src="banner-example-2.jpg" alt="Davis Stallworth #3 — Thompson Warriors Baseball, 2x4 banner example by VIZN" style="width:100%;display:block">
+    <div style="padding:12px 20px;background:var(--panel);font-family:var(--fm);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Player Design — Printed On A 2'×4' Banner</div>
   </div>
 
 </section>
@@ -1146,6 +1163,15 @@ const revObs = new IntersectionObserver(entries => {
 }, {threshold: 0.07});
 
 qsa('.feat-grid, .fmt-cards, .price-grid, .dperks').forEach(g => revObs.observe(g));
+
+const popObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('pop-in');
+    popObs.unobserve(e.target);
+  });
+}, {threshold: 0.2});
+qsa('.pop-reveal').forEach(el => popObs.observe(el));
 
 // ── Tally / Stripe setup checks ───────────────────────
 // Show fallback if Tally not configured
