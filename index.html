@@ -165,6 +165,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
   .hero-sub{font-size:15px}
   .cta-h{font-size:clamp(40px,13vw,60px)!important}
 }
+@media(max-width:900px){.offer-arrow{transform:rotate(90deg)}}
+@media(max-width:600px){#bannerShowcase{min-height:460px}}
 
 /* PATH */
 .path-wrap{position:relative}
@@ -777,7 +779,7 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
       <div style="font-family:var(--fa);font-size:18px;text-transform:uppercase;color:var(--lime);letter-spacing:0.02em">Real Offer Graphic</div>
       <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6">Every school logo, custom lighting, your name in lights — this is exactly what you get with an Offer Graphic.</div>
     </div>
-    <svg width="90" height="60" viewBox="0 0 90 60" style="flex-shrink:0" aria-hidden="true">
+    <svg class="offer-arrow" width="90" height="60" viewBox="0 0 90 60" style="flex-shrink:0" aria-hidden="true">
       <path class="flow-arrow" d="M 4 10 C 30 4, 55 46, 78 32" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-dasharray="6 5" stroke-linecap="round"/>
       <path d="M 78 32 L 66 30 M 78 32 L 71 43" stroke="var(--lime)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
     </svg>
