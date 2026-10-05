@@ -11,6 +11,12 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "vizn-website-chi.vercel.app" }],
+      "destination": "https://vizndesigns.com/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "vizn-website-chi.vercel.app" }],
       "destination": "https://vizndesigns.com/:path*",
