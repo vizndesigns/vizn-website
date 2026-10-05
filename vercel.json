@@ -9,6 +9,14 @@
     { "source": "/vizn-templates", "destination": "/vizn-templates.html" },
     { "source": "/vizn-admin", "destination": "/vizn-admin.html" }
   ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "vizn-website-chi.vercel.app" }],
+      "destination": "https://vizndesigns.com/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/",
