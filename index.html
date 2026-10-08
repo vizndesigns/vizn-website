@@ -74,9 +74,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 .mobile-nav .btn-lime{margin-top:24px;padding:16px;font-size:16px;text-align:center}
 
 /* HERO */
-.hero{min-height:90vh;display:flex;align-items:center;padding-top:64px;position:relative;overflow:hidden;background:linear-gradient(150deg,#000000 0%,#141414 28%,#030303 55%,#101010 78%,#000000 100%)}
-.hero::before{content:'';position:absolute;top:-10%;left:-8%;width:55%;height:75%;background:radial-gradient(ellipse,rgba(204,255,0,0.06) 0%,transparent 65%);pointer-events:none;z-index:0}
-.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 85%,rgba(255,255,255,0.03) 0%,transparent 55%);pointer-events:none;z-index:0}
+.hero{min-height:90vh;display:flex;align-items:center;padding-top:64px;position:relative;overflow:hidden;background:#000}
+.hero-bg-slides{position:absolute;inset:0;z-index:0}
+.hero-bg-slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 3s ease;filter:grayscale(25%) contrast(1.05)}
+.hero-bg-slide.active{opacity:0.4}
+.hero-gradient-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(150deg,rgba(0,0,0,0.92) 0%,rgba(20,20,20,0.84) 28%,rgba(3,3,3,0.9) 55%,rgba(16,16,16,0.84) 78%,rgba(0,0,0,0.92) 100%);pointer-events:none}
+.hero::before{content:'';position:absolute;top:-10%;left:-8%;width:55%;height:75%;background:radial-gradient(ellipse,rgba(204,255,0,0.06) 0%,transparent 65%);pointer-events:none;z-index:1}
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 85%,rgba(255,255,255,0.03) 0%,transparent 55%);pointer-events:none;z-index:1}
 .hero-left{padding:90px 64px 80px 64px;width:100%;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
 .hero-scroll-cue{position:absolute;bottom:26px;left:64px;display:flex;align-items:center;gap:10px;z-index:3;opacity:0.55;animation:cueBounce 2.2s ease-in-out infinite}
 .hero-scroll-cue span{font-family:var(--fm);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted)}
@@ -543,6 +547,13 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 
 <!-- HERO -->
 <section class="hero" id="hero">
+  <div class="hero-bg-slides" id="heroBgSlides">
+    <div class="hero-bg-slide active" style="background-image:url('hero-bg-basketball.jpg')"></div>
+    <div class="hero-bg-slide" style="background-image:url('hero-bg-football.jpg')"></div>
+    <div class="hero-bg-slide" style="background-image:url('hero-bg-baseball.jpg')"></div>
+    <div class="hero-bg-slide" style="background-image:url('hero-bg-tennis.jpg')"></div>
+  </div>
+  <div class="hero-gradient-overlay"></div>
   <div class="hero-left">
     <div class="eyebrow-row">
       <div class="eyebrow-line"></div>
@@ -1064,6 +1075,20 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 function el(id) { return document.getElementById(id); }
 function qs(sel) { return document.querySelector(sel); }
 function qsa(sel) { return document.querySelectorAll(sel); }
+
+// ── Hero background slideshow ─────────────────────────
+(function() {
+  const wrap = el('heroBgSlides');
+  if (!wrap) return;
+  const slides = Array.from(wrap.querySelectorAll('.hero-bg-slide'));
+  if (slides.length < 2) return;
+  let idx = 0;
+  setInterval(() => {
+    slides[idx].classList.remove('active');
+    idx = (idx + 1) % slides.length;
+    slides[idx].classList.add('active');
+  }, 6000);
+})();
 
 // ── Nav scroll ────────────────────────────────────────
 window.addEventListener('scroll', () => {
