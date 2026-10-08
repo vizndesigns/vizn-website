@@ -76,9 +76,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
 /* HERO */
 .hero{min-height:90vh;display:flex;align-items:center;padding-top:64px;position:relative;overflow:hidden;background:#000}
 .hero-bg-slides{position:absolute;inset:0;z-index:0}
-.hero-bg-slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 3s ease;filter:grayscale(25%) contrast(1.05)}
-.hero-bg-slide.active{opacity:0.4}
-.hero-gradient-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(150deg,rgba(0,0,0,0.92) 0%,rgba(20,20,20,0.84) 28%,rgba(3,3,3,0.9) 55%,rgba(16,16,16,0.84) 78%,rgba(0,0,0,0.92) 100%);pointer-events:none}
+.hero-bg-slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 3s ease;filter:grayscale(15%) contrast(1.05)}
+.hero-bg-slide.active{opacity:0.65}
+.hero-gradient-overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(150deg,rgba(0,0,0,0.7) 0%,rgba(20,20,20,0.58) 28%,rgba(3,3,3,0.65) 55%,rgba(16,16,16,0.58) 78%,rgba(0,0,0,0.7) 100%);pointer-events:none}
 .hero::before{content:'';position:absolute;top:-10%;left:-8%;width:55%;height:75%;background:radial-gradient(ellipse,rgba(204,255,0,0.06) 0%,transparent 65%);pointer-events:none;z-index:1}
 .hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 85%,rgba(255,255,255,0.03) 0%,transparent 55%);pointer-events:none;z-index:1}
 .hero-left{padding:90px 64px 80px 64px;width:100%;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2}
@@ -100,7 +100,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;ali
   75%{transform:perspective(900px) rotateX(1deg) rotateY(-1.5deg)}
 }
 .hero-h1 .hl{color:var(--lime);display:block}
-.hero-h1 .ol{-webkit-text-stroke:1.5px var(--border);color:transparent;display:block}
+.hero-h1 .ol{color:var(--white);display:block}
 .hero-sub{font-size:17px;color:var(--muted);line-height:1.75;max-width:620px;margin-bottom:40px}
 .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
 .btn-primary{font-family:var(--fa);font-size:17px;letter-spacing:0.1em;text-transform:uppercase;color:#000;background:var(--lime);border:none;padding:17px 42px;cursor:pointer;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);transition:all 0.25s;display:inline-flex;align-items:center;gap:10px}
@@ -549,9 +549,10 @@ footer{background:var(--dark);border-top:1px solid var(--border);padding:60px 48
 <section class="hero" id="hero">
   <div class="hero-bg-slides" id="heroBgSlides">
     <div class="hero-bg-slide active" style="background-image:url('hero-bg-basketball.jpg')"></div>
-    <div class="hero-bg-slide" style="background-image:url('hero-bg-football.jpg')"></div>
-    <div class="hero-bg-slide" style="background-image:url('hero-bg-baseball.jpg')"></div>
-    <div class="hero-bg-slide" style="background-image:url('hero-bg-tennis.jpg')"></div>
+    <div class="hero-bg-slide" data-bg="hero-bg-football.jpg"></div>
+    <div class="hero-bg-slide" data-bg="hero-bg-baseball.jpg"></div>
+    <div class="hero-bg-slide" data-bg="hero-bg-volleyball.jpg"></div>
+    <div class="hero-bg-slide" data-bg="hero-bg-tennis.jpg"></div>
   </div>
   <div class="hero-gradient-overlay"></div>
   <div class="hero-left">
@@ -1076,16 +1077,23 @@ function el(id) { return document.getElementById(id); }
 function qs(sel) { return document.querySelector(sel); }
 function qsa(sel) { return document.querySelectorAll(sel); }
 
-// ── Hero background slideshow ─────────────────────────
+// ── Hero background slideshow (4K images — load lazily) ──
 (function() {
   const wrap = el('heroBgSlides');
   if (!wrap) return;
   const slides = Array.from(wrap.querySelectorAll('.hero-bg-slide'));
   if (slides.length < 2) return;
+  function loadSlide(s) {
+    const bg = s.getAttribute('data-bg');
+    if (bg) { s.style.backgroundImage = `url('${bg}')`; s.removeAttribute('data-bg'); }
+  }
+  const idle = window.requestIdleCallback || function(fn) { setTimeout(fn, 1200); };
+  window.addEventListener('load', () => idle(() => slides.forEach(loadSlide)));
   let idx = 0;
   setInterval(() => {
     slides[idx].classList.remove('active');
     idx = (idx + 1) % slides.length;
+    loadSlide(slides[idx]);
     slides[idx].classList.add('active');
   }, 6000);
 })();
